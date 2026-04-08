@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart'; // Importa a biblioteca principal do Flutter
 import 'package:popover/popover.dart'; // Importamos o pacote
+import 'Perfil.dart';
 
 void main() {
   runApp(const MyApp()); // Inicializa a app
@@ -68,10 +69,18 @@ class HomePage extends StatelessWidget {
                         }
                       ),
                       const SizedBox(width: 10), // Espaço entre ícones
-                      const CircleAvatar(
-                        radius: 16,
-                        backgroundColor: Colors.blue,
-                        child: Icon(Icons.person, color: Colors.white, size: 18), // Utilizador
+                      GestureDetector(
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (context) => Perfil()),
+                          );
+                        },
+                        child: const CircleAvatar(
+                          radius: 16,
+                          backgroundColor: Colors.blue,
+                          child: Icon(Icons.person, color: Colors.white, size: 18), // Utilizador
+                        ),
                       ),
                     ],
                   )
