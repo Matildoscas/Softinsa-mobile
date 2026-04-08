@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart'; // Importa a biblioteca principal do Flutter
+import 'perfil.dart'; // Importa a página de perfil
 
 void main() {
   runApp(MyApp()); // Inicializa a app
@@ -50,10 +51,20 @@ class HomePage extends StatelessWidget {
                         child: Icon(Icons.notifications, color: Colors.white, size: 18), // Sino
                       ),
                       SizedBox(width: 10), // Espaço entre ícones
-                      CircleAvatar(
-                        radius: 16,
-                        backgroundColor: Colors.blue,
-                        child: Icon(Icons.person, color: Colors.white, size: 18), // Utilizador
+                      // Este é o botão do perfil que agora permite clicar
+                      GestureDetector(
+                        onTap: () {
+                          // Este comando faz a "viagem" para o novo ecrã de Perfil
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (context) => Perfil()),
+                          );
+                        },
+                        child: CircleAvatar(
+                          radius: 16,
+                          backgroundColor: Colors.blue,
+                          child: Icon(Icons.person, color: Colors.white, size: 18), // Ícone do Utilizador
+                        ),
                       ),
                     ],
                   )
@@ -195,7 +206,7 @@ class HomePage extends StatelessWidget {
           margin: EdgeInsets.symmetric(horizontal: 4), // Espaço entre botões
           padding: EdgeInsets.all(10), // Espaçamento interno
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.15), // Fundo semi-transparente (igual Figma)
+            color: Colors.white.withValues(alpha: 0.15), // Fundo semi-transparente (igual Figma)
             borderRadius: BorderRadius.circular(16), // Cantos arredondados
           ),
           child: Row(
@@ -205,7 +216,7 @@ class HomePage extends StatelessWidget {
               Container(
                 padding: EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.2), // Caixa do ícone
+                  color: Colors.white.withValues(alpha: 0.2), // Caixa do ícone
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Icon(icon, color: Colors.white, size: 18),
