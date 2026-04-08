@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart'; // Importa a biblioteca principal do Flutter
-import 'package:popover/popover.dart'; // Importamos o pacote
+// Importamos o pacote
 
 void main() {
   runApp(MyApp()); // Inicializa a app
