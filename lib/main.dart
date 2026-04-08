@@ -1,8 +1,8 @@
-import 'package:flutter/material.dart'; // Importa a biblioteca principal do Flutter
+import 'package:flutter/material.dart';
 import 'package:popover/popover.dart'; // Importamos o pacote
 
 void main() {
-  runApp(MyApp()); // Inicializa a app
+  runApp(const MyApp());
 }
 
 class MyApp extends StatelessWidget {
@@ -10,180 +10,97 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      debugShowCheckedModeBanner: false, // Remove o banner de debug
-      home: HomePage(), // Define a página inicial
-    );
+    return MaterialApp(debugShowCheckedModeBanner: false, home: HomePage());
   }
 }
 
 class HomePage extends StatelessWidget {
-  const HomePage({super.key});
+  HomePage({super.key});
+
+  // Lista de cores para o header e welcome card (conforme o teu exemplo original)
+  final Color primaryColor = const Color(0xFF39639C);
+  final List<Color> gradientColors = [
+    const Color(0xFF4470AF),
+    const Color(0xFF3A5C94),
+  ];
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Color(0xFFF7F7F7), // Cor de fundo semelhante ao Figma
-      body: SafeArea( // Garante que não invade notch / status bar
+      backgroundColor: const Color(0xFFF7F7F7),
+      body: SafeArea(
         child: Column(
           children: [
-
             // ================= HEADER =================
             Container(
-              color: Colors.white, // Fundo branco
-              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 10), // Espaçamento interno
+              color: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween, // Espaço entre elementos
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-
                   // LOGO
                   Text(
-                    "SOFTINSA", // Nome (substitui SVG)
+                    "SOFTINSA",
                     style: TextStyle(
                       fontSize: 22,
                       fontWeight: FontWeight.bold,
-                      color: Color(0xFF39639C),
+                      color: primaryColor,
                     ),
                   ),
 
                   // ICONES DIREITA
                   Row(
                     children: [
-                      GestureDetector(
-                        onTap: () {
-                          // Chamamos a função que cria o popup
-                          _mostrarNotificacoes(context);
+                      // --- ÍCONE COM O POPOVER (O PONTO CHAVE) ---
+                      Builder(
+                        builder: (context) {
+                          return GestureDetector(
+                            onTap: () {
+                              // Mostra o popover quando clicado
+                              showPopover(
+                                context: context,
+                                bodyBuilder: (context) => const RepaintBoundary(child: NotificacoesMenu()),
+                                direction: PopoverDirection.bottom,
+                                width: 300,
+                                height: 420,
+                                arrowHeight: 15,
+                                arrowWidth: 20,
+                                backgroundColor: Colors.white,
+                              );
+                            },
+                            child: const CircleAvatar(
+                              radius: 16,
+                              backgroundColor: Colors.blue,
+                              child: Icon(
+                                Icons.notifications,
+                                color: Colors.white,
+                                size: 18,
+                              ),
+                            ),
+                          );
                         },
-                        child: CircleAvatar(
-                          radius: 16,
-                          backgroundColor: Colors.blue,
-                          child: Icon(Icons.notifications, color: Colors.white, size: 18),
-                        ),
                       ),
-                      SizedBox(width: 10), // Espaço entre ícones
-                      CircleAvatar(
+                      const SizedBox(width: 10),
+                      const CircleAvatar(
                         radius: 16,
                         backgroundColor: Colors.blue,
-                        child: Icon(Icons.person, color: Colors.white, size: 18), // Utilizador
+                        child: Icon(
+                          Icons.person,
+                          color: Colors.white,
+                          size: 18,
+                        ),
                       ),
                     ],
-                  )
+                  ),
                 ],
               ),
             ),
 
-            // ================= CONTEÚDO =================
-            Expanded(
-              child: SingleChildScrollView( // Permite scroll
-                child: Column(
-                  children: [
-
-                    // ================= WELCOME CARD =================
-                    Container(
-                      margin: EdgeInsets.all(16), // Margem exterior
-                      padding: EdgeInsets.all(16), // Espaçamento interno
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient( // Gradiente igual ao Figma
-                          colors: [Color(0xFF4470AF), Color(0xFF3A5C94)],
-                        ),
-                        borderRadius: BorderRadius.circular(20), // Cantos arredondados
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-
-                          // TEXTO
-                          Text(
-                            "Bom dia, Utilizador!",
-                            style: TextStyle(color: Colors.white, fontSize: 18),
-                          ),
-
-                          SizedBox(height: 20), // Espaço vertical
-
-                          // GRID DE INFO
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-
-                              // BADGES
-                              buildInfoButton(
-                                icon: Icons.emoji_events,
-                                title: "Badges",
-                                subtitle: "5 obtidos",
-                                onTap: () {},
-                              ),
-
-                              // PONTOS
-                              buildInfoButton(
-                                icon: Icons.star,
-                                title: "Pontos totais",
-                                subtitle: "90 pontos",
-                                onTap: () {},
-                              ),
-
-                              // LEMBRETES
-                              buildInfoButton(
-                                icon: Icons.note,
-                                title: "Lembretes",
-                                onTap: () {},
-                              ),
-                            ],
-                          )
-                        ],
-                      ),
-                    ),
-
-                    // ================= BOTÃO =================
-                    ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.white, // Fundo branco
-                        foregroundColor: Colors.black, // Texto preto
-                        shape: StadiumBorder(), // Botão arredondado
-                        elevation: 4, // Sombra
-                      ),
-                      onPressed: () {}, // Ação do botão
-                      icon: Icon(Icons.grid_view), // Ícone
-                      label: Text("Catálogo de Badges"), // Texto
-                    ),
-
-                    SizedBox(height: 20),
-
-                    // ================= SECÇÃO =================
-                    sectionHeader("Badges com progresso", "Tem 1 badge com progresso"),
-
-                    badgeCard(
-                      title: "The Watchtower - Nível A",
-                      description: "Observability & Performance Specialist",
-                      points: 10,
-                      progress: 0.7,
-                    ),
-
-                    // ================= OUTRA SECÇÃO =================
-                    sectionHeader("Recomendação de Badge", "O nosso sistema recomenda:"),
-
-                    badgeCard(
-                      title: "Script Initiate - Nível A",
-                      description: "Automation & Deployment (CI/CD)",
-                      points: 10,
-                    ),
-
-                    // ================= ESPECIAL =================
-                    Padding(
-                      padding: EdgeInsets.all(16),
-                      child: Text(
-                        "Obtenha este badge em 3 dias e ganhe o dobro dos pontos",
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
-                      ),
-                    ),
-
-                    badgeCard(
-                      title: "ERP Insight Specialist - Nível D",
-                      description: "Introdução ao SAP...",
-                      points: 42,
-                      highlight: true,
-                    ),
-                  ],
-                ),
+            // O Resto do teu conteúdo original aqui...
+            // (Removido para simplificar o exemplo)
+            const Expanded(
+              child: Center(
+                child: Text("Clica no sino do Header para ver o popup!"),
               ),
             ),
           ],
@@ -191,156 +108,161 @@ class HomePage extends StatelessWidget {
       ),
     );
   }
+}
 
-  // ================= BOTÃO DE INFORMAÇÃO =================
-  Widget buildInfoButton({
-    required IconData icon,
+// ================= WIDGET DO MENU DE NOTIFICAÇÕES =================
+// Este é o widget que será renderizado DENTRO do popover flutuante
+class NotificacoesMenu extends StatelessWidget {
+  const NotificacoesMenu({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    // O Material é OBRIGATÓRIO aqui para o popup aparecer
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(12),
+      child: Column(
+        mainAxisSize: MainAxisSize.min, // Ajusta o tamanho ao conteúdo
+        children: [
+          // Área das notificações com scroll
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxHeight: 400), // Altura máxima
+            child: ListView(
+              shrinkWrap: true,
+              padding: const EdgeInsets.all(12),
+              children: [
+                _buildNotificacaoItem(
+                  context: context,
+                  iconWidget: _buildAvatarIcon(initial: "A", bgColor: Colors.grey.shade200, textColor: Colors.black54),
+                  senderName: "Ana Maria",
+                  timeAgo: "59 min",
+                  title: "Atualizou o perfil",
+                  description: "Lorem ipsum is simply dummy text of the printing...",
+                ),
+                const Divider(),
+                _buildNotificacaoItem(
+                  context: context,
+                  iconWidget: _buildCheckIcon(bgColor: Colors.greenAccent),
+                  senderName: "System",
+                  timeAgo: "12h atrás",
+                  title: "Recebeu um novo Badge",
+                  description: "Parabéns! Ganhaste um novo reconhecimento.",
+                ),
+              ],
+            ),
+          ),
+          
+          // Rodapé
+          const Divider(height: 1),
+          SizedBox(
+            width: double.infinity,
+            child: TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text("Ver todas as notificações"),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ... (mantém as funções _buildNotificacaoItem, _buildAvatarIcon e _buildCheckIcon iguais)
+  // --- FUNÇÃO AUXILIAR PARA CRIAR UM ITEM DE NOTIFICAÇÃO ---
+  Widget _buildNotificacaoItem({
+    required BuildContext context,
+    required Widget iconWidget,
+    required String senderName,
+    required String timeAgo,
     required String title,
-    String? subtitle,
-    required VoidCallback onTap,
+    required String description,
   }) {
-    return Expanded( // Faz os 3 ocuparem espaço igual
-      child: GestureDetector(
-        onTap: onTap, // Permite clique
-        child: Container(
-          margin: EdgeInsets.symmetric(horizontal: 4), // Espaço entre botões
-          padding: EdgeInsets.all(10), // Espaçamento interno
-          decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.15), // Fundo semi-transparente (igual Figma)
-            borderRadius: BorderRadius.circular(16), // Cantos arredondados
-          ),
-          child: Row(
-            children: [
-
-              // Ícone dentro de mini caixa
-              Container(
-                padding: EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.2), // Caixa do ícone
-                  borderRadius: BorderRadius.circular(12),
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 12),
+      child: Row(
+        crossAxisAlignment:
+            CrossAxisAlignment.start, // Alinha texto ao topo do ícone
+        children: [
+          // ÍCONE ESQUERDA + INFORMAÇÕES ABAIXO
+          SizedBox(
+            width: 70, // Largura fixa para esta coluna da esquerda
+            child: Column(
+              children: [
+                iconWidget, // O ícone (avatar ou check)
+                const SizedBox(height: 6),
+                Text(
+                  senderName,
+                  style: const TextStyle(fontSize: 12, color: Colors.black87),
+                  textAlign: TextAlign.center,
+                  maxLines: 1,
                 ),
-                child: Icon(icon, color: Colors.white, size: 18),
-              ),
-
-              SizedBox(width: 8),
-
-              // Texto
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      style: TextStyle(color: Colors.white, fontSize: 12),
-                    ),
-                    if (subtitle != null)
-                      Text(
-                        subtitle,
-                        style: TextStyle(color: Colors.white70, fontSize: 10),
-                      ),
-                  ],
+                Text(
+                  timeAgo,
+                  style: const TextStyle(fontSize: 10, color: Colors.grey),
+                  textAlign: TextAlign.center,
+                  maxLines: 1,
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
+
+          const SizedBox(width: 12), // Espaço entre ícone e texto
+          // TEXTO DIREITA
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13,
+                    color: Colors.black,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  description,
+                  style: const TextStyle(fontSize: 11, color: Colors.grey),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Funções para criar os ícones específicos
+  Widget _buildAvatarIcon({
+    required String initial,
+    required Color bgColor,
+    required Color textColor,
+  }) {
+    return CircleAvatar(
+      radius: 20,
+      backgroundColor: bgColor,
+      child: Text(
+        initial,
+        style: TextStyle(
+          color: textColor,
+          fontWeight: FontWeight.bold,
+          fontSize: 16,
         ),
       ),
     );
   }
 
-  // ================= HEADER DE SECÇÃO =================
-  Widget sectionHeader(String title, String subtitle) {
-    return Padding(
-      padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8), // Espaçamento
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween, // Espaço entre elementos
-        children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(title, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)), // Título
-              Text(subtitle, style: TextStyle(fontSize: 12)), // Subtítulo
-            ],
-          ),
-          TextButton(
-            onPressed: () {}, // Botão "Ver todos"
-            child: Text("Ver Todos"),
-          )
-        ],
-      ),
-    );
-  }
-
-  // ================= CARD DE BADGE =================
-  Widget badgeCard({
-    required String title,
-    required String description,
-    required int points,
-    double? progress,
-    bool highlight = false,
-  }) {
-    return Container(
-      margin: EdgeInsets.symmetric(horizontal: 16, vertical: 8), // Margem
-      padding: EdgeInsets.all(12), // Padding interno
-      decoration: BoxDecoration(
-        color: Colors.white, // Fundo branco
-        borderRadius: BorderRadius.circular(12), // Bordas arredondadas
-        border: Border.all(color: Colors.grey.shade300), // Borda leve
-      ),
-      child: Row(
-        children: [
-
-          // ICONE
-          CircleAvatar(
-            radius: 30,
-            backgroundColor: Colors.blue.shade50,
-            child: Text("🏅", style: TextStyle(fontSize: 24)), // Emoji
-          ),
-
-          SizedBox(width: 10),
-
-          // TEXTO
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title),
-                Text(description, style: TextStyle(fontSize: 12, color: Colors.grey)),
-
-                // PROGRESS BAR (se existir)
-                if (progress != null)
-                  Column(
-                    children: [
-                      SizedBox(height: 6),
-                      LinearProgressIndicator(value: progress), // Barra de progresso
-                    ],
-                  )
-              ],
-            ),
-          ),
-
-          // PONTOS
-          Container(
-            padding: EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              border: Border.all(color: Colors.blue),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Column(
-              children: [
-                Text("Pontos", style: TextStyle(fontSize: 10)),
-                Text(
-                  "$points",
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: highlight ? Colors.amber : Colors.black, // Destaque amarelo
-                  ),
-                ),
-              ],
-            ),
-          )
-        ],
-      ),
+  Widget _buildCheckIcon({required Color bgColor}) {
+    return CircleAvatar(
+      radius: 20,
+      backgroundColor: bgColor,
+      child: const Icon(
+        Icons.check,
+        color: Colors.black,
+        size: 22,
+      ), // Checkmark preto como na imagem
     );
   }
 }
