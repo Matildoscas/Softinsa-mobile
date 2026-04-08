@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart'; // Importa a biblioteca principal do Flutter
+import 'package:popover/popover.dart'; // Importamos o pacote
 
 void main() {
   runApp(MyApp()); // Inicializa a app
 }
 
 class MyApp extends StatelessWidget {
+  const MyApp({super.key});
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -15,6 +18,8 @@ class MyApp extends StatelessWidget {
 }
 
 class HomePage extends StatelessWidget {
+  const HomePage({super.key});
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -44,10 +49,16 @@ class HomePage extends StatelessWidget {
                   // ICONES DIREITA
                   Row(
                     children: [
-                      CircleAvatar(
-                        radius: 16,
-                        backgroundColor: Colors.blue, // Fundo azul
-                        child: Icon(Icons.notifications, color: Colors.white, size: 18), // Sino
+                      GestureDetector(
+                        onTap: () {
+                          // Chamamos a função que cria o popup
+                          _mostrarNotificacoes(context);
+                        },
+                        child: CircleAvatar(
+                          radius: 16,
+                          backgroundColor: Colors.blue,
+                          child: Icon(Icons.notifications, color: Colors.white, size: 18),
+                        ),
                       ),
                       SizedBox(width: 10), // Espaço entre ícones
                       CircleAvatar(
