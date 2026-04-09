@@ -129,6 +129,17 @@ class _HomePageState extends State<HomePage> {
 
                           ElevatedButton(
                             onPressed: () {},
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor:Colors.blueAccent,
+                              foregroundColor: Colors.white,
+
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(20),
+
+                              ),
+                              elevation: 5,
+                              padding: EdgeInsets.symmetric(horizontal:30, vertical:15),
+                            ),
                             child: Text("Entrar"),
                           ),
                         ],
