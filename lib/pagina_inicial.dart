@@ -1,17 +1,48 @@
 import 'package:flutter/material.dart';
+import 'database_service.dart';
 
-class HomePage extends StatelessWidget {
+class HomePage extends StatefulWidget {
   final Map<String, dynamic> userData;
 
   const HomePage({super.key, required this.userData});
 
   @override
+  State<HomePage> createState() => _HomePageState();
+}
+
+class _HomePageState extends State<HomePage> {
+
+  List<Map<String, dynamic>> progresso = [];
+  List<Map<String, dynamic>> recomendados = [];
+  Map<String, dynamic>? especial;
+
+  @override
+  void initState() {
+    super.initState();
+    carregarDados();
+  }
+
+  Future<void> carregarDados() async {
+    final db = DatabaseService();
+
+    final p = await db.obterBadgesComProgresso(widget.userData['id']);
+    final r = await db.obterBadgesRecomendados(widget.userData['id']);
+    final e = await db.obterBadgeEspecial();
+
+    setState(() {
+      progresso = p;
+      recomendados = r;
+      especial = e;
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
-    // ===== DADOS DA BD =====
-    String nomeCompleto = userData['nome'] ?? 'Utilizador';
+
+    String nomeCompleto = widget.userData['nome'] ?? 'Utilizador';
     String primeiroNome = nomeCompleto.split(' ')[0];
-    int pontos = userData['pontos'] ?? 0;
-    int totalBadges = userData['badges'] ?? 0;
+    int pontos = widget.userData['pontos'] ?? 0;
+    int totalBadges = widget.userData['badges'] ?? 0;
 
     return Scaffold(
       backgroundColor: const Color(0xFFF7F7F7),
@@ -27,13 +58,10 @@ class HomePage extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
 
-                  const Text(
-                    "SOFTINSA",
-                    style: TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF39639C),
-                    ),
+                  Image.asset(
+                    'lib/img/logo.png',
+                    height: 35, // Ajustei para 40 para não esticar demasiado a barra, mas podes usar 70 se preferires
+                    fit: BoxFit.contain,
                   ),
 
                   Row(
@@ -130,40 +158,55 @@ class HomePage extends StatelessWidget {
 
                     const SizedBox(height: 20),
 
-                    // ================= BADGES COM PROGRESSO =================
-                    sectionHeader("Badges com progresso", "Tem 1 badge com progresso"),
+                    // ================= PROGRESSO =================
+                    sectionHeader("Badges com progresso", "Em desenvolvimento"),
 
-                    badgeCard(
-                      title: "The Watchtower - Nível A",
-                      description: "Observability & Performance Specialist",
-                      points: 10,
-                      progress: 0.7,
-                    ),
+                    if (progresso.isEmpty)
+                      const Padding(
+                        padding: EdgeInsets.all(16),
+                        child: Text("Sem progresso de momento"),
+                      )
+                    else
+                      ...progresso.map((b) => badgeCard(
+                        title: b['nome'],
+                        description: b['descricao'],
+                        points: b['pontos'],
+                        progress: b['progress'], // 🔥 agora 0
+                      )),
 
                     // ================= RECOMENDAÇÃO =================
-                    sectionHeader("Recomendação de Badge", "O nosso sistema recomenda:"),
+                    sectionHeader("Recomendação de Badge", "Sugestão baseada na sua área"),
 
-                    badgeCard(
-                      title: "Script Initiate - Nível A",
-                      description: "Automation & Deployment (CI/CD)",
-                      points: 10,
-                    ),
+                    if (recomendados.isEmpty)
+                      const Padding(
+                        padding: EdgeInsets.all(16),
+                        child: Text("Sem recomendações disponíveis"),
+                      )
+                    else
+                      ...recomendados.map((b) => badgeCard(
+                        title: b['nome'],
+                        description: b['descricao'],
+                        points: b['pontos'],
+                      )),
 
                     // ================= ESPECIAL =================
-                    const Padding(
-                      padding: EdgeInsets.all(16),
-                      child: Text(
-                        "Obtenha este badge em 3 dias e ganhe o dobro dos pontos",
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                    if (especial != null) ...[
+                      Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Text(
+                          "Obtenha este badge em ${especial!['dias']} dias e ganhe o dobro dos pontos",
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                        ),
                       ),
-                    ),
 
-                    badgeCard(
-                      title: "ERP Insight Specialist - Nível D",
-                      description: "Introdução ao SAP...",
-                      points: 42,
-                      highlight: true,
-                    ),
+                      badgeCard(
+                        title: especial!['nome'],
+                        description: especial!['descricao'],
+                        points: especial!['pontos'],
+                        highlight: true,
+                      ),
+                    ],
+
                   ],
                 ),
               ),
@@ -175,54 +218,62 @@ class HomePage extends StatelessWidget {
   }
 
   // ================= BOTÃO INFO =================
-  Widget buildInfoButton({
-    required IconData icon,
-    required String title,
-    String? subtitle,
-    required VoidCallback onTap,
-  }) {
-    return Expanded(
-      child: GestureDetector(
-        onTap: onTap,
-        child: Container(
-          margin: const EdgeInsets.symmetric(horizontal: 4),
-          padding: const EdgeInsets.all(10),
-          decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.15),
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: Row(
-            children: [
-
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Icon(icon, color: Colors.white, size: 18),
+Widget buildInfoButton({
+  required IconData icon,
+  required String title,
+  String? subtitle,
+  required VoidCallback onTap,
+}) {
+  return Expanded(
+    child: GestureDetector(
+      onTap: onTap,
+      child: Container(
+        height: 100, // <--- Definimos uma altura fixa para todos serem iguais
+        margin: const EdgeInsets.symmetric(horizontal: 4),
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.15),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center, // Centraliza verticalmente
+          children: [
+            Container(
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(8),
               ),
-
-              const SizedBox(width: 8),
-
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(title,
-                        style: const TextStyle(color: Colors.white, fontSize: 12)),
-                    if (subtitle != null)
-                      Text(subtitle,
-                          style: const TextStyle(color: Colors.white70, fontSize: 10)),
-                  ],
-                ),
+              child: Icon(icon, color: Colors.white, size: 20),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              title,
+              textAlign: TextAlign.center,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 11,
+                fontWeight: FontWeight.bold,
               ),
-            ],
-          ),
+            ),
+            // Usamos um widget invisível ou o texto para manter o alinhamento
+            Text(
+              subtitle ?? "", // Se não houver subtítulo, fica uma string vazia
+              textAlign: TextAlign.center,
+              maxLines: 1,
+              style: TextStyle(
+                color: subtitle != null ? Colors.white70 : Colors.transparent,
+                fontSize: 9,
+              ),
+            ),
+          ],
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
   // ================= HEADER SECÇÃO =================
   Widget sectionHeader(String title, String subtitle) {

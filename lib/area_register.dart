@@ -113,7 +113,7 @@ class _AreaRegPageState extends State<AreaRegisterPage> {
                             prefixIcon: Icon(Icons.list_alt_outlined),
                             border: OutlineInputBorder(),
                           ),
-                          value: selectedAreaId,
+                          initialValue: selectedAreaId,
                           items: areas.map((area) {
                             return DropdownMenuItem<int>(
                               value: area['id'] as int,

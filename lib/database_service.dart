@@ -2,7 +2,7 @@ import 'package:postgres/postgres.dart';
 
 class DatabaseService {
   final String host = '10.0.2.2';
-  final String dbName = 'softinsa_database';
+  final String dbName = 'basedados_softinsa';
   final String dbUser = 'postgres'; // Utilizador da BD
   final String dbPassword = 'postgres'; // Password da BD
   final int port = 5432;
@@ -137,6 +137,99 @@ class DatabaseService {
         'pontos': row[3],
         'badges': row[4],
       };
+    } finally {
+      await connection.close();
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> obterBadgesComProgresso(int idUtilizador) async {
+    final connection = await Connection.open(_endpoint,
+        settings: ConnectionSettings(sslMode: SslMode.disable));
+
+    try {
+      final result = await connection.execute(
+        Sql.named(
+          '''
+          SELECT b.nome, b.descricao, b.pontos
+          FROM BADGE b
+          WHERE b.id_badge NOT IN (
+            SELECT id_badge FROM BADGE_ATRIBUIDO WHERE id_utilizador = @id
+          )
+          LIMIT 1
+          '''
+        ),
+        parameters: {'id': idUtilizador},
+      );
+
+      return result.map((row) => {
+        'nome': row[0],
+        'descricao': row[1],
+        'pontos': row[2],
+        'progress': 0.0, // 🔥 lógica futura
+      }).toList();
+
+    } finally {
+      await connection.close();
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> obterBadgesRecomendados(int idUtilizador) async {
+    final connection = await Connection.open(_endpoint,
+        settings: ConnectionSettings(sslMode: SslMode.disable));
+
+    try {
+      final result = await connection.execute(
+        Sql.named(
+          '''
+          SELECT b.nome, b.descricao, b.pontos
+          FROM BADGE b
+          JOIN NIVEL n ON b.id_nivel = n.id_nivel
+          JOIN AREA a ON n.id_area = a.id_area
+          JOIN UTILIZADOR u ON u.id_area = a.id_area
+          WHERE u.id_utilizador = @id
+          AND b.id_badge NOT IN (
+            SELECT id_badge FROM BADGE_ATRIBUIDO WHERE id_utilizador = @id
+          )
+          LIMIT 1
+          '''
+        ),
+        parameters: {'id': idUtilizador},
+      );
+
+      return result.map((row) => {
+        'nome': row[0],
+        'descricao': row[1],
+        'pontos': row[2],
+      }).toList();
+
+    } finally {
+      await connection.close();
+    }
+  }
+
+  Future<Map<String, dynamic>?> obterBadgeEspecial() async {
+    final connection = await Connection.open(_endpoint,
+        settings: ConnectionSettings(sslMode: SslMode.disable));
+
+    try {
+      final result = await connection.execute(
+        '''
+        SELECT nome, descricao, pontos 
+        FROM BADGE
+        ORDER BY pontos DESC
+        LIMIT 1
+        '''
+      );
+
+      if (result.isEmpty) return null;
+
+      return {
+        'nome': result.first[0],
+        'descricao': result.first[1],
+        'pontos': ((result.first[2] as int?) ?? 0) * 2, // 🔥 dobra pontos
+        'dias': 3,
+      };
+
     } finally {
       await connection.close();
     }
