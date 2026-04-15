@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart'; // Importa a biblioteca principal do Flutter
-import 'package:popover/popover.dart'; // Importamos o pacote
-import 'Perfil.dart';
 
 void main() {
-  runApp(const MyApp()); // Inicializa a app
+  runApp(MyApp()); // Inicializa a app
 }
 
 class MyApp extends StatelessWidget {
@@ -13,7 +11,7 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false, // Remove o banner de debug
-      home: const HomePage(), // Define a página inicial
+      home: HomePage(), // Define a página inicial
     );
   }
 }
@@ -24,7 +22,7 @@ class HomePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF7F7F7), // Cor de fundo semelhante ao Figma
+      backgroundColor: Color(0xFFF7F7F7), // Cor de fundo semelhante ao Figma
       body: SafeArea( // Garante que não invade notch / status bar
         child: Column(
           children: [
@@ -32,13 +30,13 @@ class HomePage extends StatelessWidget {
             // ================= HEADER =================
             Container(
               color: Colors.white, // Fundo branco
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10), // Espaçamento interno
+              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 10), // Espaçamento interno
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween, // Espaço entre elementos
                 children: [
 
                   // LOGO
-                  const Text(
+                  Text(
                     "SOFTINSA", // Nome (substitui SVG)
                     style: TextStyle(
                       fontSize: 22,
@@ -50,37 +48,16 @@ class HomePage extends StatelessWidget {
                   // ICONES DIREITA
                   Row(
                     children: [
-                      // Usar o Builder para garantir que enviamos o context correto (do botão)
-                      // para o popover saber onde ancorar a seta.
-                      Builder(
-                        builder: (buttonContext) {
-                          return GestureDetector(
-                            onTap: () {
-                              // Chamamos a função que cria o popup,
-                              // passando o context do Builder (o botão em si)
-                              _mostrarNotificacoes(buttonContext);
-                            },
-                            child: const CircleAvatar(
-                              radius: 16,
-                              backgroundColor: Colors.blue,
-                              child: Icon(Icons.notifications, color: Colors.white, size: 18),
-                            ),
-                          );
-                        }
+                      CircleAvatar(
+                        radius: 16,
+                        backgroundColor: Colors.blue, // Fundo azul
+                        child: Icon(Icons.notifications, color: Colors.white, size: 18), // Sino
                       ),
-                      const SizedBox(width: 10), // Espaço entre ícones
-                      GestureDetector(
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(builder: (context) => Perfil()),
-                          );
-                        },
-                        child: const CircleAvatar(
-                          radius: 16,
-                          backgroundColor: Colors.blue,
-                          child: Icon(Icons.person, color: Colors.white, size: 18), // Utilizador
-                        ),
+                      SizedBox(width: 10), // Espaço entre ícones
+                      CircleAvatar(
+                        radius: 16,
+                        backgroundColor: Colors.blue,
+                        child: Icon(Icons.person, color: Colors.white, size: 18), // Utilizador
                       ),
                     ],
                   )
@@ -96,10 +73,10 @@ class HomePage extends StatelessWidget {
 
                     // ================= WELCOME CARD =================
                     Container(
-                      margin: const EdgeInsets.all(16), // Margem exterior
-                      padding: const EdgeInsets.all(16), // Espaçamento interno
+                      margin: EdgeInsets.all(16), // Margem exterior
+                      padding: EdgeInsets.all(16), // Espaçamento interno
                       decoration: BoxDecoration(
-                        gradient: const LinearGradient( // Gradiente igual ao Figma
+                        gradient: LinearGradient( // Gradiente igual ao Figma
                           colors: [Color(0xFF4470AF), Color(0xFF3A5C94)],
                         ),
                         borderRadius: BorderRadius.circular(20), // Cantos arredondados
@@ -109,12 +86,12 @@ class HomePage extends StatelessWidget {
                         children: [
 
                           // TEXTO
-                          const Text(
+                          Text(
                             "Bom dia, Utilizador!",
                             style: TextStyle(color: Colors.white, fontSize: 18),
                           ),
 
-                          const SizedBox(height: 20), // Espaço vertical
+                          SizedBox(height: 20), // Espaço vertical
 
                           // GRID DE INFO
                           Row(
@@ -154,15 +131,15 @@ class HomePage extends StatelessWidget {
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.white, // Fundo branco
                         foregroundColor: Colors.black, // Texto preto
-                        shape: const StadiumBorder(), // Botão arredondado
+                        shape: StadiumBorder(), // Botão arredondado
                         elevation: 4, // Sombra
                       ),
                       onPressed: () {}, // Ação do botão
-                      icon: const Icon(Icons.grid_view), // Ícone
-                      label: const Text("Catálogo de Badges"), // Texto
+                      icon: Icon(Icons.grid_view), // Ícone
+                      label: Text("Catálogo de Badges"), // Texto
                     ),
 
-                    const SizedBox(height: 20),
+                    SizedBox(height: 20),
 
                     // ================= SECÇÃO =================
                     sectionHeader("Badges com progresso", "Tem 1 badge com progresso"),
@@ -184,7 +161,7 @@ class HomePage extends StatelessWidget {
                     ),
 
                     // ================= ESPECIAL =================
-                    const Padding(
+                    Padding(
                       padding: EdgeInsets.all(16),
                       child: Text(
                         "Obtenha este badge em 3 dias e ganhe o dobro dos pontos",
@@ -208,21 +185,6 @@ class HomePage extends StatelessWidget {
     );
   }
 
-  // --- Função para extrair o popover (isolado por causa do Impeller) ---
-  void _mostrarNotificacoes(BuildContext buttonContext) {
-    showPopover(
-      context: buttonContext,
-      // RepaintBoundary é super importante para corrigir o bug do Flutter Impeller (SetInheritedOpacity crash)
-      bodyBuilder: (context) => const RepaintBoundary(child: NotificacoesMenu()),
-      direction: PopoverDirection.bottom,
-      width: 300,
-      height: 420,
-      arrowHeight: 15,
-      arrowWidth: 20,
-      backgroundColor: Colors.white,
-    );
-  }
-
   // ================= BOTÃO DE INFORMAÇÃO =================
   Widget buildInfoButton({
     required IconData icon,
@@ -234,8 +196,8 @@ class HomePage extends StatelessWidget {
       child: GestureDetector(
         onTap: onTap, // Permite clique
         child: Container(
-          margin: const EdgeInsets.symmetric(horizontal: 4), // Espaço entre botões
-          padding: const EdgeInsets.all(10), // Espaçamento interno
+          margin: EdgeInsets.symmetric(horizontal: 4), // Espaço entre botões
+          padding: EdgeInsets.all(10), // Espaçamento interno
           decoration: BoxDecoration(
             color: Colors.white.withOpacity(0.15), // Fundo semi-transparente (igual Figma)
             borderRadius: BorderRadius.circular(16), // Cantos arredondados
@@ -245,7 +207,7 @@ class HomePage extends StatelessWidget {
 
               // Ícone dentro de mini caixa
               Container(
-                padding: const EdgeInsets.all(8),
+                padding: EdgeInsets.all(8),
                 decoration: BoxDecoration(
                   color: Colors.white.withOpacity(0.2), // Caixa do ícone
                   borderRadius: BorderRadius.circular(12),
@@ -253,7 +215,7 @@ class HomePage extends StatelessWidget {
                 child: Icon(icon, color: Colors.white, size: 18),
               ),
 
-              const SizedBox(width: 8),
+              SizedBox(width: 8),
 
               // Texto
               Expanded(
@@ -262,12 +224,12 @@ class HomePage extends StatelessWidget {
                   children: [
                     Text(
                       title,
-                      style: const TextStyle(color: Colors.white, fontSize: 12),
+                      style: TextStyle(color: Colors.white, fontSize: 12),
                     ),
                     if (subtitle != null)
                       Text(
                         subtitle,
-                        style: const TextStyle(color: Colors.white70, fontSize: 10),
+                        style: TextStyle(color: Colors.white70, fontSize: 10),
                       ),
                   ],
                 ),
@@ -282,20 +244,20 @@ class HomePage extends StatelessWidget {
   // ================= HEADER DE SECÇÃO =================
   Widget sectionHeader(String title, String subtitle) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8), // Espaçamento
+      padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8), // Espaçamento
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween, // Espaço entre elementos
         children: [
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)), // Título
-              Text(subtitle, style: const TextStyle(fontSize: 12)), // Subtítulo
+              Text(title, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)), // Título
+              Text(subtitle, style: TextStyle(fontSize: 12)), // Subtítulo
             ],
           ),
           TextButton(
             onPressed: () {}, // Botão "Ver todos"
-            child: const Text("Ver Todos"),
+            child: Text("Ver Todos"),
           )
         ],
       ),
@@ -311,8 +273,8 @@ class HomePage extends StatelessWidget {
     bool highlight = false,
   }) {
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8), // Margem
-      padding: const EdgeInsets.all(12), // Padding interno
+      margin: EdgeInsets.symmetric(horizontal: 16, vertical: 8), // Margem
+      padding: EdgeInsets.all(12), // Padding interno
       decoration: BoxDecoration(
         color: Colors.white, // Fundo branco
         borderRadius: BorderRadius.circular(12), // Bordas arredondadas
@@ -325,10 +287,10 @@ class HomePage extends StatelessWidget {
           CircleAvatar(
             radius: 30,
             backgroundColor: Colors.blue.shade50,
-            child: const Text("🏅", style: TextStyle(fontSize: 24)), // Emoji
+            child: Text("🏅", style: TextStyle(fontSize: 24)), // Emoji
           ),
 
-          const SizedBox(width: 10),
+          SizedBox(width: 10),
 
           // TEXTO
           Expanded(
@@ -336,13 +298,13 @@ class HomePage extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(title),
-                Text(description, style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                Text(description, style: TextStyle(fontSize: 12, color: Colors.grey)),
 
                 // PROGRESS BAR (se existir)
                 if (progress != null)
                   Column(
                     children: [
-                      const SizedBox(height: 6),
+                      SizedBox(height: 6),
                       LinearProgressIndicator(value: progress), // Barra de progresso
                     ],
                   )
@@ -352,14 +314,14 @@ class HomePage extends StatelessWidget {
 
           // PONTOS
           Container(
-            padding: const EdgeInsets.all(8),
+            padding: EdgeInsets.all(8),
             decoration: BoxDecoration(
               border: Border.all(color: Colors.blue),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Column(
               children: [
-                const Text("Pontos", style: TextStyle(fontSize: 10)),
+                Text("Pontos", style: TextStyle(fontSize: 10)),
                 Text(
                   "$points",
                   style: TextStyle(
@@ -372,161 +334,6 @@ class HomePage extends StatelessWidget {
           )
         ],
       ),
-    );
-  }
-}
-
-// ================= WIDGET DO MENU DE NOTIFICAÇÕES =================
-// Este é o widget que será renderizado DENTRO do popover flutuante
-class NotificacoesMenu extends StatelessWidget {
-  const NotificacoesMenu({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    // O Material é OBRIGATÓRIO aqui para o popup aparecer
-    return Material(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(12),
-      child: Column(
-        mainAxisSize: MainAxisSize.min, // Ajusta o tamanho ao conteúdo
-        children: [
-          // Área das notificações com scroll
-          ConstrainedBox(
-            constraints: const BoxConstraints(maxHeight: 400), // Altura máxima
-            child: ListView(
-              shrinkWrap: true,
-              padding: const EdgeInsets.all(12),
-              children: [
-                _buildNotificacaoItem(
-                  context: context,
-                  iconWidget: _buildAvatarIcon(initial: "A", bgColor: Colors.grey.shade200, textColor: Colors.black54),
-                  senderName: "Ana Maria",
-                  timeAgo: "59 min",
-                  title: "Atualizou o perfil",
-                  description: "Lorem ipsum is simply dummy text of the printing...",
-                ),
-                const Divider(),
-                _buildNotificacaoItem(
-                  context: context,
-                  iconWidget: _buildCheckIcon(bgColor: Colors.greenAccent),
-                  senderName: "System",
-                  timeAgo: "12h atrás",
-                  title: "Recebeu um novo Badge",
-                  description: "Parabéns! Ganhaste um novo reconhecimento.",
-                ),
-              ],
-            ),
-          ),
-
-          // Rodapé
-          const Divider(height: 1),
-          SizedBox(
-            width: double.infinity,
-            child: TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text("Ver todas as notificações"),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // --- FUNÇÃO AUXILIAR PARA CRIAR UM ITEM DE NOTIFICAÇÃO ---
-  Widget _buildNotificacaoItem({
-    required BuildContext context,
-    required Widget iconWidget,
-    required String senderName,
-    required String timeAgo,
-    required String title,
-    required String description,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 12),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start, // Alinha texto ao topo do ícone
-        children: [
-          // ÍCONE ESQUERDA + INFORMAÇÕES ABAIXO
-          SizedBox(
-            width: 70, // Largura fixa para esta coluna da esquerda
-            child: Column(
-              children: [
-                iconWidget, // O ícone (avatar ou check)
-                const SizedBox(height: 6),
-                Text(
-                  senderName,
-                  style: const TextStyle(fontSize: 12, color: Colors.black87),
-                  textAlign: TextAlign.center,
-                  maxLines: 1,
-                ),
-                Text(
-                  timeAgo,
-                  style: const TextStyle(fontSize: 10, color: Colors.grey),
-                  textAlign: TextAlign.center,
-                  maxLines: 1,
-                ),
-              ],
-            ),
-          ),
-
-          const SizedBox(width: 12), // Espaço entre ícone e texto
-          // TEXTO DIREITA
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 13,
-                    color: Colors.black,
-                  ),
-                ),
-                const SizedBox(height: 3),
-                Text(
-                  description,
-                  style: const TextStyle(fontSize: 11, color: Colors.grey),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // Funções para criar os ícones específicos
-  Widget _buildAvatarIcon({
-    required String initial,
-    required Color bgColor,
-    required Color textColor,
-  }) {
-    return CircleAvatar(
-      radius: 20,
-      backgroundColor: bgColor,
-      child: Text(
-        initial,
-        style: TextStyle(
-          color: textColor,
-          fontWeight: FontWeight.bold,
-          fontSize: 16,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildCheckIcon({required Color bgColor}) {
-    return CircleAvatar(
-      radius: 20,
-      backgroundColor: bgColor,
-      child: const Icon(
-        Icons.check,
-        color: Colors.black,
-        size: 22,
-      ), // Checkmark preto como na imagem
     );
   }
 }
