@@ -71,75 +71,94 @@ class HomePage extends StatelessWidget {
                 child: Column(
                   children: [
 
-                    // ================= WELCOME CARD =================
-                    Container(
-                      margin: EdgeInsets.all(16), // Margem exterior
-                      padding: EdgeInsets.all(16), // Espaçamento interno
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient( // Gradiente igual ao Figma
-                          colors: [Color(0xFF4470AF), Color(0xFF3A5C94)],
-                        ),
-                        borderRadius: BorderRadius.circular(20), // Cantos arredondados
+                   // ================= WELCOME CARD  =================
+                Container(
+                  margin: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 30), // Aumentado de 16 para 30
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [Color(0xFF4470AF), Color(0xFF3A5C94)],
+                    ),
+                    borderRadius: BorderRadius.circular(24), // Cantos ligeiramente mais arredondados
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFF39639C).withValues(alpha: 0.3),
+                        blurRadius: 15,
+                        offset: const Offset(0, 8),
                       ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                    ],
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        "Bom dia, Utilizador!",
+                        style: TextStyle(
+                            color: Colors.white, 
+                            fontSize: 22, // Texto maior
+                            fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 24), // Mais espaço interno
+                      
+                      // LINHA DE BOTÕES
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-
-                          // TEXTO
-                          Text(
-                            "Bom dia, Utilizador!",
-                            style: TextStyle(color: Colors.white, fontSize: 18),
+                          buildInfoButton(
+                            icon: Icons.emoji_events,
+                            title: "Badges",
+                            subtitle: "5 obtidos",
+                            onTap: () {},
                           ),
-
-                          SizedBox(height: 20), // Espaço vertical
-
-                          // GRID DE INFO
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-
-                              // BADGES
-                              buildInfoButton(
-                                icon: Icons.emoji_events,
-                                title: "Badges",
-                                subtitle: "5 obtidos",
-                                onTap: () {},
-                              ),
-
-                              // PONTOS
-                              buildInfoButton(
-                                icon: Icons.star,
-                                title: "Pontos totais",
-                                subtitle: "90 pontos",
-                                onTap: () {},
-                              ),
-
-                              // LEMBRETES
-                              buildInfoButton(
-                                icon: Icons.note,
-                                title: "Lembretes",
-                                onTap: () {},
-                              ),
-                            ],
-                          )
+                          buildInfoButton(
+                            icon: Icons.star,
+                            title: "Pontos",
+                            subtitle: "90 total",
+                            onTap: () {},
+                          ),
+                          buildInfoButton(
+                            icon: Icons.note,
+                            title: "Lembretes",
+                            subtitle: "Ver mais",
+                            onTap: () {},
+                          ),
                         ],
-                      ),
-                    ),
+                      )
+                    ],
+                  ),
+                ),
 
-                    // ================= BOTÃO =================
-                    ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.white, // Fundo branco
-                        foregroundColor: Colors.black, // Texto preto
-                        shape: StadiumBorder(), // Botão arredondado
-                        elevation: 4, // Sombra
-                      ),
-                      onPressed: () {}, // Ação do botão
-                      icon: Icon(Icons.grid_view), // Ícone
-                      label: Text("Catálogo de Badges"), // Texto
-                    ),
+                   // ================= BOTÃO CATÁLOGO (MAIS PEQUENO E EQUILIBRADO) =================
+Center(
+  child: SizedBox(
+    width: 200, // Largura fixa para não ocupar o ecrã todo
+    height: 40,  // Altura reduzida
+    child: ElevatedButton.icon(
+      style: ElevatedButton.styleFrom(
+        backgroundColor: Colors.white,
+        foregroundColor: const Color.fromARGB(255, 0, 0, 0),
+        side: BorderSide(color: Colors.grey.shade300), // Borda fina para definição
+        shape: const StadiumBorder(),
+        elevation: 2,
+        padding: EdgeInsets.zero, // Remove padding interno extra
+      ),
+      onPressed: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const CatalogoPage()),
+        );
+      },
+      icon: const Icon(Icons.grid_view, size: 16), // Ícone menor
+      label: const Text(
+        "Catálogo de Badges", 
+        style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)
+      ),
+    ),
+  ),
+),
 
-                    SizedBox(height: 20),
 
                     // ================= SECÇÃO =================
                     sectionHeader("Badges com progresso", "Tem 1 badge com progresso"),
