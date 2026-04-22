@@ -1,7 +1,9 @@
-import 'package:flutter/material.dart'; // Importa a biblioteca principal do Flutter
+import 'package:flutter/material.dart';
+import 'catalogo.dart'; // Certifica-te que o ficheiro catalogo.dart existe na pasta lib
+import 'badges_progresso.dart';
 
 void main() {
-  runApp(MyApp()); // Inicializa a app
+  runApp(const MyApp());
 }
 
 class MyApp extends StatelessWidget {
@@ -10,8 +12,9 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      debugShowCheckedModeBanner: false, // Remove o banner de debug
-      home: HomePage(), // Define a página inicial
+      debugShowCheckedModeBanner: false,
+      theme: ThemeData(useMaterial3: true),
+      home: const HomePage(),
     );
   }
 }
@@ -22,42 +25,34 @@ class HomePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Color(0xFFF7F7F7), // Cor de fundo semelhante ao Figma
-      body: SafeArea( // Garante que não invade notch / status bar
+      backgroundColor: const Color(0xFFF7F7F7),
+      body: SafeArea(
         child: Column(
           children: [
-
             // ================= HEADER =================
             Container(
-              color: Colors.white, // Fundo branco
-              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 10), // Espaçamento interno
+              color: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween, // Espaço entre elementos
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-
-                  // LOGO
-                  Text(
-                    "SOFTINSA", // Nome (substitui SVG)
-                    style: TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF39639C),
-                    ),
+                  Image.asset(
+                 'assets/logo_softinsa.png',
+                  height: 40, // Ajusta a altura conforme necessário
+                  fit: BoxFit.contain,
                   ),
-
-                  // ICONES DIREITA
                   Row(
                     children: [
                       CircleAvatar(
                         radius: 16,
-                        backgroundColor: Colors.blue, // Fundo azul
-                        child: Icon(Icons.notifications, color: Colors.white, size: 18), // Sino
+                        backgroundColor: Colors.blue.shade400,
+                        child: const Icon(Icons.notifications, color: Colors.white, size: 18),
                       ),
-                      SizedBox(width: 10), // Espaço entre ícones
+                      const SizedBox(width: 10),
                       CircleAvatar(
                         radius: 16,
-                        backgroundColor: Colors.blue,
-                        child: Icon(Icons.person, color: Colors.white, size: 18), // Utilizador
+                        backgroundColor: Colors.blue.shade400,
+                        child: const Icon(Icons.person, color: Colors.white, size: 18),
                       ),
                     ],
                   )
@@ -67,70 +62,69 @@ class HomePage extends StatelessWidget {
 
             // ================= CONTEÚDO =================
             Expanded(
-              child: SingleChildScrollView( // Permite scroll
+              child: SingleChildScrollView(
                 child: Column(
                   children: [
+                   // ================= WELCOME CARD c =================
+Container(
+  margin: const EdgeInsets.all(16),
+  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 30), // Aumentado de 16 para 30
+  decoration: BoxDecoration(
+    gradient: const LinearGradient(
+      begin: Alignment.topLeft,
+      end: Alignment.bottomRight,
+      colors: [Color(0xFF4470AF), Color(0xFF3A5C94)],
+    ),
+    borderRadius: BorderRadius.circular(24), // Cantos ligeiramente mais arredondados
+    boxShadow: [
+      BoxShadow(
+        color: const Color(0xFF39639C).withValues(alpha: 0.3),
+        blurRadius: 15,
+        offset: const Offset(0, 8),
+      ),
+    ],
+  ),
+  child: Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      const Text(
+        "Bom dia, Utilizador!",
+        style: TextStyle(
+            color: Colors.white, 
+            fontSize: 22, // Texto maior
+            fontWeight: FontWeight.bold),
+      ),
+      const SizedBox(height: 24), // Mais espaço interno
+      
+      // LINHA DE BOTÕES
+      Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          buildInfoButton(
+            icon: Icons.emoji_events,
+            title: "Badges",
+            subtitle: "5 obtidos",
+            onTap: () {},
+          ),
+          buildInfoButton(
+            icon: Icons.star,
+            title: "Pontos",
+            subtitle: "90 total",
+            onTap: () {},
+          ),
+          buildInfoButton(
+            icon: Icons.note,
+            title: "Lembretes",
+            subtitle: "Ver mais",
+            onTap: () {},
+          ),
+        ],
+      )
+    ],
+  ),
+),
 
-                   // ================= WELCOME CARD  =================
-                Container(
-                  margin: const EdgeInsets.all(16),
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 30), // Aumentado de 16 para 30
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [Color(0xFF4470AF), Color(0xFF3A5C94)],
-                    ),
-                    borderRadius: BorderRadius.circular(24), // Cantos ligeiramente mais arredondados
-                    boxShadow: [
-                      BoxShadow(
-                        color: const Color(0xFF39639C).withValues(alpha: 0.3),
-                        blurRadius: 15,
-                        offset: const Offset(0, 8),
-                      ),
-                    ],
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        "Bom dia, Utilizador!",
-                        style: TextStyle(
-                            color: Colors.white, 
-                            fontSize: 22, // Texto maior
-                            fontWeight: FontWeight.bold),
-                      ),
-                      const SizedBox(height: 24), // Mais espaço interno
-                      
-                      // LINHA DE BOTÕES
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          buildInfoButton(
-                            icon: Icons.emoji_events,
-                            title: "Badges",
-                            subtitle: "5 obtidos",
-                            onTap: () {},
-                          ),
-                          buildInfoButton(
-                            icon: Icons.star,
-                            title: "Pontos",
-                            subtitle: "90 total",
-                            onTap: () {},
-                          ),
-                          buildInfoButton(
-                            icon: Icons.note,
-                            title: "Lembretes",
-                            subtitle: "Ver mais",
-                            onTap: () {},
-                          ),
-                        ],
-                      )
-                    ],
-                  ),
-                ),
-
-                   // ================= BOTÃO CATÁLOGO (MAIS PEQUENO E EQUILIBRADO) =================
+// ================= BOTÃO CATÁLOGO (MAIS PEQUENO E EQUILIBRADO) =================
 Center(
   child: SizedBox(
     width: 200, // Largura fixa para não ocupar o ecrã todo
@@ -159,10 +153,8 @@ Center(
   ),
 ),
 
-
-                    // ================= SECÇÃO =================
+                    // ================= SECÇÕES DE BADGES =================
                     sectionHeader("Badges com progresso", "Tem 1 badge com progresso"),
-
                     badgeCard(
                       title: "The Watchtower - Nível A",
                       description: "Observability & Performance Specialist",
@@ -170,21 +162,21 @@ Center(
                       progress: 0.7,
                     ),
 
-                    // ================= OUTRA SECÇÃO =================
                     sectionHeader("Recomendação de Badge", "O nosso sistema recomenda:"),
-
                     badgeCard(
                       title: "Script Initiate - Nível A",
                       description: "Automation & Deployment (CI/CD)",
                       points: 10,
                     ),
 
-                    // ================= ESPECIAL =================
-                    Padding(
-                      padding: EdgeInsets.all(16),
-                      child: Text(
-                        "Obtenha este badge em 3 dias e ganhe o dobro dos pontos",
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                    const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          "Obtenha este badge em 3 dias e ganhe o dobro dos pontos",
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Colors.black),
+                        ),
                       ),
                     ),
 
@@ -194,6 +186,7 @@ Center(
                       points: 42,
                       highlight: true,
                     ),
+                    const SizedBox(height: 20),
                   ],
                 ),
               ),
@@ -204,51 +197,50 @@ Center(
     );
   }
 
-  // ================= BOTÃO DE INFORMAÇÃO =================
+  // ================= WIDGETS AUXILIARES =================
+
   Widget buildInfoButton({
     required IconData icon,
     required String title,
     String? subtitle,
     required VoidCallback onTap,
   }) {
-    return Expanded( // Faz os 3 ocuparem espaço igual
+    return Expanded(
       child: GestureDetector(
-        onTap: onTap, // Permite clique
+        onTap: onTap,
         child: Container(
-          margin: EdgeInsets.symmetric(horizontal: 4), // Espaço entre botões
-          padding: EdgeInsets.all(10), // Espaçamento interno
+          margin: const EdgeInsets.symmetric(horizontal: 3),
+          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.15), // Fundo semi-transparente (igual Figma)
-            borderRadius: BorderRadius.circular(16), // Cantos arredondados
+            color: Colors.white.withValues(alpha: 0.15),
+            borderRadius: BorderRadius.circular(12),
           ),
           child: Row(
             children: [
-
-              // Ícone dentro de mini caixa
               Container(
-                padding: EdgeInsets.all(8),
+                padding: const EdgeInsets.all(4),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.2), // Caixa do ícone
-                  borderRadius: BorderRadius.circular(12),
+                  color: Colors.white.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(8),
                 ),
-                child: Icon(icon, color: Colors.white, size: 18),
+                child: Icon(icon, color: Colors.white, size: 16),
               ),
-
-              SizedBox(width: 8),
-
-              // Texto
+              const SizedBox(width: 5),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
                       title,
-                      style: TextStyle(color: Colors.white, fontSize: 12),
+                      style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                      overflow: TextOverflow.ellipsis,
                     ),
                     if (subtitle != null)
                       Text(
                         subtitle,
-                        style: TextStyle(color: Colors.white70, fontSize: 10),
+                        style: const TextStyle(color: Colors.white70, fontSize: 8),
+                        overflow: TextOverflow.ellipsis,
                       ),
                   ],
                 ),
@@ -260,30 +252,28 @@ Center(
     );
   }
 
-  // ================= HEADER DE SECÇÃO =================
   Widget sectionHeader(String title, String subtitle) {
     return Padding(
-      padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8), // Espaçamento
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween, // Espaço entre elementos
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(title, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)), // Título
-              Text(subtitle, style: TextStyle(fontSize: 12)), // Subtítulo
+              Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+              Text(subtitle, style: const TextStyle(fontSize: 11, color: Colors.grey)),
             ],
           ),
           TextButton(
-            onPressed: () {}, // Botão "Ver todos"
-            child: Text("Ver Todos"),
+            onPressed: () {},
+            child: const Text("Ver Todos", style: TextStyle(fontSize: 12)),
           )
         ],
       ),
     );
   }
 
-  // ================= CARD DE BADGE =================
   Widget badgeCard({
     required String title,
     required String description,
@@ -292,60 +282,70 @@ Center(
     bool highlight = false,
   }) {
     return Container(
-      margin: EdgeInsets.symmetric(horizontal: 16, vertical: 8), // Margem
-      padding: EdgeInsets.all(12), // Padding interno
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.white, // Fundo branco
-        borderRadius: BorderRadius.circular(12), // Bordas arredondadas
-        border: Border.all(color: Colors.grey.shade300), // Borda leve
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.grey.withValues(alpha: 0.2)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          )
+        ],
       ),
       child: Row(
         children: [
-
-          // ICONE
           CircleAvatar(
-            radius: 30,
-            backgroundColor: Colors.blue.shade50,
-            child: Text("🏅", style: TextStyle(fontSize: 24)), // Emoji
+            radius: 28,
+            backgroundColor: const Color(0xFFF0F7FF),
+            child: const Text("🏅", style: TextStyle(fontSize: 24)),
           ),
-
-          SizedBox(width: 10),
-
-          // TEXTO
+          const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title),
-                Text(description, style: TextStyle(fontSize: 12, color: Colors.grey)),
-
-                // PROGRESS BAR (se existir)
+                Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                Text(description, style: const TextStyle(fontSize: 11, color: Colors.grey)),
                 if (progress != null)
-                  Column(
-                    children: [
-                      SizedBox(height: 6),
-                      LinearProgressIndicator(value: progress), // Barra de progresso
-                    ],
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(10),
+                      child: LinearProgressIndicator(
+                        value: progress,
+                        minHeight: 6,
+                        backgroundColor: Colors.grey.shade200,
+                        valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF39639C)),
+                      ),
+                    ),
                   )
               ],
             ),
           ),
-
-          // PONTOS
+          const SizedBox(width: 8),
           Container(
-            padding: EdgeInsets.all(8),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
             decoration: BoxDecoration(
-              border: Border.all(color: Colors.blue),
               borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: highlight ? Colors.amber : const Color(0xFF39639C),
+                width: 1.5,
+              ),
             ),
             child: Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                Text("Pontos", style: TextStyle(fontSize: 10)),
+                const Text("Pontos", style: TextStyle(fontSize: 9, color: Colors.grey)),
                 Text(
                   "$points",
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
-                    color: highlight ? Colors.amber : Colors.black, // Destaque amarelo
+                    fontSize: 14,
+                    color: highlight ? Colors.amber.shade700 : Colors.black,
                   ),
                 ),
               ],
