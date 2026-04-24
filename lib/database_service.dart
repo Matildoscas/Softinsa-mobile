@@ -272,7 +272,7 @@ class DatabaseService {
             '''),
             parameters: {
               'idC': idCandidatura,
-              'url': 'softinsa.pt/badges/verificar/${idCandidatura}' // Exemplo de URL única
+              'url': 'softinsa.pt/badges/verificar/$idCandidatura' // Exemplo de URL única
             },
           );
         }
