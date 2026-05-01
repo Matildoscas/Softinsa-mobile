@@ -234,4 +234,90 @@ class DatabaseService {
       await connection.close();
     }
   }
+
+ //Lógica de Aprovação Dupla (TM e SLL)
+  Future<void> avaliarCandidatura(int idCandidatura, int idAvaliador, String estado) async {
+    final connection = await Connection.open(_endpoint, settings: ConnectionSettings(sslMode: SslMode.disable));
+
+    try {
+      await connection.runTx((session) async {
+        // 1. Inserir a avaliação (SLL ou TM)
+        await session.execute(
+          Sql.named('INSERT INTO candidatura_avaliacao (id_candidatura, id_avaliador, estado, data_avaliacao) '
+                    'VALUES (@idC, @idA, @est, CURRENT_TIMESTAMP)'),
+          parameters: {'idC': idCandidatura, 'idA': idAvaliador, 'est': estado},
+        );
+
+        // 2. Verificar se já existem 2 aprovações para esta candidatura
+        final res = await session.execute(
+          Sql.named('SELECT COUNT(*) FROM candidatura_avaliacao WHERE id_candidatura = @idC AND estado = \'Aprovado\''),
+          parameters: {'idC': idCandidatura},
+        );
+
+        int aprovacoes = res.first[0] as int;
+
+        if (aprovacoes >= 2) {
+          // 3. Atualizar estado da candidatura principal
+          await session.execute(
+            Sql.named('UPDATE candidatura SET estado = \'APPROVED\' WHERE id_candidatura = @idC'),
+            parameters: {'idC': idCandidatura},
+          );
+
+          // 4. CRIAR O BADGE ATRIBUÍDO (O que gera o certificado na app)
+          await session.execute(
+            Sql.named('''
+              INSERT INTO badge_atribuido (id_utilizador, id_badge, estado, data_conquista, url_publica)
+              SELECT id_utilizador, id_badge, 'Ativo', CURRENT_TIMESTAMP, @url
+              FROM candidatura WHERE id_candidatura = @idC
+            '''),
+            parameters: {
+              'idC': idCandidatura,
+              'url': 'softinsa.pt/badges/verificar/$idCandidatura' // Exemplo de URL única
+            },
+          );
+        }
+      });
+    } finally {
+      await connection.close();
+    }
+  }
+
+  //Obter Dados para o Certificado
+  Future<Map<String, dynamic>?> obterDadosCertificado(int idBadgeAtribuido) async {
+    final connection = await Connection.open(_endpoint, settings: ConnectionSettings(sslMode: SslMode.disable));
+
+    try {
+      final result = await connection.execute(
+        Sql.named('''
+          SELECT 
+            u.nome_completo, 
+            u.cargo, 
+            b.nome as badge_nome, 
+            n.nome as nivel_nome,
+            ba.data_conquista,
+            ba.id_badge_atrib as codigo_verificacao
+          FROM badge_atribuido ba
+          JOIN utilizador u ON ba.id_utilizador = u.id_utilizador
+          JOIN badge b ON ba.id_badge = b.id_badge
+          JOIN nivel n ON b.id_nivel = n.id_nivel
+          WHERE ba.id_badge_atrib = @id
+        '''),
+        parameters: {'id': idBadgeAtribuido},
+      );
+
+      if (result.isEmpty) return null;
+      final row = result.first;
+
+      return {
+        'nome': row[0],
+        'cargo': row[1],
+        'badge': row[2],
+        'nivel': row[3],
+        'data': row[4],
+        'codigo': 'SL-${row[5]}', // Gera um código simulado como o da imagem
+      };
+    } finally {
+      await connection.close();
+    }
+  }
 }
