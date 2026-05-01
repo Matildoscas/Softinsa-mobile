@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'database_service.dart'; // Garante que o import está correto
-import 'register.dart';
 import 'main.dart';
 
 class AreaRegisterPage extends StatefulWidget {

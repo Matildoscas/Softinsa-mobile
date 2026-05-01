@@ -60,7 +60,7 @@ class _HomePageState extends State<HomePage> {
 
                   Image.asset(
                     'lib/img/logo.png',
-                    height: 35, // Ajustei para 40 para não esticar demasiado a barra, mas podes usar 70 se preferires
+                    height: 35, 
                     fit: BoxFit.contain,
                   ),
 
