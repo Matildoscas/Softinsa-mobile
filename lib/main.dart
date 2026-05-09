@@ -1,20 +1,53 @@
-import 'package:flutter/material.dart'; // Importa a biblioteca principal do Flutter
-//import 'login.dart'; 
-import 'certificado.dart';
-//import 'database_service.dart';
+import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:convert';
+
+import 'screens/login.dart';
+//import 'screens/pagina_inicial.dart';
 
 void main() {
-  runApp(MyApp()); // Inicializa a app
+  runApp(const MyApp());
 }
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
+  Future<Map<String, dynamic>?> _checkLogin() async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('token');
+    final userString = prefs.getString('user');
+
+    if (token != null && userString != null) {
+      return jsonDecode(userString);
+    }
+
+    return null;
+  }
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      debugShowCheckedModeBanner: false, // Remove o banner de debug
-      home: CertificadoPage(userData: {}), // Define a página de login
+      debugShowCheckedModeBanner: false,
+      home: FutureBuilder<Map<String, dynamic>?>(
+        future: _checkLogin(),
+        builder: (context, snapshot) {
+
+          // loading
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Scaffold(
+              body: Center(child: CircularProgressIndicator()),
+            );
+          }
+
+          // se tem utilizador → entra direto
+          if (snapshot.hasData) {
+            //return HomePage(userData: snapshot.data!);
+          }
+
+          // senão → login
+          return const LoginPage();
+        },
+      ),
     );
   }
 }

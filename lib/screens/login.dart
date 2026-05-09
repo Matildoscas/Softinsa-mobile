@@ -1,7 +1,24 @@
 import 'package:flutter/material.dart';
+import 'dart:convert';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../services/api_service.dart';
 import 'register.dart';
-import 'database_service.dart';
-import 'pagina_inicial.dart';
+import 'pagina_principal.dart';
+
+
+/* LOGOUT - implementar num botão de logout que limpe o token e os dados do utilizador 
+
+  Future<void> logout(BuildContext context) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.clear();
+
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (context) => const LoginPage()),
+    );
+  }
+
+*/
 
 class LoginPage extends StatelessWidget {
   const LoginPage({super.key});
@@ -22,10 +39,94 @@ class LogPage extends StatefulWidget {
 class _LogPageState extends State<LogPage> {
   bool _obscureText = true;
 
-  // ✅ CONTROLLERS + DB SERVICE
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passController = TextEditingController();
-  final DatabaseService _dbService = DatabaseService();
+  final ApiService _apiService = ApiService();
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _passController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _fazerLogin() async {
+    if (_emailController.text.trim().isEmpty ||
+        _passController.text.isEmpty) {
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Preencha o email e a password!"),
+        ),
+      );
+
+      return;
+    }
+
+    try {
+
+      final response = await _apiService.login(
+        _emailController.text.trim(),
+        _passController.text,
+      );
+
+      if (!mounted) return;
+
+      // LOGIN OK
+      if (response['success'] == true) {
+
+        final user = response['user'];
+        final token = response['token'];
+
+        final prefs = await SharedPreferences.getInstance();
+
+        await prefs.setString('token', token);
+        await prefs.setString('user', jsonEncode(user));
+
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (context) => HomePage(userData: user),
+          ),
+        );
+
+        return;
+      }
+
+      // EMAIL NÃO VERIFICADO
+      if (response['emailNaoVerificado'] == true) {
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            backgroundColor: Colors.orange,
+            content: Text(
+              "Confirme o seu email antes de iniciar sessão.",
+            ),
+          ),
+        );
+
+        return;
+      }
+
+      // ERRO LOGIN
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            response['message'] ?? "Email ou password incorretos!",
+          ),
+        ),
+      );
+
+    } catch (e) {
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: Colors.red,
+          content: Text("Erro de ligação: $e"),
+        ),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -38,7 +139,8 @@ class _LogPageState extends State<LogPage> {
             // HEADER
             Container(
               color: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 25, vertical: 10),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 25, vertical: 10),
               width: double.infinity,
               child: Center(
                 child: Image.asset(
@@ -68,7 +170,6 @@ class _LogPageState extends State<LogPage> {
                           ),
                         ],
                       ),
-
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
@@ -86,9 +187,9 @@ class _LogPageState extends State<LogPage> {
 
                           const SizedBox(height: 20),
 
-                          // ✅ EMAIL FIELD COM CONTROLLER
                           TextField(
                             controller: _emailController,
+                            keyboardType: TextInputType.emailAddress,
                             decoration: const InputDecoration(
                               labelText: "Email",
                               prefixIcon: Icon(Icons.email_outlined),
@@ -98,7 +199,6 @@ class _LogPageState extends State<LogPage> {
 
                           const SizedBox(height: 15),
 
-                          // ✅ PASSWORD FIELD COM CONTROLLER
                           TextField(
                             controller: _passController,
                             obscureText: _obscureText,
@@ -111,46 +211,17 @@ class _LogPageState extends State<LogPage> {
                                       ? Icons.visibility_off
                                       : Icons.visibility,
                                 ),
-                                onPressed: () {
-                                  setState(() {
-                                    _obscureText = !_obscureText;
-                                  });
-                                },
+                                onPressed: () => setState(
+                                    () => _obscureText = !_obscureText),
                               ),
                               border: const OutlineInputBorder(),
                             ),
                           ),
 
-                          const SizedBox(height: 10),
+                          const SizedBox(height: 20),
 
-                          const SizedBox(height: 10),
-
-                          // ✅ BOTÃO LOGIN COM DB
                           ElevatedButton(
-                            onPressed: () async {
-                              final userDados =
-                                  await _dbService.loginUtilizador(
-                                _emailController.text,
-                                _passController.text,
-                              );
-
-                              if (userDados != null) {
-                                Navigator.pushReplacement(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) =>
-                                        HomePage(userData: userDados),
-                                  ),
-                                );
-                              } else {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text(
-                                        "Email ou Password incorretos!"),
-                                  ),
-                                );
-                              }
-                            },
+                            onPressed: _fazerLogin,
                             style: ElevatedButton.styleFrom(
                               backgroundColor: Colors.blueAccent,
                               foregroundColor: Colors.white,
@@ -185,12 +256,19 @@ class _LogPageState extends State<LogPage> {
                             child: const Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                Text("Ainda não tem conta? "),
+                                Text(
+                                  "Ainda não tem conta? ",
+                                  style: TextStyle(
+                                    color:
+                                        Color.fromARGB(255, 113, 125, 144),
+                                  ),
+                                ),
                                 Text(
                                   "Registar",
                                   style: TextStyle(
-                                      color: Colors.blueAccent,
-                                      fontWeight: FontWeight.bold),
+                                    color: Colors.blueAccent,
+                                    fontWeight: FontWeight.bold,
+                                  ),
                                 ),
                               ],
                             ),

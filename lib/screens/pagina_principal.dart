@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'database_service.dart';
+import '../services/api_service.dart';
 
 class HomePage extends StatefulWidget {
   final Map<String, dynamic> userData;
@@ -23,23 +23,39 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> carregarDados() async {
-    final db = DatabaseService();
+    final api = ApiService();
 
-    final p = await db.obterBadgesComProgresso(widget.userData['id']);
-    final r = await db.obterBadgesRecomendados(widget.userData['id']);
-    final e = await db.obterBadgeEspecial();
+    final p = await api.getBadgesProgresso(
+      widget.userData['id_utilizador'],
+    );
+
+    final r = await api.getBadgesRecomendados(
+      widget.userData['id_utilizador'],
+    );
+
+    final e = await api.getBadgeEspecial();
+
+    final dashboard = await api.getDashboard(
+      widget.userData['id_utilizador'],
+    );
 
     setState(() {
       progresso = p;
       recomendados = r;
       especial = e;
+
+      widget.userData['pontos'] =
+        int.parse(dashboard['total_pontos'].toString());
+
+      widget.userData['badges'] =
+        int.parse(dashboard['total_badges'].toString());
     });
   }
 
   @override
   Widget build(BuildContext context) {
 
-    String nomeCompleto = widget.userData['nome'] ?? 'Utilizador';
+    String nomeCompleto = widget.userData['nome_completo'] ?? 'Utilizador';
     String primeiroNome = nomeCompleto.split(' ')[0];
     int pontos = widget.userData['pontos'] ?? 0;
     int totalBadges = widget.userData['badges'] ?? 0;
