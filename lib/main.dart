@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'catalogo.dart'; // Certifica-te que o ficheiro catalogo.dart existe na pasta lib
+import 'catalogo.dart'; 
 import 'badges_progresso.dart';
 
 void main() {
@@ -37,9 +37,9 @@ class HomePage extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Image.asset(
-                 'assets/logo_softinsa.png',
-                  height: 40, // Ajusta a altura conforme necessário
-                  fit: BoxFit.contain,
+                    'assets/logo_softinsa.png',
+                    height: 40,
+                    fit: BoxFit.contain,
                   ),
                   Row(
                     children: [
@@ -65,96 +65,96 @@ class HomePage extends StatelessWidget {
               child: SingleChildScrollView(
                 child: Column(
                   children: [
-                   // ================= WELCOME CARD c =================
-Container(
-  margin: const EdgeInsets.all(16),
-  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 30), // Aumentado de 16 para 30
-  decoration: BoxDecoration(
-    gradient: const LinearGradient(
-      begin: Alignment.topLeft,
-      end: Alignment.bottomRight,
-      colors: [Color(0xFF4470AF), Color(0xFF3A5C94)],
-    ),
-    borderRadius: BorderRadius.circular(24), // Cantos ligeiramente mais arredondados
-    boxShadow: [
-      BoxShadow(
-        color: const Color(0xFF39639C).withValues(alpha: 0.3),
-        blurRadius: 15,
-        offset: const Offset(0, 8),
-      ),
-    ],
-  ),
-  child: Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      const Text(
-        "Bom dia, Utilizador!",
-        style: TextStyle(
-            color: Colors.white, 
-            fontSize: 22, // Texto maior
-            fontWeight: FontWeight.bold),
-      ),
-      const SizedBox(height: 24), // Mais espaço interno
-      
-      // LINHA DE BOTÕES
-      Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          buildInfoButton(
-            icon: Icons.emoji_events,
-            title: "Badges",
-            subtitle: "5 obtidos",
-            onTap: () {},
-          ),
-          buildInfoButton(
-            icon: Icons.star,
-            title: "Pontos",
-            subtitle: "90 total",
-            onTap: () {},
-          ),
-          buildInfoButton(
-            icon: Icons.note,
-            title: "Lembretes",
-            subtitle: "Ver mais",
-            onTap: () {},
-          ),
-        ],
-      )
-    ],
-  ),
-),
+                    // ================= WELCOME CARD =================
+                    Container(
+                      margin: const EdgeInsets.all(16),
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 30),
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [Color(0xFF4470AF), Color(0xFF3A5C94)],
+                        ),
+                        borderRadius: BorderRadius.circular(24),
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xFF39639C).withAlpha(76),
+                            blurRadius: 15,
+                            offset: const Offset(0, 8),
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            "Bom dia, Utilizador!",
+                            style: TextStyle(
+                                color: Colors.white, 
+                                fontSize: 22, 
+                                fontWeight: FontWeight.bold),
+                          ),
+                          const SizedBox(height: 24),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              buildInfoButton(
+                                icon: Icons.emoji_events,
+                                title: "Badges",
+                                subtitle: "5 obtidos",
+                                onTap: () {},
+                              ),
+                              buildInfoButton(
+                                icon: Icons.star,
+                                title: "Pontos",
+                                subtitle: "90 total",
+                                onTap: () {},
+                              ),
+                              buildInfoButton(
+                                icon: Icons.note,
+                                title: "Lembretes",
+                                subtitle: "Ver mais",
+                                onTap: () {},
+                              ),
+                            ],
+                          )
+                        ],
+                      ),
+                    ),
 
-// ================= BOTÃO CATÁLOGO (MAIS PEQUENO E EQUILIBRADO) =================
-Center(
-  child: SizedBox(
-    width: 200, // Largura fixa para não ocupar o ecrã todo
-    height: 40,  // Altura reduzida
-    child: ElevatedButton.icon(
-      style: ElevatedButton.styleFrom(
-        backgroundColor: Colors.white,
-        foregroundColor: const Color.fromARGB(255, 0, 0, 0),
-        side: BorderSide(color: Colors.grey.shade300), // Borda fina para definição
-        shape: const StadiumBorder(),
-        elevation: 2,
-        padding: EdgeInsets.zero, // Remove padding interno extra
-      ),
-      onPressed: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (context) => const CatalogoPage()),
-        );
-      },
-      icon: const Icon(Icons.grid_view, size: 16), // Ícone menor
-      label: const Text(
-        "Catálogo de Badges", 
-        style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)
-      ),
-    ),
-  ),
-),
+                    // ================= BOTÃO CATÁLOGO =================
+                    Center(
+                      child: SizedBox(
+                        width: 200,
+                        height: 40,
+                        child: ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.white,
+                            foregroundColor: const Color.fromARGB(255, 0, 0, 0),
+                            side: BorderSide(color: Colors.grey.shade300),
+                            shape: const StadiumBorder(),
+                            elevation: 2,
+                            padding: EdgeInsets.zero,
+                          ),
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (context) => const CatalogoPage()),
+                            );
+                          },
+                          icon: const Icon(Icons.grid_view, size: 16),
+                          label: const Text(
+                            "Catálogo de Badges", 
+                            style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)
+                          ),
+                        ),
+                      ),
+                    ),
 
                     // ================= SECÇÕES DE BADGES =================
-                    sectionHeader("Badges com progresso", "Tem 1 badge com progresso"),
+                    // Nota: Passamos o "context" aqui para a função sectionHeader
+                    sectionHeader(context, "Badges com progresso", "Tem 1 badge com progresso"),
+                    
                     badgeCard(
                       title: "The Watchtower - Nível A",
                       description: "Observability & Performance Specialist",
@@ -162,7 +162,8 @@ Center(
                       progress: 0.7,
                     ),
 
-                    sectionHeader("Recomendação de Badge", "O nosso sistema recomenda:"),
+                    sectionHeader(context, "Recomendação de Badge", "O nosso sistema recomenda:"),
+                    
                     badgeCard(
                       title: "Script Initiate - Nível A",
                       description: "Automation & Deployment (CI/CD)",
@@ -212,7 +213,7 @@ Center(
           margin: const EdgeInsets.symmetric(horizontal: 3),
           padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
           decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.15),
+            color: Colors.white.withAlpha(38),
             borderRadius: BorderRadius.circular(12),
           ),
           child: Row(
@@ -220,7 +221,7 @@ Center(
               Container(
                 padding: const EdgeInsets.all(4),
                 decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.2),
+                  color: Colors.white.withAlpha(51),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Icon(icon, color: Colors.white, size: 16),
@@ -252,7 +253,8 @@ Center(
     );
   }
 
-  Widget sectionHeader(String title, String subtitle) {
+  // ATUALIZAÇÃO AQUI: Adicionado BuildContext context
+  Widget sectionHeader(BuildContext context, String title, String subtitle) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
       child: Row(
@@ -266,7 +268,13 @@ Center(
             ],
           ),
           TextButton(
-            onPressed: () {},
+            onPressed: () {
+              // Navega para a página de progresso
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const BadgeProgressoPage()),
+              );
+            },
             child: const Text("Ver Todos", style: TextStyle(fontSize: 12)),
           )
         ],
@@ -287,10 +295,10 @@ Center(
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.grey.withValues(alpha: 0.2)),
+        border: Border.all(color: Colors.grey.withAlpha(51)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
+            color: Colors.black.withAlpha(13),
             blurRadius: 10,
             offset: const Offset(0, 4),
           )
@@ -298,10 +306,10 @@ Center(
       ),
       child: Row(
         children: [
-          CircleAvatar(
+          const CircleAvatar(
             radius: 28,
-            backgroundColor: const Color(0xFFF0F7FF),
-            child: const Text("🏅", style: TextStyle(fontSize: 24)),
+            backgroundColor: Color(0xFFF0F7FF),
+            child: Text("🏅", style: TextStyle(fontSize: 24)),
           ),
           const SizedBox(width: 12),
           Expanded(
