@@ -45,6 +45,11 @@ class _AreaRegPageState extends State<AreaRegisterPage> {
       print("Áreas recebidas:");
       print(lista);
 
+      if (lista.isNotEmpty) {
+        print("KEYS DA PRIMEIRA ÁREA: ${lista.first.keys.toList()}");
+        print("PRIMEIRA ÁREA COMPLETA: ${lista.first}");
+      }
+
       setState(() {
         _areas = lista;
         _isLoading = false;

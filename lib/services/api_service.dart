@@ -2,8 +2,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 class ApiService {
-  static const String baseUrl = 'http://192.168.1.76:3000';
-  
+  static const String baseUrl = 'http://192.168.1.76:3000/api';
 
   // GET utilizadores
   Future<List<dynamic>> getUtilizadores() async {
@@ -33,7 +32,6 @@ class ApiService {
     String email,
     String password,
   ) async {
-
     final response = await http.post(
       Uri.parse('$baseUrl/auth/login'),
       headers: {
@@ -47,26 +45,13 @@ class ApiService {
 
     final data = jsonDecode(response.body);
 
-    // LOGIN OK
     if (response.statusCode == 200) {
-
       return {
         'success': true,
         ...data,
       };
     }
 
-    // EMAIL NÃO VERIFICADO
-    if (response.statusCode == 403) {
-
-      return {
-        'success': false,
-        'emailNaoVerificado': true,
-        'message': data['error'],
-      };
-    }
-
-    // OUTROS ERROS
     return {
       'success': false,
       'message': data['error'] ?? 'Erro login',
@@ -93,24 +78,40 @@ class ApiService {
         }),
       );
 
-      print("Resposta do Servidor: ${response.statusCode}");
-      print("Corpo da Resposta: ${response.body}");
-
-      // O status 201 é o que o seu auth.js envia quando corre bem
       return response.statusCode == 201;
-      
     } catch (e) {
-      print("ERRO NA API (REGISTER): $e");
       return false;
     }
   }
 
-  Future<List<Map<String, dynamic>>> getAreas() async {
-    final response = await http.get(Uri.parse('$baseUrl/areas'));
+  // NOTIFICAÇÕES
+  Future<List<Map<String, dynamic>>> getNotificacoes(int userId) async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/notificacoes/$userId'),
+    );
 
     if (response.statusCode == 200) {
       final List data = jsonDecode(response.body);
+      return data.map((e) => e as Map<String, dynamic>).toList();
+    }
 
+    throw Exception('Erro ao carregar notificações');
+  }
+
+  Future<List<Map<String, dynamic>>> getAreas() async {
+    print("URL:");
+    print('$baseUrl/areas');
+
+    final response = await http.get(Uri.parse('$baseUrl/areas'));
+
+    print("STATUS:");
+    print(response.statusCode);
+
+    print("BODY:");
+    print(response.body);
+
+    if (response.statusCode == 200) {
+      final List data = jsonDecode(response.body);
       return data.map((e) => e as Map<String, dynamic>).toList();
     } else {
       throw Exception('Erro ao carregar áreas');
@@ -118,7 +119,7 @@ class ApiService {
   }
 
   // DASHBOARD
-Future<Map<String, dynamic>> getDashboard(int userId) async {
+  Future<Map<String, dynamic>> getDashboard(int userId) async {
     final response = await http.get(
       Uri.parse('$baseUrl/dashboard/$userId'),
     );
@@ -130,24 +131,22 @@ Future<Map<String, dynamic>> getDashboard(int userId) async {
     throw Exception('Erro dashboard');
   }
 
-
   // BADGES PROGRESSO
   Future<List<Map<String, dynamic>>> getBadgesProgresso(int userId) async {
-
     final response = await http.get(
-      Uri.parse('$baseUrl/badges/progresso/$userId'),
+      Uri.parse('$baseUrl/badges/conquistados/$userId'),
     );
 
+    print(response.statusCode);
+    print(response.body);
+
     if (response.statusCode == 200) {
-
       final List data = jsonDecode(response.body);
-
       return data.map((e) => e as Map<String, dynamic>).toList();
     }
 
     throw Exception('Erro badges progresso');
   }
-
 
   // BADGES RECOMENDADOS
   Future<List<Map<String, dynamic>>> getBadgesRecomendados(int userId) async {
@@ -156,15 +155,12 @@ Future<Map<String, dynamic>> getDashboard(int userId) async {
     );
 
     if (response.statusCode == 200) {
-
       final List data = jsonDecode(response.body);
-
       return data.map((e) => e as Map<String, dynamic>).toList();
     }
 
     throw Exception('Erro badges');
   }
-
 
   // BADGE ESPECIAL
   Future<Map<String, dynamic>?> getBadgeEspecial() async {
@@ -173,14 +169,57 @@ Future<Map<String, dynamic>> getDashboard(int userId) async {
     );
 
     if (response.statusCode == 200) {
-
       final data = jsonDecode(response.body);
-
       if (data == null) return null;
-
       return data as Map<String, dynamic>;
     }
 
     throw Exception('Erro badge especial');
+  }
+
+  // CATÁLOGO — TODOS OS BADGES
+  Future<List<Map<String, dynamic>>> getTodosBadges() async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/badges'),
+    );
+
+    print("Status: ${response.statusCode}");
+    print("Body: ${response.body}");
+
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      print(data.runtimeType);
+
+      final List lista = data;
+      return lista.map((e) => e as Map<String, dynamic>).toList();
+    }
+
+    throw Exception('Erro ao carregar catálogo de badges');
+  }
+
+  // CATÁLOGO — BADGES OBTIDOS PELO UTILIZADOR
+  Future<List<Map<String, dynamic>>> getBadgesObtidos(int userId) async {
+  final response = await http.get(
+    Uri.parse('$baseUrl/badges/conquistados/$userId'),
+  );
+
+    if (response.statusCode == 200) {
+      final List data = jsonDecode(response.body);
+      return data.map((e) => e as Map<String, dynamic>).toList();
+    }
+
+    throw Exception('Erro ao carregar badges obtidos');
+  }
+
+  Future<Map<String, dynamic>> getBadgeById(int id) async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/badges/$id'),
+    );
+
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    }
+
+    throw Exception('Erro ao carregar badge');
   }
 }

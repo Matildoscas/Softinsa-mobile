@@ -6,7 +6,7 @@ class Utilizador {
   final DateTime? dataCriacao;
   final String estadoConta;
   final String password;
-  final bool aceitarTermos; 
+  final bool aceitarTermos;
 
   Utilizador({
     required this.id,
@@ -15,8 +15,8 @@ class Utilizador {
     required this.contacto,
     required this.dataCriacao,
     required this.estadoConta,
-    required this.password, 
-    this.aceitarTermos = false, // Valor padrão para evitar nulos
+    required this.password,
+    this.aceitarTermos = false,
   });
 
   // Converter JSON → Objeto
@@ -27,10 +27,9 @@ class Utilizador {
       email: json['email'] ?? '',
       contacto: json['contacto'] ?? '',
       estadoConta: json['estado_conta'] ?? '',
-      password: json['password'],
-      // Converte String do JSON para DateTime
-      dataCriacao: json['data_criacao'] != null 
-          ? DateTime.tryParse(json['data_criacao'].toString()) 
+      password: json['password'] ?? '', // ✅ null safety adicionado
+      dataCriacao: json['data_criacao'] != null
+          ? DateTime.tryParse(json['data_criacao'].toString())
           : null,
       aceitarTermos: json['aceitar_termos'] == true || json['aceitar_termos'] == 1,
     );

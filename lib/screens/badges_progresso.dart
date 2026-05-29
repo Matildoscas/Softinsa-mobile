@@ -174,7 +174,7 @@ class _BadgesEmProgressoState extends State<BadgesEmProgresso> {
                       ),
                     )
                   else
-                    ...filtrados.map((badge) => _badgeProgressoCard(badge)).toList(),
+                    ...filtrados.map((badge) => _badgeProgressoCard(badge)),
 
                   SizedBox(height: 20),
 

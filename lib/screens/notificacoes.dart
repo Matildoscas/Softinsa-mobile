@@ -106,7 +106,7 @@ class Notificacoes extends StatelessWidget {
 
                   const SizedBox(height: 8),
 
-                  ..._notificacoes.map((n) => _notificacaoItem(n)).toList(),
+                  ..._notificacoes.map((n) => _notificacaoItem(n)),
                 ],
               ),
             ),

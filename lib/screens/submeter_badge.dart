@@ -1,7 +1,17 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:file_picker/file_picker.dart';
 
 class SubmeterBadge extends StatefulWidget {
-  const SubmeterBadge({super.key});
+  // 1. Definir os dados que a página precisa de receber
+  final String badgeName;
+  final int idNivelBadge;
+
+  const SubmeterBadge({
+    super.key,
+    required this.badgeName,
+    required this.idNivelBadge,
+  });
 
   @override
   State<SubmeterBadge> createState() => _SubmeterBadgeState();
@@ -9,9 +19,46 @@ class SubmeterBadge extends StatefulWidget {
 
 class _SubmeterBadgeState extends State<SubmeterBadge> {
   final TextEditingController _descricaoController = TextEditingController();
-  String? _ficheiroAnexado;
+  
+  // Variáveis para o ficheiro real
+  File? _ficheiroSelecionado;
+  String? _nomeFicheiro;
+  
   int _charCount = 0;
   final int _minChars = 500;
+  bool _isLoading = false;
+
+  // ================= AS TUAS FUNÇÕES DE LÓGICA =================
+  String obterNivel(dynamic idNivel) {
+    switch (idNivel) {
+      case 1:
+        return 'A';
+      case 2:
+        return 'B';
+      case 3:
+        return 'C';
+      case 4:
+        return 'D';
+      case 5:
+        return 'E';
+      default:
+        return '-';
+    }
+  }
+
+  Color obterCorNivel(String letraNivel) {
+    switch (letraNivel) {
+      case 'A':
+      case 'B':
+      case 'C':
+      case 'D':
+        return const Color(0xFF2E7D32); 
+      case 'E':
+        return const Color.fromARGB(255, 213, 181, 21); 
+      default:
+        return Colors.grey;
+    }
+  }
 
   @override
   void initState() {
@@ -29,34 +76,84 @@ class _SubmeterBadgeState extends State<SubmeterBadge> {
     super.dispose();
   }
 
-  bool get _podeSubmeter => _charCount >= _minChars && _ficheiroAnexado != null;
+  bool get _podeSubmeter => _charCount >= _minChars && _ficheiroSelecionado != null && !_isLoading;
 
-  void _submeter() {
-    if (_podeSubmeter) {
+  // ================= LÓGICA: SELECIONAR FICHEIRO REAL =================
+  Future<void> _selecionarFicheiro() async {
+    try {
+      FilePickerResult? result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['pdf', 'doc', 'docx', 'jpg', 'png'],
+      );
+
+      if (result != null && result.files.single.path != null) {
+        setState(() {
+          _ficheiroSelecionado = File(result.files.single.path!);
+          _nomeFicheiro = result.files.single.name;
+        });
+      }
+    } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text("Badge submetido para validação!"),
+        SnackBar(content: Text("Erro ao selecionar ficheiro: $e")),
+      );
+    }
+  }
+
+  // ================= LÓGICA: ENVIO PARA A BASE DE DADOS =================
+  Future<void> _submeterEvidenciaBD() async {
+    setState(() => _isLoading = true);
+
+    try {
+      String mockStorageUrl = "storage/evidencias/$_nomeFicheiro";
+      // 2. Agora usamos o widget.idNivelBadge que veio da tela anterior
+      String letraNivelAtual = obterNivel(widget.idNivelBadge);
+
+      // Aqui farias o envio do objeto para o teu banco de dados
+      await Future.delayed(const Duration(seconds: 2));
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Evidências enviadas com sucesso!"),
           backgroundColor: Color(0xFF4470AF),
         ),
       );
+      Navigator.pop(context);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text("Erro ao submeter: $e"),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  void _submeter() {
+    if (_podeSubmeter) {
+      _submeterEvidenciaBD();
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Color(0xFFF7F7F7),
+      backgroundColor: const Color(0xFFF7F7F7),
       body: SafeArea(
         child: Column(
           children: [
             // ================= HEADER =================
             Padding(
-              padding: EdgeInsets.all(16.0),
+              padding: const EdgeInsets.all(16.0),
               child: Row(
                 children: [
                   GestureDetector(
                     onTap: () => Navigator.pop(context),
-                    child: Text(
+                    child: const Text(
                       "SOFTINSA",
                       style: TextStyle(
                         fontSize: 22,
@@ -65,25 +162,19 @@ class _SubmeterBadgeState extends State<SubmeterBadge> {
                       ),
                     ),
                   ),
-                  Spacer(),
+                  const Spacer(),
                   Container(
                     width: 38,
                     height: 38,
-                    decoration: BoxDecoration(
-                      color: Color(0xFF4470AF),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(Icons.notifications_outlined, color: Colors.white, size: 20),
+                    decoration: const BoxDecoration(color: Color(0xFF4470AF), shape: BoxShape.circle),
+                    child: const Icon(Icons.notifications_outlined, color: Colors.white, size: 20),
                   ),
-                  SizedBox(width: 8),
+                  const SizedBox(width: 8),
                   Container(
                     width: 38,
                     height: 38,
-                    decoration: BoxDecoration(
-                      color: Color(0xFF4470AF),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(Icons.person_outline, color: Colors.white, size: 20),
+                    decoration: const BoxDecoration(color: Color(0xFF4470AF), shape: BoxShape.circle),
+                    child: const Icon(Icons.person_outline, color: Colors.white, size: 20),
                   ),
                 ],
               ),
@@ -92,12 +183,12 @@ class _SubmeterBadgeState extends State<SubmeterBadge> {
             // ================= CONTEÚDO COM SCROLL =================
             Expanded(
               child: ListView(
-                padding: EdgeInsets.symmetric(horizontal: 16),
+                padding: const EdgeInsets.symmetric(horizontal: 16),
                 children: [
                   // ====== BOTÃO VOLTAR ======
                   InkWell(
                     onTap: () => Navigator.pop(context),
-                    child: Row(
+                    child: const Row(
                       children: [
                         Icon(Icons.arrow_back, color: Color(0xFF39639C)),
                         SizedBox(width: 8),
@@ -106,64 +197,58 @@ class _SubmeterBadgeState extends State<SubmeterBadge> {
                     ),
                   ),
 
-                  SizedBox(height: 16),
+                  const SizedBox(height: 16),
 
                   // ====== CARD BADGE PRINCIPAL ======
                   Container(
                     width: double.infinity,
-                    padding: EdgeInsets.symmetric(vertical: 24, horizontal: 16),
+                    padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: Color(0xFF39639C).withValues(alpha: 0.4)),
+                      border: Border.all(color: const Color(0xFF39639C).withAlpha(102)),
                     ),
                     child: Column(
                       children: [
-                        CircleAvatar(
+                        const CircleAvatar(
                           radius: 45,
                           backgroundColor: Color(0xFFEEEEEE),
                           child: Text("🏅", style: TextStyle(fontSize: 42)),
                         ),
-                        SizedBox(height: 12),
+                        const SizedBox(height: 12),
                         Text(
-                          "Business Process Master",
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.black87,
-                          ),
+                          widget.badgeName, // 3. Usa o nome dinâmico aqui
+                          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: Colors.black87),
                         ),
                       ],
                     ),
                   ),
 
-                  SizedBox(height: 16),
+                  const SizedBox(height: 16),
 
-                  // ====== CARD NÍVEL ======
+                  // ====== CARD NÍVEL (DINÂMICO E CONSISTENTE) ======
                   Container(
-                    padding: EdgeInsets.all(16),
+                    padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: Color(0xFF39639C).withValues(alpha: 0.4)),
+                      border: Border.all(color: const Color(0xFF39639C).withAlpha(102)),
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
+                        const Text(
                           "Nível",
                           style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                         ),
-                        SizedBox(height: 12),
-                        // Círculos A B C D E
+                        const SizedBox(height: 12),
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceAround,
                           children: ["A", "B", "C", "D", "E"]
                               .map((l) => _nivelCircle(l))
                               .toList(),
                         ),
-                        SizedBox(height: 12),
-                        // Legenda em 2 colunas
+                        const SizedBox(height: 12),
                         Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -199,21 +284,18 @@ class _SubmeterBadgeState extends State<SubmeterBadge> {
                     ),
                   ),
 
-                  SizedBox(height: 16),
+                  const SizedBox(height: 16),
 
                   // ====== SECÇÃO DESCRIÇÃO ======
-                  Row(
+                  const Row(
                     children: [
                       Icon(Icons.description_outlined, color: Colors.black87, size: 20),
                       SizedBox(width: 6),
-                      Text(
-                        "Descrição",
-                        style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
-                      ),
+                      Text("Descrição", style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
                     ],
                   ),
 
-                  SizedBox(height: 8),
+                  const SizedBox(height: 8),
 
                   Container(
                     decoration: BoxDecoration(
@@ -224,72 +306,61 @@ class _SubmeterBadgeState extends State<SubmeterBadge> {
                     child: TextField(
                       controller: _descricaoController,
                       maxLines: 7,
+                      enabled: !_isLoading,
                       decoration: InputDecoration(
                         hintText: "Descreva o que aprendeu e como aplicou os conhecimentos...",
                         hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 13),
                         border: InputBorder.none,
-                        contentPadding: EdgeInsets.all(14),
+                        contentPadding: const EdgeInsets.all(14),
                       ),
                     ),
                   ),
 
-                  SizedBox(height: 6),
+                  const SizedBox(height: 6),
 
                   Text(
                     "Mínimo 500 caracteres ($_charCount/$_minChars)",
                     style: TextStyle(
                       fontSize: 12,
-                      color: _charCount >= _minChars
-                          ? Colors.green.shade600
-                          : Colors.grey,
+                      color: _charCount >= _minChars ? Colors.green.shade600 : Colors.grey,
                     ),
                   ),
 
-                  SizedBox(height: 16),
+                  const SizedBox(height: 16),
 
                   // ====== SECÇÃO ANEXAR FICHEIRO ======
-                  Row(
+                  const Row(
                     children: [
                       Icon(Icons.upload_outlined, color: Colors.black87, size: 20),
                       SizedBox(width: 6),
-                      Text(
-                        "Anexar Ficheiro",
-                        style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
-                      ),
+                      Text("Anexar Ficheiro", style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
                     ],
                   ),
 
-                  SizedBox(height: 8),
+                  const SizedBox(height: 8),
 
                   GestureDetector(
-                    onTap: () {
-                      // Simulação de seleção de ficheiro
-                      setState(() {
-                        _ficheiroAnexado = "documento_evidencia.pdf";
-                      });
-                    },
+                    onTap: _isLoading ? null : _selecionarFicheiro,
                     child: Container(
                       width: double.infinity,
-                      padding: EdgeInsets.symmetric(vertical: 28, horizontal: 16),
+                      padding: const EdgeInsets.symmetric(vertical: 28, horizontal: 16),
                       decoration: BoxDecoration(
-                        color: Color(0xFFF0F4FA),
+                        color: const Color(0xFFF0F4FA),
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(
-                          color: _ficheiroAnexado != null
-                              ? Color(0xFF39639C)
-                              : Colors.grey.shade300,
+                          color: _nomeFicheiro != null ? const Color(0xFF39639C) : Colors.grey.shade300,
                         ),
                       ),
-                      child: _ficheiroAnexado != null
+                      child: _nomeFicheiro != null
                           ? Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                Icon(Icons.check_circle, color: Color(0xFF39639C), size: 22),
-                                SizedBox(width: 8),
+                                const Icon(Icons.check_circle, color: Color(0xFF39639C), size: 22),
+                                const SizedBox(width: 8),
                                 Flexible(
                                   child: Text(
-                                    _ficheiroAnexado!,
-                                    style: TextStyle(
+                                    _nomeFicheiro!,
+                                    style: const TextStyle(
                                       color: Color(0xFF39639C),
                                       fontWeight: FontWeight.w500,
                                       fontSize: 13,
@@ -297,19 +368,25 @@ class _SubmeterBadgeState extends State<SubmeterBadge> {
                                     overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
+                                const SizedBox(width: 8),
+                                InkWell(
+                                  onTap: () {
+                                    setState(() {
+                                      _ficheiroSelecionado = null;
+                                      _nomeFicheiro = null;
+                                    });
+                                  },
+                                  child: const Icon(Icons.cancel, color: Colors.redAccent, size: 20),
+                                )
                               ],
                             )
-                          : Column(
+                          : const Column(
                               children: [
                                 Icon(Icons.upload_outlined, color: Colors.grey, size: 28),
                                 SizedBox(height: 6),
                                 Text(
                                   "Clique para fazer upload",
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.w500,
-                                    fontSize: 15,
-                                    color: Colors.black87,
-                                  ),
+                                  style: TextStyle(fontWeight: FontWeight.w500, fontSize: 15, color: Colors.black87),
                                 ),
                                 SizedBox(height: 4),
                                 Text(
@@ -321,15 +398,15 @@ class _SubmeterBadgeState extends State<SubmeterBadge> {
                     ),
                   ),
 
-                  SizedBox(height: 24),
+                  const SizedBox(height: 24),
                 ],
               ),
             ),
 
-            // ================= BOTÃO SUBMETER (FIXO EM BAIXO) =================
+            // ================= BOTÃO SUBMETER =================
             Container(
-              color: Color(0xFFF7F7F7),
-              padding: EdgeInsets.fromLTRB(16, 8, 16, 8),
+              color: const Color(0xFFF7F7F7),
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
               child: Column(
                 children: [
                   SizedBox(
@@ -337,33 +414,29 @@ class _SubmeterBadgeState extends State<SubmeterBadge> {
                     height: 50,
                     child: ElevatedButton.icon(
                       onPressed: _podeSubmeter ? _submeter : null,
-                      icon: Icon(Icons.check_circle_outline, color: Colors.white),
+                      icon: _isLoading
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                          : const Icon(Icons.check_circle_outline, color: Colors.white),
                       label: Text(
-                        "Submeter para Validação",
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                        ),
+                        _isLoading ? "A guardar..." : "Submeter para Validação",
+                        style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600),
                       ),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: Color(0xFF2C5FD4),
-                        disabledBackgroundColor: Color(0xFF2C5FD4).withValues(alpha: 0.6),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(30),
-                        ),
+                        backgroundColor: const Color(0xFF2C5FD4),
+                        disabledBackgroundColor: const Color(0xFF2C5FD4).withAlpha(153),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
                         elevation: 0,
                       ),
                     ),
                   ),
-                  SizedBox(height: 6),
-                  if (!_podeSubmeter)
+                  const SizedBox(height: 6),
+                  if (!_podeSubmeter && !_isLoading)
                     Text(
                       "Preencha todos os campos para submeter",
-                      style: TextStyle(
-                        color: Colors.orange.shade700,
-                        fontSize: 12,
-                      ),
+                      style: TextStyle(color: Colors.orange.shade700, fontSize: 12),
                     ),
                 ],
               ),
@@ -374,15 +447,24 @@ class _SubmeterBadgeState extends State<SubmeterBadge> {
     );
   }
 
-  // ====== Widget: Círculo de nível ======
+  // ====== Widget: Círculo de nível adaptado às tuas funções ======
   Widget _nivelCircle(String label) {
+    // 4. Agora usa widget.idNivelBadge dinamicamente
+    String letraNivelBadge = obterNivel(widget.idNivelBadge);
+    
+    bool isCurrent = letraNivelBadge == label;
+    Color corCirculo = isCurrent ? obterCorNivel(label) : Colors.grey.shade300;
+
     return Container(
       width: 48,
       height: 48,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: Colors.white,
-        border: Border.all(color: Color(0xFF39639C).withValues(alpha: 0.6), width: 1.5),
+        color: isCurrent ? corCirculo : Colors.white,
+        border: Border.all(
+          color: isCurrent ? corCirculo : Colors.grey.shade400,
+          width: isCurrent ? 2.5 : 1.5,
+        ),
       ),
       alignment: Alignment.center,
       child: Text(
@@ -390,20 +472,16 @@ class _SubmeterBadgeState extends State<SubmeterBadge> {
         style: TextStyle(
           fontWeight: FontWeight.bold,
           fontSize: 16,
-          color: Colors.black87,
+          color: isCurrent ? Colors.white : Colors.black54,
         ),
       ),
     );
   }
 
-  // ====== Widget: Legenda de nível ======
   Widget _legendaItem(String texto) {
     return Padding(
-      padding: EdgeInsets.only(bottom: 2),
-      child: Text(
-        texto,
-        style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
-      ),
+      padding: const EdgeInsets.only(bottom: 2),
+      child: Text(texto, style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
     );
   }
 }

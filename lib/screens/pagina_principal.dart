@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
+import 'notificacoes_drop.dart';
+import 'perfil_drop.dart';
+import 'login.dart';
+import 'catalogo_badges.dart';
 
 class HomePage extends StatefulWidget {
   final Map<String, dynamic> userData;
@@ -39,72 +43,44 @@ class _HomePageState extends State<HomePage> {
       widget.userData['id_utilizador'],
     );
 
+    print("DASHBOARD:");
+    print(dashboard);
+
     setState(() {
       progresso = p;
       recomendados = r;
       especial = e;
 
       widget.userData['pontos'] =
-        int.parse(dashboard['total_pontos'].toString());
+          int.tryParse(dashboard['total_pontos'].toString()) ?? 0;
 
       widget.userData['badges'] =
-        int.parse(dashboard['total_badges'].toString());
+          int.tryParse(dashboard['total_badges'].toString()) ?? 0;
     });
   }
 
   @override
   Widget build(BuildContext context) {
-
     String nomeCompleto = widget.userData['nome_completo'] ?? 'Utilizador';
     String primeiroNome = nomeCompleto.split(' ')[0];
     int pontos = widget.userData['pontos'] ?? 0;
     int totalBadges = widget.userData['badges'] ?? 0;
 
+    // Definimos a altura do header para saber quanto espaço dar de margem ao conteúdo
+    const double headerHeight = 65.0; 
+
     return Scaffold(
       backgroundColor: const Color(0xFFF7F7F7),
       body: SafeArea(
-        child: Column(
+        child: Stack( // Alterado de Column para Stack para permitir sobreposição
           children: [
-
-            // ================= HEADER =================
-            Container(
-              color: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-
-                  Image.asset(
-                    'lib/img/logo.png',
-                    height: 35, 
-                    fit: BoxFit.contain,
-                  ),
-
-                  Row(
-                    children: const [
-                      CircleAvatar(
-                        radius: 16,
-                        backgroundColor: Colors.blue,
-                        child: Icon(Icons.notifications, color: Colors.white, size: 18),
-                      ),
-                      SizedBox(width: 10),
-                      CircleAvatar(
-                        radius: 16,
-                        backgroundColor: Colors.blue,
-                        child: Icon(Icons.person, color: Colors.white, size: 18),
-                      ),
-                    ],
-                  )
-                ],
-              ),
-            ),
-
-            // ================= CONTEÚDO =================
-            Expanded(
+            
+            // 1. CONTEÚDO (Fica por baixo na Stack, mas tem um Padding para não tapar o Header)
+            Positioned.fill(
               child: SingleChildScrollView(
+                padding: const EdgeInsets.only(top: headerHeight), // Espaço para o Header não tapar o topo
                 child: Column(
                   children: [
-
                     // ================= WELCOME CARD =================
                     Container(
                       margin: const EdgeInsets.all(16),
@@ -118,7 +94,6 @@ class _HomePageState extends State<HomePage> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-
                           Text(
                             "Bom dia, $primeiroNome!",
                             style: const TextStyle(
@@ -127,27 +102,22 @@ class _HomePageState extends State<HomePage> {
                               fontWeight: FontWeight.bold,
                             ),
                           ),
-
                           const SizedBox(height: 20),
-
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-
                               buildInfoButton(
                                 icon: Icons.emoji_events,
                                 title: "Badges",
                                 subtitle: "$totalBadges obtidos",
                                 onTap: () {},
                               ),
-
                               buildInfoButton(
                                 icon: Icons.star,
                                 title: "Pontos totais",
                                 subtitle: "$pontos pontos",
                                 onTap: () {},
                               ),
-
                               buildInfoButton(
                                 icon: Icons.note,
                                 title: "Lembretes",
@@ -167,7 +137,16 @@ class _HomePageState extends State<HomePage> {
                         shape: const StadiumBorder(),
                         elevation: 4,
                       ),
-                      onPressed: () {},
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => CatalogoBadgesPage(
+                              userData: widget.userData,
+                            ),
+                          ),
+                        );
+                      },
                       icon: const Icon(Icons.grid_view),
                       label: const Text("Catálogo de Badges"),
                     ),
@@ -175,7 +154,7 @@ class _HomePageState extends State<HomePage> {
                     const SizedBox(height: 20),
 
                     // ================= PROGRESSO =================
-                    sectionHeader("Badges com progresso", "Em desenvolvimento"),
+                    sectionHeader("Badges Obtidos", "Badges em progresso"),
 
                     if (progresso.isEmpty)
                       const Padding(
@@ -184,11 +163,11 @@ class _HomePageState extends State<HomePage> {
                       )
                     else
                       ...progresso.map((b) => badgeCard(
-                        title: b['nome'],
-                        description: b['descricao'],
-                        points: b['pontos'],
-                        progress: b['progress'], // 🔥 agora 0
-                      )),
+                            title: b['nome'],
+                            description: b['descricao'],
+                            points: b['pontos'],
+                            progress: b['progress'],
+                          )),
 
                     // ================= RECOMENDAÇÃO =================
                     sectionHeader("Recomendação de Badge", "Sugestão baseada na sua área"),
@@ -200,10 +179,10 @@ class _HomePageState extends State<HomePage> {
                       )
                     else
                       ...recomendados.map((b) => badgeCard(
-                        title: b['nome'],
-                        description: b['descricao'],
-                        points: b['pontos'],
-                      )),
+                            title: b['nome'],
+                            description: b['descricao'],
+                            points: b['pontos'],
+                          )),
 
                     // ================= ESPECIAL =================
                     if (especial != null) ...[
@@ -214,7 +193,6 @@ class _HomePageState extends State<HomePage> {
                           style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
                         ),
                       ),
-
                       badgeCard(
                         title: especial!['nome'],
                         description: especial!['descricao'],
@@ -222,11 +200,53 @@ class _HomePageState extends State<HomePage> {
                         highlight: true,
                       ),
                     ],
-
                   ],
                 ),
               ),
             ),
+
+            // 2. HEADER (Colocado em último na Stack para ficar em PRIMEIRO PLANO)
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              height: headerHeight,
+              child: Container(
+                color: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Image.asset(
+                      'lib/img/logo.png',
+                      height: 35,
+                      fit: BoxFit.contain,
+                    ),
+                    Row(
+                      children: [
+                        NotificacoesDropdown(userId: widget.userData['id_utilizador']),
+                        const SizedBox(width: 10, ),
+                        PerfilDropdown(
+                          onVerPerfil: () {
+                            print("Ver Perfil");
+                            // Exemplo: Navigator.push(context, MaterialPageRoute(...));
+                          },
+                          onTerminarSessao: () {
+                            print("Terminar Sessão");
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (context) => const LoginPage()),
+                            );
+                          },
+                        ),
+                        const SizedBox(width: 10),
+                      ],
+                    )
+                  ],
+                ),
+              ),
+            ),
+            
           ],
         ),
       ),
