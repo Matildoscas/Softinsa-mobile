@@ -3,7 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 
 import 'screens/login.dart';
-//import 'screens/pagina_inicial.dart';
+import 'screens/pagina_principal.dart';
 
 void main() {
   runApp(const MyApp());
@@ -28,6 +28,13 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
+      routes: {
+        '/login': (context) => const LoginPage(),
+        '/home': (context) => HomePage(userData: {}),
+
+        //'/perfil': (context) => const ProfilePage(),
+        //'/definicoes': (context) => const SettingsPage(),
+      },
       home: FutureBuilder<Map<String, dynamic>?>(
         future: _checkLogin(),
         builder: (context, snapshot) {

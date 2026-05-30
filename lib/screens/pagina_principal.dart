@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
+import '../pop/notificacoes.dart';
+import '../pop/definicoes.dart';
+import 'catalogo_badges.dart';
 
 class HomePage extends StatefulWidget {
   final Map<String, dynamic> userData;
@@ -21,6 +24,9 @@ class _HomePageState extends State<HomePage> {
     super.initState();
     carregarDados();
   }
+
+  int pontos = 0;
+  int totalBadges = 0;
 
   Future<void> carregarDados() async {
     final api = ApiService();
@@ -44,11 +50,18 @@ class _HomePageState extends State<HomePage> {
       recomendados = r;
       especial = e;
 
-      widget.userData['pontos'] =
+      /*widget.userData['pontos'] =
         int.parse(dashboard['total_pontos'].toString());
 
       widget.userData['badges'] =
-        int.parse(dashboard['total_badges'].toString());
+        int.parse(dashboard['total_badges'].toString());*/
+
+
+      print(dashboard);
+
+
+      pontos = int.tryParse(dashboard['total_pontos']?.toString() ?? '0') ?? 0;
+    totalBadges = int.tryParse(dashboard['total_badges']?.toString() ?? '0') ?? 0;
     });
   }
 
@@ -57,8 +70,6 @@ class _HomePageState extends State<HomePage> {
 
     String nomeCompleto = widget.userData['nome_completo'] ?? 'Utilizador';
     String primeiroNome = nomeCompleto.split(' ')[0];
-    int pontos = widget.userData['pontos'] ?? 0;
-    int totalBadges = widget.userData['badges'] ?? 0;
 
     return Scaffold(
       backgroundColor: const Color(0xFFF7F7F7),
@@ -81,17 +92,16 @@ class _HomePageState extends State<HomePage> {
                   ),
 
                   Row(
-                    children: const [
-                      CircleAvatar(
-                        radius: 16,
-                        backgroundColor: Colors.blue,
-                        child: Icon(Icons.notifications, color: Colors.white, size: 18),
-                      ),
-                      SizedBox(width: 10),
-                      CircleAvatar(
-                        radius: 16,
-                        backgroundColor: Colors.blue,
-                        child: Icon(Icons.person, color: Colors.white, size: 18),
+                    children: [
+                      NotificationBell(userId: widget.userData['id_utilizador']),
+                      const SizedBox(width: 10),
+                      ProfileButton(
+                        onProfile: () => Navigator.pushNamed(context, '/perfil'),
+                        onSettings: () => Navigator.pushNamed(context, '/definicoes'),
+                        onLogout: () {
+                          // limpar sessão e redirecionar
+                          Navigator.pushNamedAndRemoveUntil(context, '/login', (_) => false);
+                        },
                       ),
                     ],
                   )
@@ -167,7 +177,16 @@ class _HomePageState extends State<HomePage> {
                         shape: const StadiumBorder(),
                         elevation: 4,
                       ),
-                      onPressed: () {},
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => CatalogoBadgesPage(
+                              userData: widget.userData,
+                            ),
+                          ),
+                        );
+                      },
                       icon: const Icon(Icons.grid_view),
                       label: const Text("Catálogo de Badges"),
                     ),

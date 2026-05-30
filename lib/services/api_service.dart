@@ -1,8 +1,10 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 
+String? token;
+
 class ApiService {
-  static const String baseUrl = 'http://192.168.1.76:3000';
+  static const String baseUrl = 'http://192.168.1.89:3000/api';
   // Android Emulator → localhost = 10.0.2.2
   
 
@@ -30,16 +32,10 @@ class ApiService {
     }
   }
 
-  Future<Map<String, dynamic>> login(
-    String email,
-    String password,
-  ) async {
-
+  Future<Map<String, dynamic>> login(String email, String password) async {
     final response = await http.post(
       Uri.parse('$baseUrl/auth/login'),
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: {'Content-Type': 'application/json'},
       body: jsonEncode({
         'email': email,
         'password': password,
@@ -48,8 +44,8 @@ class ApiService {
 
     final data = jsonDecode(response.body);
 
-    // LOGIN OK
     if (response.statusCode == 200) {
+      token = data['token']; // 🔥 IMPORTANTE
 
       return {
         'success': true,
@@ -57,9 +53,7 @@ class ApiService {
       };
     }
 
-    // EMAIL NÃO VERIFICADO
     if (response.statusCode == 403) {
-
       return {
         'success': false,
         'emailNaoVerificado': true,
@@ -67,10 +61,16 @@ class ApiService {
       };
     }
 
-    // OUTROS ERROS
     return {
       'success': false,
       'message': data['error'] ?? 'Erro login',
+    };
+  }
+
+  Map<String, String> get _headers {
+    return {
+      'Content-Type': 'application/json',
+      if (token != null) 'Authorization': 'Bearer $token',
     };
   }
 
@@ -119,9 +119,10 @@ class ApiService {
   }
 
   // DASHBOARD
-Future<Map<String, dynamic>> getDashboard(int userId) async {
+  Future<Map<String, dynamic>> getDashboard(int userId) async {
     final response = await http.get(
       Uri.parse('$baseUrl/dashboard/$userId'),
+      headers: _headers,
     );
 
     if (response.statusCode == 200) {
@@ -183,5 +184,88 @@ Future<Map<String, dynamic>> getDashboard(int userId) async {
     }
 
     throw Exception('Erro badge especial');
+  }
+
+  //NOTIFICACOES
+  Future<List<Map<String, dynamic>>> getNotifications(int userId) async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/notificacoes/$userId'),
+    );
+
+    if (response.statusCode == 200) {
+      final List data = jsonDecode(response.body);
+      return data.map((e) => e as Map<String, dynamic>).toList();
+    }
+
+    throw Exception('Erro notificações');
+  }
+
+
+  //badges
+  Future<List<Map<String, dynamic>>> getTodosBadges() async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/badges/todos'),
+    );
+
+    if (response.statusCode == 200) {
+      final List data = jsonDecode(response.body);
+      final listaPlana = data.map((e) => e as Map<String, dynamic>).toList();
+      
+      // 🔥 AQUI ESTÁ O TRUQUE: Agrupar antes de devolver ao ecrã!
+      return agruparBadgesComRequisitos(listaPlana);
+    }
+
+    throw Exception('Erro ao carregar catálogo de badges');
+  }
+
+  Future<List<Map<String, dynamic>>> getBadgesConquistados(int userId) async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/badges/conquistados/$userId'),
+    );
+
+    if (response.statusCode == 200) {
+      final List data = jsonDecode(response.body);
+      final listaPlana = data.map((e) => e as Map<String, dynamic>).toList();
+      
+      // 🔥 Agrupar também os conquistados para que os requisitos fiquem estruturados
+      return agruparBadgesComRequisitos(listaPlana);
+    }
+
+    throw Exception('Erro badges conquistados');
+  }
+
+  List<Map<String, dynamic>> agruparBadgesComRequisitos(List<Map<String, dynamic>> dadosPlanos) {
+  final Map<int, Map<String, dynamic>> badgesAgrupados = {};
+
+  for (var linha in dadosPlanos) {
+      final int badgeId = linha['id'];
+
+      // Se o badge ainda não foi adicionado ao mapa, adiciona com as tipagens corretas
+      if (!badgesAgrupados.containsKey(badgeId)) {
+        badgesAgrupados[badgeId] = {
+          'id': linha['id'],
+          'nome': linha['nome'],
+          'descricao': linha['descricao'],
+          'pontos': linha['pontos'],
+          'id_nivel': linha['id_nivel'],
+          'data_atribuicao': linha['data_atribuicao'], 
+          'requisitos': <Map<String, dynamic>>[], // 👈 Força a lista a ser especificamente de Maps
+        };
+      }
+
+      // Se houver dados de requisito nessa linha da BD
+      if (linha['nome_requisito'] != null) {
+        // 👈 Fazemos o cast explícito para List para o Dart permitir o uso do .add()
+        final listaRequisitos = badgesAgrupados[badgeId]?['requisitos'] as List<Map<String, dynamic>>;
+        
+        listaRequisitos.add({
+          'nome': linha['nome_requisito'],
+          'titulo': linha['titulo'],
+          'descricao': linha['descricao_requisito'],
+        });
+      }
+    }
+
+    return badgesAgrupados.values.toList();
   }
 }
