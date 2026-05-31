@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
-//import 'submeter_badge.dart';
+import 'submeter_badges.dart';
 
 String obterNivel(dynamic idNivel) {
   switch (idNivel) {
@@ -670,15 +670,15 @@ class _BadgeDetalheState extends State<BadgeDetalhe> {
                                   elevation: 0,
                                 ),
                                 onPressed: () {
-                                  /*Navigator.push(
+                                  Navigator.push(
                                     context,
                                     MaterialPageRoute(
                                       builder: (_) => SubmeterBadge(
-                                        userId: widget.userData['id_utilizador'],
-                                        badgeId: badge['id'],
+                                        userId: widget.userId,
+                                        badgeId: widget.badgeId,
                                       ),
                                     ),
-                                  );*/
+                                  );
                                 },
                                 icon: const Icon(Icons.upload_file, size: 18),
                                 label: const Text(

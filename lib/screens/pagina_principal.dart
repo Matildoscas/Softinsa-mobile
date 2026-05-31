@@ -3,6 +3,7 @@ import '../services/api_service.dart';
 import '../pop/notificacoes.dart';
 import '../pop/definicoes.dart';
 import 'catalogo_badges.dart';
+import 'Perfil.dart';
 
 class HomePage extends StatefulWidget {
   final Map<String, dynamic> userData;
@@ -96,10 +97,18 @@ class _HomePageState extends State<HomePage> {
                       NotificationBell(userId: widget.userData['id_utilizador']),
                       const SizedBox(width: 10),
                       ProfileButton(
-                        onProfile: () => Navigator.pushNamed(context, '/perfil'),
+                        onProfile: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => PerfilPage(
+                                userData: widget.userData,
+                              ),
+                            ),
+                          );
+                        },
                         onSettings: () => Navigator.pushNamed(context, '/definicoes'),
                         onLogout: () {
-                          // limpar sessão e redirecionar
                           Navigator.pushNamedAndRemoveUntil(context, '/login', (_) => false);
                         },
                       ),

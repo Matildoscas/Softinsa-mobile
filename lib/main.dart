@@ -4,8 +4,10 @@ import 'dart:convert';
 
 import 'screens/login.dart';
 import 'screens/pagina_principal.dart';
+import 'screens/Perfil.dart';
 
 void main() {
+  WidgetsFlutterBinding.ensureInitialized();
   runApp(const MyApp());
 }
 
@@ -31,6 +33,7 @@ class MyApp extends StatelessWidget {
       routes: {
         '/login': (context) => const LoginPage(),
         '/home': (context) => HomePage(userData: {}),
+        '/perfil': (context) => const PerfilPage(userData: {}),
 
         //'/perfil': (context) => const ProfilePage(),
         //'/definicoes': (context) => const SettingsPage(),

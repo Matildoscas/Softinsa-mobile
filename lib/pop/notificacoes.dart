@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
+import '../screens/notificacoes_page.dart';
 
 /// ================= MODELO =================
 class NotificationItem {
@@ -20,15 +21,15 @@ class NotificationItem {
   });
 
   factory NotificationItem.fromJson(Map<String, dynamic> json) {
+    print("tipo_notificacao = ${json['tipo_notificacao']}");
     final data = DateTime.parse(json['data_envio']);
 
     return NotificationItem(
       title: json['tipo_notificacao'] ?? 'Notificação',
       description: json['conteudo'] ?? '',
       sender: 'System',
-      timeAgo:
-          "${data.day}/${data.month}/${data.year}",
-      isSystem: true,
+      timeAgo: "${data.day}/${data.month}/${data.year}",
+      isSystem: json['tipo_notificacao'] != 'Alerta',
       imageUrl: null,
     );
   }
@@ -38,10 +39,12 @@ class NotificationItem {
 class NotificationsPopup extends StatelessWidget {
   final List<NotificationItem> notifications;
   final VoidCallback? onViewAll;
+  final int userId;
 
   const NotificationsPopup({
     super.key,
     required this.notifications,
+    required this.userId,
     this.onViewAll,
   });
 
@@ -108,18 +111,20 @@ class NotificationsPopup extends StatelessWidget {
                   final item = notifications[index];
                   return ListTile(
                     leading: item.isSystem
-                        ? const CircleAvatar(
-                            backgroundColor: Colors.green,
-                            child: Icon(Icons.check, color: Colors.white),
-                          )
-                        : CircleAvatar(
-                            backgroundImage: item.imageUrl != null
-                                ? NetworkImage(item.imageUrl!)
-                                : null,
-                            child: item.imageUrl == null
-                                ? const Icon(Icons.person)
-                                : null,
+                      ? const CircleAvatar(
+                          backgroundColor: Color(0xFF4CAF50),
+                          child: Icon(
+                            Icons.check,
+                            color: Colors.white,
                           ),
+                        )
+                      : const CircleAvatar(
+                          backgroundColor: Color(0xFFEF5350),
+                          child: Icon(
+                            Icons.priority_high,
+                            color: Colors.white,
+                          ),
+                        ),
                     title: Text(
                       item.title.isEmpty ? "TÍTULO VAZIO" : item.title,
                       style: const TextStyle(color: Colors.black),
@@ -137,7 +142,17 @@ class NotificationsPopup extends StatelessWidget {
             const Divider(height: 1),
 
             TextButton(
-              onPressed: onViewAll,
+              onPressed: () {
+                onViewAll?.call();
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => NotificacoesPage(
+                      userId: userId,
+                    ),
+                  ),
+                );
+              },
               child: const Text("Ver todas as notificações"),
             ),
           ],
@@ -192,12 +207,16 @@ class _NotificationBellState extends State<NotificationBell>
 
 
       print(data);
-      print(data.first.keys);
+      print(data.first);
 
       
       setState(() {
         notifications =
             data.map((e) => NotificationItem.fromJson(e)).toList();
+
+            for (var n in notifications) {
+              print("${n.title} -> isSystem = ${n.isSystem}");
+            }
       });
     } catch (e) {
       debugPrint("Erro notificações: $e");
@@ -231,6 +250,7 @@ class _NotificationBellState extends State<NotificationBell>
                   scale: _scale,
                   child: NotificationsPopup(
                     notifications: notifications,
+                    userId: widget.userId,
                     onViewAll: () {
                       _close();
                     },

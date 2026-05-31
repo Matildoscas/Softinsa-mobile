@@ -268,4 +268,44 @@ class ApiService {
 
     return badgesAgrupados.values.toList();
   }
+
+  Future<List<dynamic>> getProgressoLearningPaths(int userId) async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/badges/learningpaths/$userId'),
+    );
+
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    }
+
+    throw Exception('Erro ao carregar progresso');
+  }
+
+  Future<void> submeterEvidencia({
+    required int userId,
+    required int badgeId,
+    required String descricao,
+    required String ficheiroPath,
+  }) async {
+    final uri = Uri.parse("$baseUrl/evidencias/submeter");
+
+    final request = http.MultipartRequest("POST", uri);
+
+    request.fields['user_id'] = userId.toString();
+    request.fields['badge_id'] = badgeId.toString();
+    request.fields['descricao'] = descricao;
+
+    request.files.add(
+      await http.MultipartFile.fromPath(
+        'ficheiro',
+        ficheiroPath,
+      ),
+    );
+
+    final response = await request.send();
+
+    if (response.statusCode != 200 && response.statusCode != 201) {
+      throw Exception("Erro ao submeter evidência");
+    }
+  }
 }
