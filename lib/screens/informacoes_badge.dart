@@ -521,7 +521,7 @@ class _BadgeDetalheState extends State<BadgeDetalhe> {
                                     ),
                                     const SizedBox(height: 12),
                                     
-                                    if (requisitos == null || requisitos.isEmpty)
+                                    if (requisitos.isEmpty)
                                       const Text(
                                         "Sem requisitos específicos",
                                         style: TextStyle(fontSize: 12, color: Colors.grey),

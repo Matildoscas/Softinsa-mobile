@@ -4,6 +4,7 @@ import '../pop/notificacoes.dart';
 import '../pop/definicoes.dart';
 import 'catalogo_badges.dart';
 import 'Perfil.dart';
+import 'lembretes_page.dart';
 
 class HomePage extends StatefulWidget {
   final Map<String, dynamic> userData;
@@ -170,7 +171,24 @@ class _HomePageState extends State<HomePage> {
                               buildInfoButton(
                                 icon: Icons.note,
                                 title: "Lembretes",
-                                onTap: () {},
+                                subtitle: "Ver lembretes",
+                                onTap: () {
+                                  final userId = widget.userData['id_utilizador'];
+
+                                  if (userId == null) {
+                                    debugPrint("Erro: userId está null");
+                                    return;
+                                  }
+
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) => LembretesPage(
+                                        userId: userId is int ? userId : int.parse(userId.toString()),
+                                      ),
+                                    ),
+                                  );
+                                },
                               ),
                             ],
                           )

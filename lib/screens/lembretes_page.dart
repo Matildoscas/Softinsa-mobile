@@ -1,86 +1,61 @@
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 
-// ── MODELO ────────────────────────────────────────────────────────────────────
-class NotificationItem {
+class ReminderItem {
   final String title;
   final String description;
   final String sender;
   final String timeAgo;
-  final NotificationAvatarType avatarType;
-  final String? imageUrl;
 
-  NotificationItem({
+  ReminderItem({
     required this.title,
     required this.description,
     required this.sender,
     required this.timeAgo,
-    required this.avatarType,
-    this.imageUrl,
   });
 
-  factory NotificationItem.fromJson(Map<String, dynamic> json) {
+  factory ReminderItem.fromJson(Map<String, dynamic> json) {
     final data = DateTime.parse(json['data_envio']);
 
-    NotificationAvatarType avatarType;
-
-    switch (json['tipo_notificacao']) {
-      case 'Alerta':
-        avatarType = NotificationAvatarType.error;
-        break;
-
-      case 'Sistema':
-        avatarType = NotificationAvatarType.system;
-        break;
-
-      default:
-        avatarType = NotificationAvatarType.system;
-    }
-
-    return NotificationItem(
-      title: json['tipo_notificacao'] ?? 'Notificação',
+    return ReminderItem(
+      title: json['tipo_notificacao'] ?? 'Lembrete',
       description: json['conteudo'] ?? '',
       sender: 'System',
       timeAgo:
           "${data.day.toString().padLeft(2, '0')}/${data.month.toString().padLeft(2, '0')}/${data.year}",
-      avatarType: avatarType,
     );
   }
 }
 
-enum NotificationAvatarType { user, system, error }
-
-// ── PÁGINA ────────────────────────────────────────────────────────────────────
-class NotificacoesPage extends StatefulWidget {
+class LembretesPage extends StatefulWidget {
   final int userId;
 
-  const NotificacoesPage({super.key, required this.userId});
+  const LembretesPage({super.key, required this.userId});
 
   @override
-  State<NotificacoesPage> createState() => _NotificacoesPageState();
+  State<LembretesPage> createState() => _LembretesPageState();
 }
 
-class _NotificacoesPageState extends State<NotificacoesPage> {
-  List<NotificationItem> notifications = [];
+class _LembretesPageState extends State<LembretesPage> {
+  List<ReminderItem> reminders = [];
   bool isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    _loadNotifications();
+    _loadReminders();
   }
 
-  Future<void> _loadNotifications() async {
+  Future<void> _loadReminders() async {
     try {
       final api = ApiService();
       final data = await api.getNotifications(widget.userId);
       setState(() {
-        notifications =
-            data.map((e) => NotificationItem.fromJson(e)).toList();
+        reminders = data.map((e) => ReminderItem.fromJson(e)).toList();
         isLoading = false;
       });
     } catch (e) {
-      debugPrint("Erro ao carregar notificações: $e");
+      debugPrint("Erro lembretes: $e");
       setState(() => isLoading = false);
     }
   }
@@ -94,13 +69,12 @@ class _NotificacoesPageState extends State<NotificacoesPage> {
       body: SafeArea(
         child: Stack(
           children: [
-            // ── CONTEÚDO ────────────────────────────────────────────
             Positioned.fill(
               child: Column(
                 children: [
                   SizedBox(height: headerHeight),
 
-                  // Voltar
+                  // Voltar — igual ao NotificacoesPage
                   Container(
                     color: Colors.white,
                     padding: const EdgeInsets.symmetric(
@@ -129,33 +103,32 @@ class _NotificacoesPageState extends State<NotificacoesPage> {
                     ),
                   ),
 
+                  // Divider direto — sem título/contagem
                   Divider(height: 1, color: Colors.grey.shade200),
 
-                  // Lista
                   Expanded(
                     child: isLoading
                         ? const Center(
                             child: CircularProgressIndicator(
                                 color: Color(0xFF4470AF)),
                           )
-                        : notifications.isEmpty
+                        : reminders.isEmpty
                             ? _estadoVazio()
                             : ListView.separated(
                                 padding: EdgeInsets.zero,
-                                itemCount: notifications.length,
-                                separatorBuilder: (_, _) => Divider(
+                                itemCount: reminders.length,
+                                separatorBuilder: (_, __) => Divider(
                                   height: 1,
                                   color: Colors.grey.shade200,
                                 ),
                                 itemBuilder: (context, index) =>
-                                    _notificationRow(notifications[index]),
+                                    _reminderRow(reminders[index]),
                               ),
                   ),
                 ],
               ),
             ),
 
-            // ── HEADER ──────────────────────────────────────────────
             Positioned(
               top: 0,
               left: 0,
@@ -182,20 +155,19 @@ class _NotificacoesPageState extends State<NotificacoesPage> {
     );
   }
 
-  // ── LINHA DE NOTIFICAÇÃO ───────────────────────────────────────────────────
-  Widget _notificationRow(NotificationItem item) {
+  Widget _reminderRow(ReminderItem item) {
     return Container(
       color: Colors.white,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Avatar
+          // Avatar — igual ao NotificacoesPage (sem letterSpacing)
           SizedBox(
             width: 80,
             child: Column(
               children: [
-                _buildAvatar(item),
+                _buildAvatar(),
                 const SizedBox(height: 6),
                 Text(
                   item.sender,
@@ -221,11 +193,11 @@ class _NotificacoesPageState extends State<NotificacoesPage> {
 
           const SizedBox(width: 16),
 
-          // Título + descrição
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // Sem letterSpacing: 3
                 Text(
                   item.title,
                   style: const TextStyle(
@@ -254,63 +226,29 @@ class _NotificacoesPageState extends State<NotificacoesPage> {
     );
   }
 
-  // ── AVATAR ────────────────────────────────────────────────────────────────
-  Widget _buildAvatar(NotificationItem item) {
-    switch (item.avatarType) {
-      case NotificationAvatarType.system:
-        return Container(
-          width: 64,
-          height: 64,
-          decoration: const BoxDecoration(
-            shape: BoxShape.circle,
-            color: Color(0xFF4CAF50),
-          ),
-          child: const Icon(Icons.check, color: Colors.white, size: 34),
-        );
-
-      case NotificationAvatarType.error:
-        return Container(
-          width: 64,
-          height: 64,
-          decoration: const BoxDecoration(
-            shape: BoxShape.circle,
-            color: Color(0xFFEF5350),
-          ),
-          child: const Icon(Icons.priority_high,
-              color: Colors.white, size: 34),
-        );
-
-      case NotificationAvatarType.user:
-        if (item.imageUrl != null) {
-          return CircleAvatar(
-            radius: 32,
-            backgroundImage: NetworkImage(item.imageUrl!),
-          );
-        }
-        return Container(
-          width: 64,
-          height: 64,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: Colors.grey.shade200,
-          ),
-          child: Icon(Icons.person,
-              color: Colors.grey.shade400, size: 34),
-        );
-    }
+  // Avatar fixo vermelho — lembretes são sempre alertas
+  Widget _buildAvatar() {
+    return Container(
+      width: 64,
+      height: 64,
+      decoration: const BoxDecoration(
+        shape: BoxShape.circle,
+        color: Color(0xFFEF5350),
+      ),
+      child: const Icon(Icons.priority_high, color: Colors.white, size: 34),
+    );
   }
 
-  // ── ESTADO VAZIO ──────────────────────────────────────────────────────────
   Widget _estadoVazio() {
     return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.notifications_off_outlined,
+          Icon(Icons.alarm_off_outlined,
               size: 52, color: Colors.grey.shade400),
           const SizedBox(height: 12),
           const Text(
-            "Sem notificações",
+            "Sem lembretes",
             style: TextStyle(
               fontSize: 15,
               fontWeight: FontWeight.w600,
@@ -319,7 +257,7 @@ class _NotificacoesPageState extends State<NotificacoesPage> {
           ),
           const SizedBox(height: 4),
           Text(
-            "Não tens notificações de momento.",
+            "Não tens lembretes de momento.",
             style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
           ),
         ],
