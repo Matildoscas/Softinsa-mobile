@@ -4,7 +4,7 @@ import 'package:http/http.dart' as http;
 String? token;
 
 class ApiService {
-  static const String baseUrl = 'http://192.168.1.89:3000/api';
+  static const String baseUrl = 'http://10.56.153.119:3000/api';
   // Android Emulator → localhost = 10.0.2.2
   
 
@@ -307,5 +307,55 @@ class ApiService {
     if (response.statusCode != 200 && response.statusCode != 201) {
       throw Exception("Erro ao submeter evidência");
     }
+  }
+
+  // CERTIFICADOS DISPONÍVEIS
+  Future<List<Map<String, dynamic>>> getCertificadosDisponiveis(int userId) async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/certificados/disponiveis/$userId'),
+      headers: _headers,
+    );
+
+    if (response.statusCode == 200) {
+      final List data = jsonDecode(response.body);
+      return data.map((e) => e as Map<String, dynamic>).toList();
+    }
+
+    throw Exception('Erro ao carregar certificados disponíveis');
+  }
+
+  // CERTIFICADO INDIVIDUAL
+  Future<Map<String, dynamic>> getCertificado({
+    required int idHistorico,
+    required int idUtilizador,
+  }) async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/certificados/$idHistorico/$idUtilizador'),
+      headers: _headers,
+    );
+
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body) as Map<String, dynamic>;
+    }
+
+    if (response.statusCode == 404) {
+      throw Exception('Certificado não encontrado ou ainda não aprovado');
+    }
+
+    throw Exception('Erro ao carregar certificado');
+  }
+
+  Future<List<Map<String, dynamic>>> getCandidaturasPendentes(int userId) async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/candidaturas/pendentes/$userId'),
+      headers: _headers,
+    );
+
+    if (response.statusCode == 200) {
+      final List data = jsonDecode(response.body);
+      return data.map((e) => e as Map<String, dynamic>).toList();
+    }
+
+    throw Exception('Erro ao carregar candidaturas pendentes');
   }
 }

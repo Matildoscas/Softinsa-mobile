@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 import 'submeter_badges.dart';
+import 'certificado_page.dart';
+
+Map<String, dynamic>? certificadoDisponivel;
 
 String obterNivel(dynamic idNivel) {
   switch (idNivel) {
@@ -125,10 +128,19 @@ class _BadgeDetalheState extends State<BadgeDetalhe> {
     reqs = raw.map((item) => Map<String, dynamic>.from(item)).toList();
   }
 
+  final certificados = await api.getCertificadosDisponiveis(widget.userId);
+
+  final certificadoEncontrado = certificados.firstWhere(
+    (c) =>
+        c['id_badge_modelo'].toString() == widget.badgeId.toString(),
+    orElse: () => <String, dynamic>{},
+  );
+
   setState(() {
     badge = badgeEncontrado.isNotEmpty ? badgeEncontrado : null;
-    progresso =
-        progressoEncontrado.isNotEmpty ? progressoEncontrado : null;
+    progresso = progressoEncontrado.isNotEmpty ? progressoEncontrado : null;
+    certificadoDisponivel =
+        certificadoEncontrado.isNotEmpty ? certificadoEncontrado : null;
     badgesRelacionados = relacionados;
     requisitos = reqs;
     loading = false;
@@ -647,8 +659,35 @@ class _BadgeDetalheState extends State<BadgeDetalhe> {
                                       shape: const StadiumBorder(),
                                       padding: const EdgeInsets.symmetric(vertical: 12),
                                     ),
-                                    onPressed: () {
-                                      // TODO: download certificado
+                                    onPressed: () async {
+                                      if (certificadoDisponivel == null) {
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          const SnackBar(
+                                            content: Text("Este certificado ainda não está disponível."),
+                                          ),
+                                        );
+                                        return;
+                                      }
+
+                                      final api = ApiService();
+
+                                      final certificadoCompleto = await api.getCertificado(
+                                        idHistorico: certificadoDisponivel!['id_candidatura_historico'],
+                                        idUtilizador: widget.userId,
+                                      );
+
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (_) => CertificadoCompetenciasPage(
+                                            userData: {
+                                              'id_utilizador': widget.userId,
+                                              'nome': certificadoCompleto['nome_utilizador'],
+                                            },
+                                            certificadoData: certificadoCompleto,
+                                          ),
+                                        ),
+                                      );
                                     },
                                     icon: const Icon(Icons.download, size: 18),
                                     label: const Text(

@@ -117,7 +117,7 @@ class _LembretesPageState extends State<LembretesPage> {
                             : ListView.separated(
                                 padding: EdgeInsets.zero,
                                 itemCount: reminders.length,
-                                separatorBuilder: (_, __) => Divider(
+                                separatorBuilder: (_, _) => Divider(
                                   height: 1,
                                   color: Colors.grey.shade200,
                                 ),
