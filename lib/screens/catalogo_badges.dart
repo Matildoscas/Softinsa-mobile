@@ -63,6 +63,10 @@ class _CatalogoBadgesPageState extends State<CatalogoBadgesPage> {
     // 2. Badges conquistados/em progresso do utilizador
     final obtidos = await api.getBadgesConquistados(widget.userData['id_utilizador']);
 
+    final pendentes = await api.getCandidaturasPendentes(
+      widget.userData['id_utilizador'],
+    );
+
     print("TODOS:");
     print(todos);
 
@@ -76,14 +80,23 @@ class _CatalogoBadgesPageState extends State<CatalogoBadgesPage> {
         (int.tryParse(b['id'].toString()) ?? -1): b,
     };
 
+    final Map<int, Map<String, dynamic>> mapaPendentes = {
+      for (final c in pendentes)
+        (int.tryParse(c['id_badge_modelo'].toString()) ?? -1): c,
+    };
+
     final merged = todos.map((badge) {
       final id = int.tryParse(badge['id'].toString()) ?? -1;
       final dadosUtilizador = mapaObtidos[id];
+      final candidaturaPendente = mapaPendentes[id];
 
       return {
         ...badge,
         'conquistado': dadosUtilizador != null,
         'data_conquista': dadosUtilizador?['data_atribuicao'],
+
+        'em_validacao': candidaturaPendente != null,
+        'estado_validacao': candidaturaPendente?['estado_validacao'],
       };
     }).toList();
 
@@ -284,6 +297,8 @@ class _CatalogoBadgesPageState extends State<CatalogoBadgesPage> {
                                   final bool conquistado =
                                       b['conquistado'] == true ||
                                           b['conquistado'] == 1;
+                                  final bool emValidacao =
+                                      b['em_validacao'] == true || b['em_validacao'] == 1;
                                   final double? progress = b['progress'] != null
                                       ? double.tryParse(
                                           b['progress'].toString())
@@ -293,6 +308,7 @@ class _CatalogoBadgesPageState extends State<CatalogoBadgesPage> {
                                   return _badgeCard(
                                     badge: b,
                                     conquistado: conquistado,
+                                    emValidacao: emValidacao,
                                     progress: progress,
                                     dataConquista: dataConquista,
                                   );
@@ -340,6 +356,7 @@ class _CatalogoBadgesPageState extends State<CatalogoBadgesPage> {
     required bool conquistado,
     double? progress,
     String? dataConquista,
+    required bool emValidacao,
   }) {
     final int pontos =
         int.tryParse(badge['pontos']?.toString() ?? '0') ?? 0;
@@ -353,6 +370,9 @@ class _CatalogoBadgesPageState extends State<CatalogoBadgesPage> {
       estadoTexto =
           dataFormatada != null ? "Conquistado em $dataFormatada" : "Conquistado";
       estadoCor = const Color(0xFF2E7D32);
+    } else if (emValidacao) {
+      estadoTexto = badge['estado_validacao']?.toString() ?? "Em validação";
+      estadoCor = Colors.red;
     } else if (progress != null && progress > 0) {
       estadoTexto = "Em Progresso";
       estadoCor = const Color(0xFF4470AF);
@@ -381,8 +401,10 @@ class _CatalogoBadgesPageState extends State<CatalogoBadgesPage> {
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
             color: conquistado
-                ? const Color(0xFF2E7D32).withOpacity(0.3)
-                : Colors.grey.shade200,
+                ? const Color(0xFF2E7D32).withOpacity(0.4)
+                : emValidacao
+                    ? Colors.red.withOpacity(0.45)
+                    : Colors.grey.shade200,
           ),
           boxShadow: [
             BoxShadow(
@@ -404,7 +426,9 @@ class _CatalogoBadgesPageState extends State<CatalogoBadgesPage> {
                       height: 60,
                       decoration: BoxDecoration(
                         color: conquistado
-                            ? const Color(0xFFE8F5E9)
+                        ? const Color(0xFFE8F5E9)
+                        : emValidacao
+                            ? const Color(0xFFFFEBEE)
                             : const Color(0xFFEAF0FA),
                         shape: BoxShape.circle,
                       ),
@@ -424,6 +448,23 @@ class _CatalogoBadgesPageState extends State<CatalogoBadgesPage> {
                           ),
                           child: const Icon(Icons.check,
                               color: Colors.white, size: 12),
+                        ),
+                      ),
+                    if (emValidacao && !conquistado)
+                      Positioned(
+                        right: 0,
+                        bottom: 0,
+                        child: Container(
+                          padding: const EdgeInsets.all(2),
+                          decoration: const BoxDecoration(
+                            color: Colors.red,
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.hourglass_bottom,
+                            color: Colors.white,
+                            size: 12,
+                          ),
                         ),
                       ),
                   ],

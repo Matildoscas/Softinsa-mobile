@@ -346,16 +346,24 @@ class ApiService {
   }
 
   Future<List<Map<String, dynamic>>> getCandidaturasPendentes(int userId) async {
+    final url = '$baseUrl/certificados/pendentes/$userId';
+
     final response = await http.get(
-      Uri.parse('$baseUrl/candidaturas/pendentes/$userId'),
+      Uri.parse(url),
       headers: _headers,
     );
+
+    print("🔴 CANDIDATURAS PENDENTES URL: $url");
+    print("🔴 STATUS: ${response.statusCode}");
+    print("🔴 BODY: ${response.body}");
 
     if (response.statusCode == 200) {
       final List data = jsonDecode(response.body);
       return data.map((e) => e as Map<String, dynamic>).toList();
     }
 
-    throw Exception('Erro ao carregar candidaturas pendentes');
+    throw Exception(
+      'Erro ao carregar candidaturas pendentes: ${response.statusCode} - ${response.body}',
+    );
   }
 }
