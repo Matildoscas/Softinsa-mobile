@@ -52,5 +52,5 @@ flutter {
 
 dependencies {
         // This allows the build tool to use Java 8+ features on older devices
-        coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.4")
+        coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
     }

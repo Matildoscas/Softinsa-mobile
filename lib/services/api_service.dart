@@ -366,4 +366,25 @@ class ApiService {
       'Erro ao carregar candidaturas pendentes: ${response.statusCode} - ${response.body}',
     );
   }
+
+  Future<void> atualizarFcmToken({
+    required int idUtilizador,
+    required String fcmToken,
+  }) async {
+    final response = await http.put(
+      Uri.parse('$baseUrl/utilizadores/fcm-token'),
+      headers: _headers,
+      body: jsonEncode({
+        'id_utilizador': idUtilizador,
+        'fcm_token': fcmToken,
+      }),
+    );
+
+    print("FCM TOKEN STATUS: ${response.statusCode}");
+    print("FCM TOKEN BODY: ${response.body}");
+
+    if (response.statusCode != 200) {
+      throw Exception('Erro ao guardar FCM token');
+    }
+  }
 }

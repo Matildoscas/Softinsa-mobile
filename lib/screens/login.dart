@@ -4,6 +4,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../services/api_service.dart';
 import 'register.dart';
 import 'pagina_principal.dart';
+import '../services/notification_service.dart';
+import 'package:firebase_analytics/observer.dart';
+import 'package:firebase_analytics/firebase_analytics.dart';
 
 
 /* LOGOUT - implementar num botão de logout que limpe o token e os dados do utilizador 
@@ -77,11 +80,38 @@ class _LogPageState extends State<LogPage> {
 
         final user = response['user'];
         final token = response['token'];
+        final tokenFcm = await NotificationService().iniciarNotificacoes();
+
+        await FirebaseAnalytics.instance.logLogin(
+          loginMethod: 'email_password',
+        );
+
+        try {
+          await FirebaseAnalytics.instance.logEvent(
+            name: 'teste_debugview_login',
+            parameters: {
+              'origem': 'login_page',
+            },
+          );
+
+          print("✅ Evento Analytics enviado: teste_debugview_login");
+        } catch (e) {
+          print("❌ Erro Analytics: $e");
+        }
+
+        if (tokenFcm != null) {
+          await _apiService.atualizarFcmToken(
+            idUtilizador: user['id_utilizador'],
+            fcmToken: tokenFcm,
+          );
+        }
 
         final prefs = await SharedPreferences.getInstance();
 
         await prefs.setString('token', token);
         await prefs.setString('user', jsonEncode(user));
+
+        print("TOKEN FCM: $tokenFcm");
 
         Navigator.pushReplacement(
           context,
