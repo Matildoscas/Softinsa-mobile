@@ -1,9 +1,6 @@
-import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'dart:convert';
-
-import 'screens/login.dart';
-//import 'screens/pagina_inicial.dart';
+import 'package:flutter/material.dart'; // Importa a biblioteca principal do Flutter
+import 'package:popover/popover.dart'; // Importamos o pacote
+import 'Perfil.dart';
 
 void main() {
   runApp(const MyApp());
