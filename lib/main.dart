@@ -25,11 +25,25 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  if (Firebase.apps.isEmpty) {
-    await Firebase.initializeApp(
-      options: DefaultFirebaseOptions.currentPlatform,
-    );
-  }
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
+
+  await FirebaseAnalytics.instance.setConsent(
+    analyticsStorageConsentGranted: true,
+    adStorageConsentGranted: true,
+  );
+
+  await FirebaseAnalytics.instance.setAnalyticsCollectionEnabled(true);
+
+  await FirebaseAnalytics.instance.logEvent(
+    name: 'app_iniciada_teste',
+    parameters: {
+      'origem': 'main',
+    },
+  );
+
+  print("✅ Analytics ativo e evento app_iniciada_teste enviado");
 
   FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
 
