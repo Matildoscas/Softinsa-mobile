@@ -3,6 +3,7 @@ import '../services/api_service.dart';
 import 'catalogo_badges_utilizador.dart';
 import 'informacoes_badge.dart';
 import 'progresso_page.dart';
+import 'historico_badges_page.dart';
 
 String obterNivel(dynamic idNivel) {
   final int? nivel = int.tryParse(idNivel.toString());
@@ -177,7 +178,14 @@ class _PerfilPageState extends State<PerfilPage> {
                               icon: Icons.trending_up,
                               label: "Histórico Badges",
                               onTap: () {
-                                // TODO: navegar para histórico
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => HistoricoBadgesPage(
+                                      userData: widget.userData,
+                                    ),
+                                  ),
+                                );
                               },
                             ),
                           ),

@@ -248,8 +248,10 @@ class ApiService {
           'descricao': linha['descricao'],
           'pontos': linha['pontos'],
           'id_nivel': linha['id_nivel'],
-          'data_atribuicao': linha['data_atribuicao'], 
-          'requisitos': <Map<String, dynamic>>[], // 👈 Força a lista a ser especificamente de Maps
+          'data_atribuicao': linha['data_atribuicao'],
+          'data_validade': linha['data_validade'],
+          'estado_badge_atribuido': linha['estado_badge_atribuido'],
+          'requisitos': <Map<String, dynamic>>[],
         };
       }
 
@@ -385,6 +387,62 @@ class ApiService {
 
     if (response.statusCode != 200) {
       throw Exception('Erro ao guardar FCM token');
+    }
+  }
+
+  Future<Map<String, dynamic>> atualizarPerfilUtilizador({
+    required int idUtilizador,
+    required String nomeCompleto,
+    required String contacto,
+  }) async {
+    final response = await http.put(
+      Uri.parse('$baseUrl/utilizadores/$idUtilizador/perfil'),
+      headers: _headers,
+      body: jsonEncode({
+        'nome_completo': nomeCompleto,
+        'contacto': contacto,
+      }),
+    );
+
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      return data['utilizador'];
+    }
+
+    throw Exception('Erro ao atualizar perfil');
+  }
+
+  Future<void> alterarPassword({
+    required int idUtilizador,
+    required String passwordAtual,
+    required String novaPassword,
+  }) async {
+    final response = await http.put(
+      Uri.parse('$baseUrl/utilizadores/$idUtilizador/password'),
+      headers: _headers,
+      body: jsonEncode({
+        'password_atual': passwordAtual,
+        'nova_password': novaPassword,
+      }),
+    );
+
+    print("PASSWORD STATUS: ${response.statusCode}");
+    print("PASSWORD BODY: ${response.body}");
+
+    if (response.statusCode != 200) {
+      final data = jsonDecode(response.body);
+      throw Exception(data['error'] ?? 'Erro ao alterar password');
+    }
+  }
+
+  Future<void> desativarConta(int idUtilizador) async {
+    final response = await http.put(
+      Uri.parse('$baseUrl/utilizadores/$idUtilizador/desativar'),
+      headers: _headers,
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception('Erro ao desativar conta');
     }
   }
 }

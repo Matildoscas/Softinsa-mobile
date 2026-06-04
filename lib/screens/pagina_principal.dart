@@ -5,6 +5,8 @@ import '../pop/definicoes.dart';
 import 'catalogo_badges.dart';
 import 'Perfil.dart';
 import 'lembretes_page.dart';
+import 'informacoes_badge.dart';
+import 'definicoes_page.dart';
 
 class HomePage extends StatefulWidget {
   final Map<String, dynamic> userData;
@@ -30,6 +32,27 @@ class _HomePageState extends State<HomePage> {
   int pontos = 0;
   int totalBadges = 0;
 
+  List<Map<String, dynamic>> removerBadgesDuplicados(
+    List<Map<String, dynamic>> lista,
+  ) {
+    final Map<int, Map<String, dynamic>> unicos = {};
+
+    for (final badge in lista) {
+      final id = int.tryParse(
+        (badge['id'] ??
+        badge['id_badge_modelo'] ??
+        badge['badge_id'] ??
+        '').toString(),
+      );
+
+      if (id != null && !unicos.containsKey(id)) {
+        unicos[id] = badge;
+      }
+    }
+
+    return unicos.values.toList();
+  }
+
   Future<void> carregarDados() async {
     final api = ApiService();
 
@@ -48,8 +71,8 @@ class _HomePageState extends State<HomePage> {
     );
 
     setState(() {
-      progresso = p;
-      recomendados = r;
+      progresso = removerBadgesDuplicados(p);
+      recomendados = removerBadgesDuplicados(r);
       especial = e;
 
       /*widget.userData['pontos'] =
@@ -108,7 +131,16 @@ class _HomePageState extends State<HomePage> {
                             ),
                           );
                         },
-                        onSettings: () => Navigator.pushNamed(context, '/definicoes'),
+                        onSettings: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => DefinicoesPage(
+                                userData: widget.userData,
+                              ),
+                            ),
+                          );
+                        },
                         onLogout: () {
                           Navigator.pushNamedAndRemoveUntil(context, '/login', (_) => false);
                         },
@@ -230,10 +262,8 @@ class _HomePageState extends State<HomePage> {
                       )
                     else
                       ...progresso.map((b) => badgeCard(
-                        title: b['nome'],
-                        description: b['descricao'],
-                        points: b['pontos'],
-                        progress: b['progress'], // 🔥 agora 0
+                        badge: b,
+                        
                       )),
 
                     // ================= RECOMENDAÇÃO =================
@@ -246,9 +276,7 @@ class _HomePageState extends State<HomePage> {
                       )
                     else
                       ...recomendados.map((b) => badgeCard(
-                        title: b['nome'],
-                        description: b['descricao'],
-                        points: b['pontos'],
+                        badge: b,
                       )),
 
                     // ================= ESPECIAL =================
@@ -262,9 +290,7 @@ class _HomePageState extends State<HomePage> {
                       ),
 
                       badgeCard(
-                        title: especial!['nome'],
-                        description: especial!['descricao'],
-                        points: especial!['pontos'],
+                        badge: especial!,
                         highlight: true,
                       ),
                     ],
@@ -363,70 +389,118 @@ Widget buildInfoButton({
 
   // ================= CARD BADGE =================
   Widget badgeCard({
-    required String title,
-    required String description,
-    required int points,
+    required Map<String, dynamic> badge,
     double? progress,
     bool highlight = false,
   }) {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.shade300),
-      ),
-      child: Row(
-        children: [
+    final String title = badge['nome'] ?? badge['nome_badge'] ?? '';
+    final String description = badge['descricao'] ?? badge['descricao_badge_modelo'] ?? '';
+    final int points = int.tryParse(badge['pontos']?.toString() ?? '0') ?? 0;
+    final badgeId = int.tryParse(
+      (badge['id'] ??
+      badge['id_badge_modelo'] ??
+      badge['badge_id'] ??
+      '').toString(),
+    );
 
-          const CircleAvatar(
-            radius: 30,
-            backgroundColor: Colors.blueAccent,
-            child: Text("🏅", style: TextStyle(fontSize: 24)),
-          ),
+    if (badgeId == null) {
+      print("ERRO: badge sem ID -> $badge");
+    }
 
-          const SizedBox(width: 10),
+    return GestureDetector(
+      onTap: () {
+        final int? badgeId = int.tryParse(
+          (
+            badge['id'] ??
+            badge['id_badge_modelo'] ??
+            badge['badge_id'] ??
+            badge['idBadgeModelo'] ??
+            ''
+          ).toString(),
+        );
 
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title),
-                Text(description,
-                    style: const TextStyle(fontSize: 12, color: Colors.grey)),
+        if (badgeId == null) {
+          debugPrint("ERRO: badge sem ID -> $badge");
 
-                if (progress != null)
-                  Column(
-                    children: [
-                      const SizedBox(height: 6),
-                      LinearProgressIndicator(value: progress),
-                    ],
-                  )
-              ],
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text("Não foi possível abrir este badge. Falta o ID."),
+            ),
+          );
+
+          return;
+        }
+
+        final int userId = int.parse(
+          widget.userData['id_utilizador'].toString(),
+        );
+
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => BadgeDetalhe(
+              userId: userId,
+              badgeId: badgeId,
             ),
           ),
-
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              border: Border.all(color: Colors.blue),
-              borderRadius: BorderRadius.circular(12),
+        );
+      },
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.grey.shade300),
+        ),
+        child: Row(
+          children: [
+            const CircleAvatar(
+              radius: 30,
+              backgroundColor: Colors.blueAccent,
+              child: Text("🏅", style: TextStyle(fontSize: 24)),
             ),
-            child: Column(
-              children: [
-                const Text("Pontos", style: TextStyle(fontSize: 10)),
-                Text(
-                  "$points",
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: highlight ? Colors.amber : Colors.black,
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title),
+                  Text(
+                    description,
+                    style: const TextStyle(fontSize: 12, color: Colors.grey),
                   ),
-                ),
-              ],
+                  if (progress != null)
+                    Column(
+                      children: [
+                        const SizedBox(height: 6),
+                        LinearProgressIndicator(value: progress),
+                      ],
+                    ),
+                ],
+              ),
             ),
-          )
-        ],
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                border: Border.all(color: Colors.blue),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Column(
+                children: [
+                  const Text("Pontos", style: TextStyle(fontSize: 10)),
+                  Text(
+                    "$points",
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: highlight ? Colors.amber : Colors.black,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
