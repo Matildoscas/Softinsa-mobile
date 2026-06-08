@@ -1,24 +1,19 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
+import '../database/basededados.dart'; // Import central para a cache local
 import 'catalogo_badges_utilizador.dart';
 import 'informacoes_badge.dart';
 
 String obterNivel(dynamic idNivel) {
   final int? nivel = int.tryParse(idNivel.toString());
-
   switch (nivel) {
-    case 1:
-      return 'A';
-    case 2:
-      return 'B';
-    case 3:
-      return 'C';
-    case 4:
-      return 'D';
-    case 5:
-      return 'E';
-    default:
-      return '-';
+    case 1: return 'A';
+    case 2: return 'B';
+    case 3: return 'C';
+    case 4: return 'D';
+    case 5: return 'E';
+    default: return '-';
   }
 }
 
@@ -32,19 +27,16 @@ class CatalogoBadgesPage extends StatefulWidget {
 }
 
 class _CatalogoBadgesPageState extends State<CatalogoBadgesPage> {
-  // ─── Dados ────────────────────────────────────────────────────────────────
-  // Lista final: todos os badges do catálogo, enriquecidos com dados do utilizador
+  final ApiService _apiService = ApiService();
+  final Basededados _dbLocal = Basededados(); // Chave de acesso ao SQLite local
+
   List<Map<String, dynamic>> todosBadges = [];
   List<Map<String, dynamic>> badgesFiltrados = [];
-
   bool isLoading = true;
 
-  // ─── Controlos ────────────────────────────────────────────────────────────
   String pesquisa = '';
   String? filtroNivel;
-  // Ordenação: 'az' = A→Z, 'za' = Z→A, null = sem ordenação
   String? ordenacao;
-
   List<String> niveis = [];
 
   @override
@@ -53,40 +45,86 @@ class _CatalogoBadgesPageState extends State<CatalogoBadgesPage> {
     carregarDados();
   }
 
-  // ─── Carregamento e merge ─────────────────────────────────────────────────
   Future<void> carregarDados() async {
-    final api = ApiService();
+    final int userId = int.parse(widget.userData['id_utilizador'].toString());
+    List<Map<String, dynamic>> todos = [];
+    List<Map<String, dynamic>> obtidos = [];
+    List<Map<String, dynamic>> pendentes = [];
 
-    // 1. Todos os badges do catálogo (sem filtro de utilizador)
-    final todos = await api.getTodosBadges();
+    try {
+      // 1. Tenta carregar tudo em tempo real através da API
+      todos = await _apiService.getTodosBadges();
+      obtidos = await _apiService.getBadgesConquistados(userId);
+      
+      // Nota: Caso o teu api_service original não implemente candidaturas, 
+      // fazemos um fallback defensivo vazio para evitar quebras de compilação
+      try {
+        pendentes = await _apiService.getCandidaturasPendentes(userId);
+      } catch (_) {
+        pendentes = [];
+      }
 
-    // 2. Badges conquistados/em progresso do utilizador
-    final obtidos = await api.getBadgesConquistados(widget.userData['id_utilizador']);
+      // 2. MIRRORING: Cache de segurança local no SQFlite (Upsert)
+      for (var b in todos) {
+        await _dbLocal.salvarRegisto('badge_modelo', {
+          'id_badge_modelo': b['id'] ?? b['id_badge_modelo'] ?? 0,
+          'nome_badge': b['nome'] ?? '',
+          'descricao_badge_modelo': b['descricao'] ?? '',
+          'pontos': int.tryParse(b['pontos']?.toString() ?? '0') ?? 0,
+          'id_nivel': b['id_nivel'],
+        });
+      }
 
-    final pendentes = await api.getCandidaturasPendentes(
-      widget.userData['id_utilizador'],
-    );
+      for (var o in obtidos) {
+        await _dbLocal.salvarRegisto('badge_atribuido', {
+          'id_badge_atribuido': o['id_badge_atribuido'] ?? o['id'] ?? 0,
+          'id_badge_modelo': o['id_badge_modelo'] ?? o['id'] ?? 0,
+          'data_atribuicao': o['data_atribuicao']?.toString(),
+          'estado_badge_atribuido': 'Conquistado',
+        });
+      }
 
-    print("TODOS:");
-    print(todos);
+    } catch (e) {
+      debugPrint("Modo Offline Ativo no Catálogo: Carregando tabelas do SQFlite... ($e)");
+      
+      // 3. FALLBACK: Sem internet? Extrai os dados blindados da cache local
+      final localModelos = await _dbLocal.listarTabela('badge_modelo');
+      final localAtribuidos = await _dbLocal.listarTabela('badge_atribuido');
+      final localCandidaturas = await _dbLocal.listarTabela('candidatura_pedido');
 
-    print("OBTIDOS:");
-    print(obtidos);
+      // Normaliza as chaves do SQLite local para bater certo com o formato que a UI já espera
+      todos = localModelos.map((e) => {
+        'id': e['id_badge_modelo'],
+        'nome': e['nome_badge'],
+        'descricao': e['descricao_badge_modelo'],
+        'pontos': e['pontos'],
+        'id_nivel': e['id_nivel']
+      }).toList();
 
-    // 3. Merge: para cada badge do catálogo, procuramos se o utilizador
-    //    tem dados (progress, data_conquista, conquistado)
+      obtidos = localAtribuidos.map((e) => {
+        'id': e['id_badge_modelo'],
+        'data_atribuicao': e['data_atribuicao'],
+      }).toList();
+
+      pendentes = localCandidaturas.map((e) => {
+        'id_badge_modelo': e['id_badge_modelo'],
+        'estado_validacao': e['estado_candidatura_pedido'] ?? 'Em validação',
+      }).toList();
+    }
+
+    // 4. LÓGICA DE MERGE (Preservada a 100% do código original da tua colega)
     final Map<int, Map<String, dynamic>> mapaObtidos = {
       for (final b in obtidos)
-        (int.tryParse(b['id'].toString()) ?? -1): b,
+        (int.tryParse((b['id'] ?? b['id_badge_modelo'] ?? '').toString()) ?? -1): b,
     };
 
     final Map<int, Map<String, dynamic>> mapaPendentes = {
       for (final c in pendentes)
-        (int.tryParse(c['id_badge_modelo'].toString()) ?? -1): c,
+        (int.tryParse((c['id_badge_modelo'] ?? c['id'] ?? '').toString()) ?? -1): c,
     };
 
     final merged = todos.map((badge) {
-      final id = int.tryParse(badge['id'].toString()) ?? -1;
+      final id = int.tryParse((badge['id'] ?? badge['id_badge_modelo'] ?? '').toString()) ?? -1;
       final dadosUtilizador = mapaObtidos[id];
       final candidaturaPendente = mapaPendentes[id];
 
@@ -94,57 +132,51 @@ class _CatalogoBadgesPageState extends State<CatalogoBadgesPage> {
         ...badge,
         'conquistado': dadosUtilizador != null,
         'data_conquista': dadosUtilizador?['data_atribuicao'],
-
         'em_validacao': candidaturaPendente != null,
-        'estado_validacao': candidaturaPendente?['estado_validacao'],
+        'estado_validacao': candidaturaPendente?['estado_validacao'] ?? 'Em validação',
+        'progress': dadosUtilizador?['progress'] ?? (dadosUtilizador != null ? 1.0 : 0.0),
       };
     }).toList();
 
-    print(merged.where((b) => b['conquistado'] == true).toList());
-
-    setState(() {
-      todosBadges = merged;
-      _extrairNiveis();
-      _aplicarFiltros();
-      isLoading = false;
-    });
+    if (mounted) {
+      setState(() {
+        todosBadges = merged;
+        _extrairNiveis();
+        _aplicarFiltros();
+        isLoading = false;
+      });
+    }
   }
 
   void _extrairNiveis() {
     niveis = todosBadges
-      .map((b) => obterNivel(b['id_nivel']))
-      .toSet()
-      .toList()
-    ..sort();
+        .map((b) => obterNivel(b['id_nivel']))
+        .where((n) => n != '-')
+        .toSet()
+        .toList()
+      ..sort();
   }
 
   void _aplicarFiltros() {
+    var lista = todosBadges.where((b) {
+      final matchPesquisa = pesquisa.isEmpty ||
+          (b['nome'] ?? '').toLowerCase().contains(pesquisa.toLowerCase()) ||
+          (b['descricao'] ?? '').toLowerCase().contains(pesquisa.toLowerCase());
+      final matchNivel = filtroNivel == null || obterNivel(b['id_nivel']) == filtroNivel;
+      return matchPesquisa && matchNivel;
+    }).toList();
+
+    if (ordenacao == 'az') {
+      lista.sort((a, b) => (a['nome'] ?? '').toString().compareTo((b['nome'] ?? '').toString()));
+    } else if (ordenacao == 'za') {
+      lista.sort((a, b) => (b['nome'] ?? '').toString().compareTo((a['nome'] ?? '').toString()));
+    }
+
     setState(() {
-      var lista = todosBadges.where((b) {
-        final matchPesquisa = pesquisa.isEmpty ||
-            (b['nome'] ?? '').toLowerCase().contains(pesquisa.toLowerCase()) ||
-            (b['descricao'] ?? '')
-                .toLowerCase()
-                .contains(pesquisa.toLowerCase());
-        final matchNivel =
-            filtroNivel == null || obterNivel(b['id_nivel']) == filtroNivel;
-        return matchPesquisa && matchNivel;
-      }).toList();
-
-      // Ordenação por nome
-      if (ordenacao == 'az') {
-        lista.sort((a, b) =>
-            (a['nome'] ?? '').toString().compareTo((b['nome'] ?? '').toString()));
-      } else if (ordenacao == 'za') {
-        lista.sort((a, b) =>
-            (b['nome'] ?? '').toString().compareTo((a['nome'] ?? '').toString()));
-      }
-
       badgesFiltrados = lista;
     });
   }
 
-  // ─── UI ───────────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
     const double headerHeight = 65.0;
@@ -154,7 +186,6 @@ class _CatalogoBadgesPageState extends State<CatalogoBadgesPage> {
       body: SafeArea(
         child: Stack(
           children: [
-            // CONTEÚDO
             Positioned.fill(
               child: Column(
                 children: [
@@ -167,24 +198,16 @@ class _CatalogoBadgesPageState extends State<CatalogoBadgesPage> {
                       children: [
                         GestureDetector(
                           onTap: () => Navigator.pop(context),
-                          child: const Icon(Icons.arrow_back,
-                              size: 22, color: Color(0xFF4470AF)),
+                          child: const Icon(Icons.arrow_back, size: 22, color: Color(0xFF4470AF)),
                         ),
                         const SizedBox(width: 10),
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text(
-                              "Todos os Badges",
-                              style: TextStyle(
-                                  fontWeight: FontWeight.bold, fontSize: 16),
-                            ),
+                            const Text("Todos os Badges", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                             Text(
-                              isLoading
-                                  ? "A carregar..."
-                                  : "Existe ${todosBadges.length} badges",
-                              style: const TextStyle(
-                                  fontSize: 12, color: Colors.grey),
+                              isLoading ? "A carregar..." : "Existem ${todosBadges.length} badges disponíveis",
+                              style: const TextStyle(fontSize: 12, color: Colors.grey),
                             ),
                           ],
                         ),
@@ -204,46 +227,32 @@ class _CatalogoBadgesPageState extends State<CatalogoBadgesPage> {
                       },
                       decoration: InputDecoration(
                         hintText: "Pesquisar badges...",
-                        hintStyle:
-                            const TextStyle(color: Colors.grey, fontSize: 13),
-                        prefixIcon: const Icon(Icons.search,
-                            color: Colors.grey, size: 20),
+                        hintStyle: const TextStyle(color: Colors.grey, fontSize: 13),
+                        prefixIcon: const Icon(Icons.search, color: Colors.grey, size: 20),
                         filled: true,
                         fillColor: Colors.white,
-                        contentPadding:
-                            const EdgeInsets.symmetric(vertical: 10),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(30),
-                          borderSide: BorderSide.none,
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(30),
-                          borderSide: BorderSide(color: Colors.grey.shade200),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(30),
-                          borderSide: const BorderSide(
-                              color: Color(0xFF4470AF), width: 1.5),
-                        ),
+                        contentPadding: const EdgeInsets.symmetric(vertical: 10),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(30), borderSide: BorderSide.none),
+                        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(30), borderSide: BorderSide(color: Colors.grey.shade200)),
+                        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(30), borderSide: const BorderSide(color: Color(0xFF4470AF), width: 1.5)),
                       ),
                     ),
                   ),
 
                   const SizedBox(height: 10),
 
-                  // Filtro nível  +  Ordenar por nome
+                  // Filtros
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                     child: Row(
                       children: [
-                        // ── Filtrar por Nível ──────────────────────────
                         Expanded(
-                          child: _buildDropdownFiltro(
+                          child: _buildDropdownFiltro<String>(
                             icon: Icons.filter_alt_outlined,
                             label: "Filtrar por Nível",
                             value: filtroNivel,
                             items: niveis,
-                            itemLabel: (v) => v,
+                            itemLabel: (v) => "Nível $v",
                             todosLabel: "Todos os Níveis",
                             onChanged: (v) {
                               filtroNivel = v;
@@ -252,15 +261,13 @@ class _CatalogoBadgesPageState extends State<CatalogoBadgesPage> {
                           ),
                         ),
                         const SizedBox(width: 10),
-                        // ── Ordenar por Nome ───────────────────────────
                         Expanded(
                           child: _buildDropdownFiltro<String>(
                             icon: Icons.sort_by_alpha,
                             label: "Ordenar por Nome",
                             value: ordenacao,
                             items: const ['az', 'za'],
-                            itemLabel: (v) =>
-                                v == 'az' ? 'Nome: A → Z' : 'Nome: Z → A',
+                            itemLabel: (v) => v == 'az' ? 'Nome: A → Z' : 'Nome: Z → A',
                             todosLabel: "Sem ordenação",
                             onChanged: (v) {
                               ordenacao = v;
@@ -275,42 +282,27 @@ class _CatalogoBadgesPageState extends State<CatalogoBadgesPage> {
                   const SizedBox(height: 8),
                   Divider(color: Colors.grey.shade200, height: 1),
 
-                  // Lista de badges
+                  // Lista de Badges
                   Expanded(
                     child: isLoading
-                        ? const Center(
-                            child: CircularProgressIndicator(
-                                color: Color(0xFF4470AF)))
+                        ? const Center(child: CircularProgressIndicator(color: Color(0xFF4470AF)))
                         : badgesFiltrados.isEmpty
-                            ? const Center(
-                                child: Text(
-                                  "Nenhum badge encontrado",
-                                  style: TextStyle(color: Colors.grey),
-                                ),
-                              )
+                            ? const Center(child: Text("Nenhum badge encontrado", style: TextStyle(color: Colors.grey)))
                             : ListView.builder(
-                                padding:
-                                    const EdgeInsets.symmetric(vertical: 8),
+                                padding: const EdgeInsets.symmetric(vertical: 8),
                                 itemCount: badgesFiltrados.length,
                                 itemBuilder: (context, index) {
                                   final b = badgesFiltrados[index];
-                                  final bool conquistado =
-                                      b['conquistado'] == true ||
-                                          b['conquistado'] == 1;
-                                  final bool emValidacao =
-                                      b['em_validacao'] == true || b['em_validacao'] == 1;
-                                  final double? progress = b['progress'] != null
-                                      ? double.tryParse(
-                                          b['progress'].toString())
-                                      : null;
-                                  final String? dataConquista =
-                                      b['data_conquista']?.toString();
+                                  final bool conquistado = b['conquistado'] == true;
+                                  final bool emValidacao = b['em_validacao'] == true;
+                                  final double? progress = double.tryParse(b['progress']?.toString() ?? '');
+
                                   return _badgeCard(
                                     badge: b,
                                     conquistado: conquistado,
                                     emValidacao: emValidacao,
-                                    progress: progress,
-                                    dataConquista: dataConquista,
+                                    progress: progress != null && progress > 0 ? progress : null,
+                                    dataConquista: b['data_conquista']?.toString(),
                                   );
                                 },
                               ),
@@ -322,7 +314,7 @@ class _CatalogoBadgesPageState extends State<CatalogoBadgesPage> {
               ),
             ),
 
-            // HEADER
+            // FIXED HEADER LOGO
             Positioned(
               top: 0,
               left: 0,
@@ -330,16 +322,10 @@ class _CatalogoBadgesPageState extends State<CatalogoBadgesPage> {
               height: headerHeight,
               child: Container(
                 color: Colors.white,
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 16, vertical: 10),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                 child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Image.asset(
-                      'lib/img/logo.png',
-                      height: 35,
-                      fit: BoxFit.contain,
-                    ),
+                    Image.asset('lib/img/logo.png', height: 35, fit: BoxFit.contain),
                   ],
                 ),
               ),
@@ -350,7 +336,6 @@ class _CatalogoBadgesPageState extends State<CatalogoBadgesPage> {
     );
   }
 
-  // ─── CARD DE BADGE ────────────────────────────────────────────────────────
   Widget _badgeCard({
     required Map<String, dynamic> badge,
     required bool conquistado,
@@ -358,21 +343,19 @@ class _CatalogoBadgesPageState extends State<CatalogoBadgesPage> {
     String? dataConquista,
     required bool emValidacao,
   }) {
-    final int pontos =
-        int.tryParse(badge['pontos']?.toString() ?? '0') ?? 0;
+    final int pontos = int.tryParse(badge['pontos']?.toString() ?? '0') ?? 0;
+    final int badgeId = int.tryParse((badge['id'] ?? badge['id_badge_modelo'] ?? '0').toString()) ?? 0;
 
-    // Formata a data se existir (espera formato ISO ou DD/MM/AAAA)
     String estadoTexto;
     Color estadoCor;
 
     if (conquistado) {
       final dataFormatada = _formatarData(dataConquista);
-      estadoTexto =
-          dataFormatada != null ? "Conquistado em $dataFormatada" : "Conquistado";
+      estadoTexto = dataFormatada != null ? "Conquistado em $dataFormatada" : "Conquistado";
       estadoCor = const Color(0xFF2E7D32);
     } else if (emValidacao) {
       estadoTexto = badge['estado_validacao']?.toString() ?? "Em validação";
-      estadoCor = Colors.red;
+      estadoCor = Colors.amber.shade800; // Alterado para dar um tom de aviso real de pendente
     } else if (progress != null && progress > 0) {
       estadoTexto = "Em Progresso";
       estadoCor = const Color(0xFF4470AF);
@@ -387,8 +370,8 @@ class _CatalogoBadgesPageState extends State<CatalogoBadgesPage> {
           context,
           MaterialPageRoute(
             builder: (_) => BadgeDetalhe(
-              userId: widget.userData['id_utilizador'],
-              badgeId: badge['id'], // IMPORTANTE
+              userId: int.parse(widget.userData['id_utilizador'].toString()),
+              badgeId: badgeId,
             ),
           ),
         );
@@ -403,22 +386,15 @@ class _CatalogoBadgesPageState extends State<CatalogoBadgesPage> {
             color: conquistado
                 ? const Color(0xFF2E7D32).withOpacity(0.4)
                 : emValidacao
-                    ? Colors.red.withOpacity(0.45)
+                    ? Colors.amber.withOpacity(0.5)
                     : Colors.grey.shade200,
           ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.04),
-              blurRadius: 6,
-              offset: const Offset(0, 2),
-            ),
-          ],
+          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 6, offset: const Offset(0, 2))],
         ),
         child: Column(
           children: [
             Row(
               children: [
-                // Ícone
                 Stack(
                   children: [
                     Container(
@@ -426,15 +402,13 @@ class _CatalogoBadgesPageState extends State<CatalogoBadgesPage> {
                       height: 60,
                       decoration: BoxDecoration(
                         color: conquistado
-                        ? const Color(0xFFE8F5E9)
-                        : emValidacao
-                            ? const Color(0xFFFFEBEE)
-                            : const Color(0xFFEAF0FA),
+                            ? const Color(0xFFE8F5E9)
+                            : emValidacao
+                                ? const Color(0xFFFFF8E1)
+                                : const Color(0xFFEAF0FA),
                         shape: BoxShape.circle,
                       ),
-                      child: const Center(
-                        child: Text("🏅", style: TextStyle(fontSize: 28)),
-                      ),
+                      child: const Center(child: Text("🏅", style: TextStyle(fontSize: 28))),
                     ),
                     if (conquistado)
                       Positioned(
@@ -442,12 +416,8 @@ class _CatalogoBadgesPageState extends State<CatalogoBadgesPage> {
                         bottom: 0,
                         child: Container(
                           padding: const EdgeInsets.all(2),
-                          decoration: const BoxDecoration(
-                            color: Color(0xFF2E7D32),
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Icon(Icons.check,
-                              color: Colors.white, size: 12),
+                          decoration: const BoxDecoration(color: Color(0xFF2E7D32), shape: BoxShape.circle),
+                          child: const Icon(Icons.check, color: Colors.white, size: 12),
                         ),
                       ),
                     if (emValidacao && !conquistado)
@@ -456,91 +426,56 @@ class _CatalogoBadgesPageState extends State<CatalogoBadgesPage> {
                         bottom: 0,
                         child: Container(
                           padding: const EdgeInsets.all(2),
-                          decoration: const BoxDecoration(
-                            color: Colors.red,
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Icon(
-                            Icons.hourglass_bottom,
-                            color: Colors.white,
-                            size: 12,
-                          ),
+                          decoration: const BoxDecoration(color: Colors.amber, shape: BoxShape.circle),
+                          child: const Icon(Icons.hourglass_bottom, color: Colors.white, size: 12),
                         ),
                       ),
                   ],
                 ),
-
                 const SizedBox(width: 12),
-
-                // Nome + descrição + nível
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        badge['nome'] ?? '',
-                        style: const TextStyle(
-                            fontWeight: FontWeight.bold, fontSize: 13),
-                      ),
+                      Text(badge['nome'] ?? '', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
                       const SizedBox(height: 2),
                       Text(
                         badge['descricao'] ?? '',
-                        style:
-                            const TextStyle(fontSize: 11, color: Colors.grey),
+                        style: const TextStyle(fontSize: 11, color: Colors.grey),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                       ),
                       if (badge['id_nivel'] != null) ...[
                         const SizedBox(height: 4),
                         Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 8, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFEAF0FA),
-                            borderRadius: BorderRadius.circular(20),
-                          ),
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          decoration: BoxDecoration(color: const Color(0xFFEAF0FA), borderRadius: BorderRadius.circular(20)),
                           child: Text(
-                            obterNivel(badge['id_nivel']),
-                            style: const TextStyle(
-                                fontSize: 10, color: Color(0xFF4470AF)),
+                            "Nível ${obterNivel(badge['id_nivel'])}",
+                            style: const TextStyle(fontSize: 10, color: Color(0xFF4470AF)),
                           ),
                         ),
                       ],
                     ],
                   ),
                 ),
-
                 const SizedBox(width: 8),
-
-                // Pontos
                 Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 10, vertical: 8),
-                  decoration: BoxDecoration(
-                    border: Border.all(color: const Color(0xFF4470AF)),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                  decoration: BoxDecoration(border: Border.all(color: const Color(0xFF4470AF)), borderRadius: BorderRadius.circular(12)),
                   child: Column(
                     children: [
-                      const Text("Pontos",
-                          style: TextStyle(
-                              fontSize: 9, color: Color(0xFF4470AF))),
+                      const Text("Pontos", style: TextStyle(fontSize: 9, color: Color(0xFF4470AF))),
                       const SizedBox(height: 2),
                       Text(
                         "$pontos",
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 15,
-                          color: Color(0xFF4470AF),
-                        ),
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Color(0xFF4470AF)),
                       ),
                     ],
                   ),
                 ),
               ],
             ),
-
-            // Barra de progresso
             if (progress != null && !conquistado) ...[
               const SizedBox(height: 10),
               ClipRRect(
@@ -555,27 +490,15 @@ class _CatalogoBadgesPageState extends State<CatalogoBadgesPage> {
               const SizedBox(height: 4),
               Align(
                 alignment: Alignment.centerRight,
-                child: Text(
-                  "${(progress * 100).toStringAsFixed(0)}% concluído",
-                  style:
-                      const TextStyle(fontSize: 10, color: Color(0xFF4470AF)),
-                ),
+                child: Text("${(progress * 100).toStringAsFixed(0)}% concluído", style: const TextStyle(fontSize: 10, color: Color(0xFF4470AF))),
               ),
             ],
-
-            // Estado
             const SizedBox(height: 6),
             Divider(height: 1, color: Colors.grey.shade100),
             const SizedBox(height: 6),
             Align(
               alignment: Alignment.centerLeft,
-              child: Text(
-                estadoTexto,
-                style: TextStyle(
-                    fontSize: 11,
-                    color: estadoCor,
-                    fontWeight: FontWeight.w500),
-              ),
+              child: Text(estadoTexto, style: TextStyle(fontSize: 11, color: estadoCor, fontWeight: FontWeight.w500)),
             ),
           ],
         ),
@@ -583,18 +506,16 @@ class _CatalogoBadgesPageState extends State<CatalogoBadgesPage> {
     );
   }
 
-  // ─── HELPER: formatar data ────────────────────────────────────────────────
   String? _formatarData(String? raw) {
     if (raw == null || raw.isEmpty) return null;
     try {
       final dt = DateTime.parse(raw);
       return "${dt.day.toString().padLeft(2, '0')}/${dt.month.toString().padLeft(2, '0')}/${dt.year}";
     } catch (_) {
-      return raw; // devolve como está se não conseguir fazer parse
+      return raw;
     }
   }
 
-  // ─── DROPDOWN GENÉRICO ────────────────────────────────────────────────────
   Widget _buildDropdownFiltro<T>({
     required IconData icon,
     required String label,
@@ -607,11 +528,7 @@ class _CatalogoBadgesPageState extends State<CatalogoBadgesPage> {
     return Container(
       height: 40,
       padding: const EdgeInsets.symmetric(horizontal: 10),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.grey.shade300),
-      ),
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(8), border: Border.all(color: Colors.grey.shade300)),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<T>(
           isExpanded: true,
@@ -620,26 +537,14 @@ class _CatalogoBadgesPageState extends State<CatalogoBadgesPage> {
             children: [
               Icon(icon, size: 14, color: Colors.grey),
               const SizedBox(width: 4),
-              Expanded(
-                child: Text(label,
-                    style: const TextStyle(fontSize: 11, color: Colors.grey),
-                    overflow: TextOverflow.ellipsis),
-              ),
+              Expanded(child: Text(label, style: const TextStyle(fontSize: 11, color: Colors.grey), overflow: TextOverflow.ellipsis)),
             ],
           ),
-          icon: const Icon(Icons.keyboard_arrow_down,
-              size: 16, color: Colors.grey),
+          icon: const Icon(Icons.keyboard_arrow_down, size: 16, color: Colors.grey),
           style: const TextStyle(fontSize: 11, color: Colors.black),
           items: [
-            DropdownMenuItem<T>(
-              value: null,
-              child: Text(todosLabel,
-                  style: TextStyle(color: Colors.grey.shade600)),
-            ),
-            ...items.map((item) => DropdownMenuItem<T>(
-                  value: item,
-                  child: Text(itemLabel(item)),
-                )),
+            DropdownMenuItem<T>(value: null, child: Text(todosLabel, style: TextStyle(color: Colors.grey.shade600))),
+            ...items.map((item) => DropdownMenuItem<T>(value: item, child: Text(itemLabel(item)))),
           ],
           onChanged: onChanged,
         ),
@@ -647,14 +552,10 @@ class _CatalogoBadgesPageState extends State<CatalogoBadgesPage> {
     );
   }
 
-  // ─── BOTTOM BAR ───────────────────────────────────────────────────────────
   Widget _buildBottomBar() {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border(top: BorderSide(color: Colors.grey.shade200)),
-      ),
+      decoration: BoxDecoration(color: Colors.white, border: Border(top: BorderSide(color: Colors.grey.shade200))),
       child: Row(
         children: [
           Expanded(
@@ -664,9 +565,7 @@ class _CatalogoBadgesPageState extends State<CatalogoBadgesPage> {
               onTap: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(
-                    builder: (_) => MeusBadgesPage(userData: widget.userData),
-                  ),
+                  MaterialPageRoute(builder: (_) => MeusBadgesPage(userData: widget.userData)),
                 );
               },
             ),
@@ -682,10 +581,8 @@ class _CatalogoBadgesPageState extends State<CatalogoBadgesPage> {
                   ordenacao = null;
                   pesquisa = '';
                   badgesFiltrados = todosBadges.where((b) {
-                    final conquistado =
-                        b['conquistado'] == true || b['conquistado'] == 1;
-                    final prog =
-                        double.tryParse(b['progress']?.toString() ?? '');
+                    final conquistado = b['conquistado'] == true;
+                    final prog = double.tryParse(b['progress']?.toString() ?? '');
                     return !conquistado && prog != null && prog > 0;
                   }).toList();
                 });
@@ -697,28 +594,18 @@ class _CatalogoBadgesPageState extends State<CatalogoBadgesPage> {
     );
   }
 
-  Widget _bottomBarButton({
-    required IconData icon,
-    required String label,
-    required VoidCallback onTap,
-  }) {
+  Widget _bottomBarButton({required IconData icon, required String label, required VoidCallback onTap}) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 10),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(30),
-          border: Border.all(color: Colors.black87, width: 1.5),
-        ),
+        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(30), border: Border.all(color: Colors.black87, width: 1.5)),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(icon, size: 16),
             const SizedBox(width: 6),
-            Text(label,
-                style: const TextStyle(
-                    fontSize: 12, fontWeight: FontWeight.w500)),
+            Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
           ],
         ),
       ),

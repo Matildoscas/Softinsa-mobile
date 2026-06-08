@@ -64,17 +64,22 @@ class UtilizadorProvider with ChangeNotifier {
     }
     notifyListeners();
 
-    // ── 3. FLUXO DOS BADGES DE PROGRESSO ─────────────────────────────
+    // ── 3. FLUXO DOS BADGES DE PROGRESSO (Tabela 'badge_atribuido') ──
     try {
       _badgesProgresso = await _apiService.getBadgesProgresso(userId);
-      // Sincroniza a tabela local de badges atribuídos
       for (var badge in _badgesProgresso) {
-        await _dbLocal.salvarRegisto('badge_atribuido', badge);
+        await _dbLocal.salvarRegisto('badge_atribuido', {
+          'id_badge_atribuido': badge['id_badge_atribuido'] ?? badge['id'] ?? 0,
+          'id_badge_modelo': badge['id_badge_modelo'] ?? badge['id'] ?? 0,
+          'data_atribuicao': badge['data_atribuicao']?.toString(),
+          'data_validade': badge['data_validade']?.toString(),
+          'estado_badge_atribuido': badge['estado_badge_atribuido'] ?? 'Em Progresso',
+        });
       }
     } catch (_) {
-      _badgesProgresso = await _dbLocal.listarTabela('badge_atribuido');
+      final dadosLocais = await _dbLocal.listarTabela('badge_atribuido');
+      _badgesProgresso = List<Map<String, dynamic>>.from(dadosLocais);
     }
-    notifyListeners();
 
     // ── 4. LISTA GERAL DE UTILIZADORES ──────────────────────────────
     try {

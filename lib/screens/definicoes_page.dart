@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
+import '../database/basededados.dart'; // Import central para o espelhamento do SQLite
 
 class DefinicoesPage extends StatefulWidget {
   final Map<String, dynamic> userData;
@@ -15,6 +16,7 @@ class DefinicoesPage extends StatefulWidget {
 
 class _DefinicoesPageState extends State<DefinicoesPage> {
   final ApiService api = ApiService();
+  final Basededados _dbLocal = Basededados(); // Instância local para sincronização de perfil
 
   late TextEditingController nomeController;
   late TextEditingController contactoController;
@@ -52,32 +54,48 @@ class _DefinicoesPageState extends State<DefinicoesPage> {
     return int.parse(widget.userData['id_utilizador'].toString());
   }
 
+  // Sincronização Inteligente: Atualiza a API e espelha em cache no SQLite
   Future<void> atualizarPerfil() async {
+    final String nomeTrim = nomeController.text.trim();
+    final String contactoTrim = contactoController.text.trim();
+
+    if (nomeTrim.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("O nome não pode ficar vazio.")),
+      );
+      return;
+    }
+
     setState(() => isSaving = true);
 
     try {
+      // 1. Envia os dados atualizados para a API
       final utilizadorAtualizado = await api.atualizarPerfilUtilizador(
         idUtilizador: userId,
-        nomeCompleto: nomeController.text.trim(),
-        contacto: contactoController.text.trim(),
+        nomeCompleto: nomeTrim,
+        contacto: contactoTrim,
       );
 
-      widget.userData['nome_completo'] =
-          utilizadorAtualizado['nome_completo'];
+      // 2. Atualiza a referência em memória local da App
+      widget.userData['nome_completo'] = utilizadorAtualizado['nome_completo'] ?? nomeTrim;
+      widget.userData['contacto'] = utilizadorAtualizado['contacto'] ?? contactoTrim;
 
-      widget.userData['contacto'] =
-          utilizadorAtualizado['contacto'];
+      // 3. MIRRORING: Salva na tabela local do SQFlite para que a Home e Perfil tenham acesso offline
+      await _dbLocal.salvarRegisto('utilizador', {
+        'id_utilizador': userId,
+        'nome_completo': widget.userData['nome_completo'],
+        'contacto': widget.userData['contacto'],
+      });
 
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Dados atualizados com sucesso.")),
       );
-
-      setState(() {});
     } catch (e) {
+      // Fallback defensivo: Se falhar por falta de internet, avisa o utilizador de forma amigável
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Erro ao atualizar dados: $e")),
+        SnackBar(content: Text("Não foi possível atualizar no servidor. Verifique a sua ligação.")),
       );
     } finally {
       if (mounted) setState(() => isSaving = false);
@@ -117,7 +135,7 @@ class _DefinicoesPageState extends State<DefinicoesPage> {
       );
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Erro ao alterar password: $e")),
+        SnackBar(content: Text("Erro ao alterar password. Operação requer estado online.")),
       );
     }
   }
@@ -159,7 +177,7 @@ class _DefinicoesPageState extends State<DefinicoesPage> {
       );
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Erro ao excluir conta: $e")),
+        SnackBar(content: Text("Erro ao desativar conta. Ligue-se à rede para concluir.")),
       );
     }
   }
@@ -203,6 +221,7 @@ class _DefinicoesPageState extends State<DefinicoesPage> {
       body: SafeArea(
         child: Column(
           children: [
+            // Fixed Header
             Container(
               color: Colors.white,
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
@@ -217,6 +236,7 @@ class _DefinicoesPageState extends State<DefinicoesPage> {
               ),
             ),
 
+            // Botão Voltar
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
               child: Row(
@@ -225,7 +245,7 @@ class _DefinicoesPageState extends State<DefinicoesPage> {
                     onTap: () => Navigator.pop(context),
                     child: const Row(
                       children: [
-                        Icon(Icons.arrow_back, color: azul),
+                        Icon(Icons.arrow_back, color: azul, size: 20),
                         SizedBox(width: 6),
                         Text(
                           "Voltar",
@@ -241,11 +261,13 @@ class _DefinicoesPageState extends State<DefinicoesPage> {
               ),
             ),
 
+            // Painel Principal de Configurações
             Expanded(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.all(16),
                 child: Column(
                   children: [
+                    // SECÇÃO: Dados Pessoais
                     _secao(
                       titulo: "Dados pessoais",
                       children: [
@@ -269,6 +291,8 @@ class _DefinicoesPageState extends State<DefinicoesPage> {
                             style: ElevatedButton.styleFrom(
                               backgroundColor: azul,
                               foregroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                              minimumSize: const Size(double.infinity, 45),
                             ),
                             child: Text(isSaving ? "A guardar..." : "Guardar alterações"),
                           ),
@@ -278,6 +302,7 @@ class _DefinicoesPageState extends State<DefinicoesPage> {
 
                     const SizedBox(height: 16),
 
+                    // SECÇÃO: Segurança
                     _secao(
                       titulo: "Segurança",
                       children: [
@@ -309,6 +334,8 @@ class _DefinicoesPageState extends State<DefinicoesPage> {
                             style: ElevatedButton.styleFrom(
                               backgroundColor: azul,
                               foregroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                              minimumSize: const Size(double.infinity, 45),
                             ),
                             child: const Text("Alterar password"),
                           ),
@@ -318,6 +345,7 @@ class _DefinicoesPageState extends State<DefinicoesPage> {
 
                     const SizedBox(height: 16),
 
+                    // SECÇÃO: Ações de Conta
                     _secao(
                       titulo: "Conta",
                       children: [
@@ -403,6 +431,10 @@ class _DefinicoesPageState extends State<DefinicoesPage> {
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
           borderSide: BorderSide(color: Colors.grey.shade200),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: Colors.grey.shade100),
         ),
       ),
     );

@@ -1,5 +1,7 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
+import '../database/basededados.dart'; // Import da base de dados local SQFlite
 
 // ── MODELO ────────────────────────────────────────────────────────────────────
 class NotificationItem {
@@ -20,19 +22,24 @@ class NotificationItem {
   });
 
   factory NotificationItem.fromJson(Map<String, dynamic> json) {
-    final data = DateTime.parse(json['data_envio']);
+    String dataFormatada = '—';
+    if (json['data_envio'] != null) {
+      try {
+        final data = DateTime.parse(json['data_envio'].toString());
+        dataFormatada = "${data.day.toString().padLeft(2, '0')}/${data.month.toString().padLeft(2, '0')}/${data.year}";
+      } catch (_) {
+        dataFormatada = json['data_envio'].toString();
+      }
+    }
 
     NotificationAvatarType avatarType;
-
-    switch (json['tipo_notificacao']) {
+    switch (json['tipo_notificacao']?.toString()) {
       case 'Alerta':
         avatarType = NotificationAvatarType.error;
         break;
-
       case 'Sistema':
         avatarType = NotificationAvatarType.system;
         break;
-
       default:
         avatarType = NotificationAvatarType.system;
     }
@@ -41,8 +48,7 @@ class NotificationItem {
       title: json['tipo_notificacao'] ?? 'Notificação',
       description: json['conteudo'] ?? '',
       sender: 'System',
-      timeAgo:
-          "${data.day.toString().padLeft(2, '0')}/${data.month.toString().padLeft(2, '0')}/${data.year}",
+      timeAgo: dataFormatada,
       avatarType: avatarType,
     );
   }
@@ -61,6 +67,9 @@ class NotificacoesPage extends StatefulWidget {
 }
 
 class _NotificacoesPageState extends State<NotificacoesPage> {
+  final ApiService _apiService = ApiService();
+  final Basededados _dbLocal = Basededados(); // Conexão local SQLite
+
   List<NotificationItem> notifications = [];
   bool isLoading = true;
 
@@ -71,17 +80,34 @@ class _NotificacoesPageState extends State<NotificacoesPage> {
   }
 
   Future<void> _loadNotifications() async {
+    List<Map<String, dynamic>> dataRaw = [];
+
     try {
-      final api = ApiService();
-      final data = await api.getNotifications(widget.userId);
+      // 1. Tenta carregar as notificações frescas a partir do servidor
+      dataRaw = await _apiService.getNotifications(widget.userId);
+
+      // 2. MIRRORING: Atualiza a cache local gravando os dados no SQFlite (Upsert)
+      for (var n in dataRaw) {
+        await _dbLocal.salvarRegisto('notificacoes', {
+          'id_notificacoes': n['id_notificacoes'] ?? n['id'] ?? DateTime.now().millisecondsSinceEpoch,
+          'tipo_notificacao': n['tipo_notificacao'] ?? 'Notificação',
+          'conteudo': n['conteudo'] ?? '',
+          'data_envio': n['data_envio']?.toString(),
+          'estado_notificacao': n['estado_notificacao'] ?? 'Lido',
+        });
+      }
+    } catch (e) {
+      debugPrint("Modo Offline Ativo nas Notificações: Lendo do SQFlite... ($e)");
+      
+      // 3. FALLBACK: Em caso de erro de rede, consome as notificações guardadas localmente
+      dataRaw = await _dbLocal.listarTabela('notificacoes');
+    }
+
+    if (mounted) {
       setState(() {
-        notifications =
-            data.map((e) => NotificationItem.fromJson(e)).toList();
+        notifications = dataRaw.map((e) => NotificationItem.fromJson(e)).toList();
         isLoading = false;
       });
-    } catch (e) {
-      debugPrint("Erro ao carregar notificações: $e");
-      setState(() => isLoading = false);
     }
   }
 
@@ -94,25 +120,23 @@ class _NotificacoesPageState extends State<NotificacoesPage> {
       body: SafeArea(
         child: Stack(
           children: [
-            // ── CONTEÚDO ────────────────────────────────────────────
+            // ── CONTEÚDO SCROLLÁVEL ─────────────────────────────────
             Positioned.fill(
               child: Column(
                 children: [
                   SizedBox(height: headerHeight),
 
-                  // Voltar
+                  // Botão Voltar
                   Container(
                     color: Colors.white,
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 16, vertical: 14),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                     child: Row(
                       children: [
                         GestureDetector(
                           onTap: () => Navigator.pop(context),
                           child: const Row(
                             children: [
-                              Icon(Icons.arrow_back,
-                                  size: 20, color: Color(0xFF4470AF)),
+                              Icon(Icons.arrow_back, size: 20, color: Color(0xFF4470AF)),
                               SizedBox(width: 8),
                               Text(
                                 "Voltar",
@@ -131,12 +155,11 @@ class _NotificacoesPageState extends State<NotificacoesPage> {
 
                   Divider(height: 1, color: Colors.grey.shade200),
 
-                  // Lista
+                  // Listagem Dinâmica
                   Expanded(
                     child: isLoading
                         ? const Center(
-                            child: CircularProgressIndicator(
-                                color: Color(0xFF4470AF)),
+                            child: CircularProgressIndicator(color: Color(0xFF4470AF)),
                           )
                         : notifications.isEmpty
                             ? _estadoVazio()
@@ -155,7 +178,7 @@ class _NotificacoesPageState extends State<NotificacoesPage> {
               ),
             ),
 
-            // ── HEADER ──────────────────────────────────────────────
+            // ── FIXED HEADER LOGO ────────────────────────────────────
             Positioned(
               top: 0,
               left: 0,
@@ -163,8 +186,7 @@ class _NotificacoesPageState extends State<NotificacoesPage> {
               height: headerHeight,
               child: Container(
                 color: Colors.white,
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 16, vertical: 10),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                 child: Row(
                   children: [
                     Image.asset(
@@ -182,7 +204,6 @@ class _NotificacoesPageState extends State<NotificacoesPage> {
     );
   }
 
-  // ── LINHA DE NOTIFICAÇÃO ───────────────────────────────────────────────────
   Widget _notificationRow(NotificationItem item) {
     return Container(
       color: Colors.white,
@@ -190,7 +211,7 @@ class _NotificacoesPageState extends State<NotificacoesPage> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Avatar
+          // Bloco Lateral de Metadados (Avatar + Emissor + Tempo)
           SizedBox(
             width: 80,
             child: Column(
@@ -221,7 +242,7 @@ class _NotificacoesPageState extends State<NotificacoesPage> {
 
           const SizedBox(width: 16),
 
-          // Título + descrição
+          // Bloco Central Informativo (Conteúdo)
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -234,7 +255,6 @@ class _NotificacoesPageState extends State<NotificacoesPage> {
                     color: Color(0xFF111111),
                     height: 1.3,
                   ),
-                  textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 8),
                 Text(
@@ -244,7 +264,6 @@ class _NotificacoesPageState extends State<NotificacoesPage> {
                     color: Colors.grey.shade600,
                     height: 1.5,
                   ),
-                  textAlign: TextAlign.center,
                 ),
               ],
             ),
@@ -254,7 +273,6 @@ class _NotificacoesPageState extends State<NotificacoesPage> {
     );
   }
 
-  // ── AVATAR ────────────────────────────────────────────────────────────────
   Widget _buildAvatar(NotificationItem item) {
     switch (item.avatarType) {
       case NotificationAvatarType.system:
@@ -276,8 +294,7 @@ class _NotificacoesPageState extends State<NotificacoesPage> {
             shape: BoxShape.circle,
             color: Color(0xFFEF5350),
           ),
-          child: const Icon(Icons.priority_high,
-              color: Colors.white, size: 34),
+          child: const Icon(Icons.priority_high, color: Colors.white, size: 34),
         );
 
       case NotificationAvatarType.user:
@@ -294,20 +311,17 @@ class _NotificacoesPageState extends State<NotificacoesPage> {
             shape: BoxShape.circle,
             color: Colors.grey.shade200,
           ),
-          child: Icon(Icons.person,
-              color: Colors.grey.shade400, size: 34),
+          child: Icon(Icons.person, color: Colors.grey.shade400, size: 34),
         );
     }
   }
 
-  // ── ESTADO VAZIO ──────────────────────────────────────────────────────────
   Widget _estadoVazio() {
     return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.notifications_off_outlined,
-              size: 52, color: Colors.grey.shade400),
+          Icon(Icons.notifications_off_outlined, size: 52, color: Colors.grey.shade400),
           const SizedBox(height: 12),
           const Text(
             "Sem notificações",

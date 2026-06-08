@@ -5,7 +5,6 @@ import 'package:printing/printing.dart';
 import 'package:excel/excel.dart' as excel;
 import 'package:path_provider/path_provider.dart';
 import 'package:open_filex/open_filex.dart';
-
 import 'package:flutter/material.dart';
 
 class CertificadoCompetenciasPage extends StatelessWidget {
@@ -106,7 +105,6 @@ class CertificadoCompetenciasPage extends StatelessWidget {
 
   Future<void> _gerarExcel(BuildContext context) async {
     final workbook = excel.Excel.createExcel();
-
     final sheet = workbook['Certificado'];
 
     sheet.appendRow([
@@ -181,27 +179,22 @@ class CertificadoCompetenciasPage extends StatelessWidget {
   Widget build(BuildContext context) {
     const double headerHeight = 65.0;
 
-    // Dados do certificado (com fallback para demonstração)
     final String nomeUtilizador =
       certificadoData['nome_utilizador'] ??
       certificadoData['nome'] ??
       userData['nome'] ??
       'Utilizador';
 
-    final String cargo =
-        certificadoData['cargo'] ?? 'Consultor/a';
-    final String nomeBadge =
-        certificadoData['nome_badge'] ?? 'SAP Explorer – Nível Júnior (A1, A2, A3)';
-    final String dataEmissao =
-        certificadoData['data_emissao'] ?? '3 de Fevereiro de 2025';
+    final String cargo = certificadoData['cargo'] ?? 'Consultor/a';
+    final String nomeBadge = certificadoData['nome_badge'] ?? 'SAP Explorer – Nível Júnior (A1, A2, A3)';
+    final String dataEmissao = certificadoData['data_emissao'] ?? '3 de Fevereiro de 2025';
+    
     final String codigoVerificacao =
       certificadoData['codigo_certificado'] ??
       certificadoData['codigo_verificacao'] ??
       'CERT-${certificadoData['id_candidatura_historico'] ?? ''}-${userData['id_utilizador'] ?? ''}';
       
-    final String urlVerificacao =
-        certificadoData['url_verificacao'] ??
-            'softinsa.pt/badges/.../out-a';
+    final String urlVerificacao = certificadoData['url_verificacao'] ?? 'softinsa.pt/badges/.../out-a';
 
     return Scaffold(
       backgroundColor: const Color(0xFFF7F7F7),
@@ -221,14 +214,12 @@ class CertificadoCompetenciasPage extends StatelessWidget {
                       children: [
                         GestureDetector(
                           onTap: () => Navigator.pop(context),
-                          child: const Icon(Icons.arrow_back,
-                              size: 22, color: Color(0xFF4470AF)),
+                          child: const Icon(Icons.arrow_back, size: 22, color: Color(0xFF4470AF)),
                         ),
                         const SizedBox(width: 10),
                         const Text(
                           "Voltar",
-                          style: TextStyle(
-                              fontWeight: FontWeight.bold, fontSize: 16),
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                         ),
                       ],
                     ),
@@ -256,37 +247,20 @@ class CertificadoCompetenciasPage extends StatelessWidget {
                         ),
                         child: Column(
                           children: [
-                            // Cabeçalho do certificado
                             _buildCertificadoHeader(),
 
-                            // Corpo com os dados
                             Padding(
                               padding: const EdgeInsets.all(20),
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  // "Certificamos que:"
-                                  const Text(
-                                    "Certificamos que:",
-                                    style: TextStyle(fontSize: 14),
-                                  ),
-
+                                  const Text("Certificamos que:", style: TextStyle(fontSize: 14)),
                                   const SizedBox(height: 16),
-
-                                  // Nome + cargo
-                                  Text(
-                                    "$nomeUtilizador , $cargo",
-                                    style: const TextStyle(fontSize: 14),
-                                  ),
+                                  Text("$nomeUtilizador, $cargo", style: const TextStyle(fontSize: 14)),
                                   const SizedBox(height: 4),
-                                  const Text(
-                                    "Concluiu com sucesso o badge:",
-                                    style: TextStyle(fontSize: 14),
-                                  ),
-
+                                  const Text("Concluiu com sucesso o badge:", style: TextStyle(fontSize: 14)),
                                   const SizedBox(height: 16),
 
-                                  // Nome do badge — centrado, destaque
                                   Center(
                                     child: Text(
                                       nomeBadge,
@@ -303,25 +277,18 @@ class CertificadoCompetenciasPage extends StatelessWidget {
                                   Divider(color: Colors.grey.shade100),
                                   const SizedBox(height: 16),
 
-                                  // Data de emissão
                                   _buildInfoRow(
                                     icon: Icons.calendar_today_outlined,
                                     label: "Data de emissão",
                                     value: dataEmissao,
                                   ),
-
                                   const SizedBox(height: 14),
-
-                                  // Código único
                                   _buildInfoRow(
                                     icon: Icons.qr_code_outlined,
                                     label: "Código único de Verificação",
                                     value: codigoVerificacao,
                                   ),
-
                                   const SizedBox(height: 14),
-
-                                  // URL de verificação
                                   _buildInfoRow(
                                     icon: Icons.link_outlined,
                                     label: "URL de Verificação",
@@ -333,9 +300,7 @@ class CertificadoCompetenciasPage extends StatelessWidget {
                                   Divider(color: Colors.grey.shade200),
                                   const SizedBox(height: 20),
 
-                                  // Assinaturas
                                   _buildAssinaturas(),
-
                                   const SizedBox(height: 8),
                                 ],
                               ),
@@ -345,10 +310,7 @@ class CertificadoCompetenciasPage extends StatelessWidget {
                       ),
                     ),
                   ),
-
                   const SizedBox(height: 8),
-
-                  // Bottom bar — Gerar PDF / Gerar Excel
                   _buildBottomBar(context),
                 ],
               ),
@@ -362,16 +324,11 @@ class CertificadoCompetenciasPage extends StatelessWidget {
               height: headerHeight,
               child: Container(
                 color: Colors.white,
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Image.asset(
-                      'lib/img/logo.png',
-                      height: 35,
-                      fit: BoxFit.contain,
-                    ),
+                    Image.asset('lib/img/logo.png', height: 35, fit: BoxFit.contain),
                   ],
                 ),
               ),
@@ -382,7 +339,6 @@ class CertificadoCompetenciasPage extends StatelessWidget {
     );
   }
 
-  // ── Cabeçalho do certificado (título + logo Softinsa) ──────────────────────
   Widget _buildCertificadoHeader() {
     return Container(
       width: double.infinity,
@@ -396,34 +352,24 @@ class CertificadoCompetenciasPage extends StatelessWidget {
         children: [
           const Text(
             "Certificado de Competências",
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
-              fontSize: 18,
-            ),
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 16),
-          // Logo Softinsa em destaque
           Container(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(8),
               border: Border.all(color: Colors.grey.shade200),
             ),
-            child: Image.asset(
-              'lib/img/logo.png',
-              height: 36,
-              fit: BoxFit.contain,
-            ),
+            child: Image.asset('lib/img/logo.png', height: 36, fit: BoxFit.contain),
           ),
         ],
       ),
     );
   }
 
-  // ── Linha de informação (ícone + label + valor) ────────────────────────────
   Widget _buildInfoRow({
     required IconData icon,
     required String label,
@@ -439,21 +385,15 @@ class CertificadoCompetenciasPage extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                label,
-                style:
-                    const TextStyle(fontSize: 11, color: Colors.grey),
-              ),
+              Text(label, style: const TextStyle(fontSize: 11, color: Colors.grey)),
               const SizedBox(height: 2),
               Text(
                 value,
                 style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w500,
-                  color:
-                      isLink ? const Color(0xFF4470AF) : Colors.black87,
-                  decoration:
-                      isLink ? TextDecoration.underline : TextDecoration.none,
+                  color: isLink ? const Color(0xFF4470AF) : Colors.black87,
+                  decoration: isLink ? TextDecoration.underline : TextDecoration.none,
                 ),
               ),
             ],
@@ -463,7 +403,6 @@ class CertificadoCompetenciasPage extends StatelessWidget {
     );
   }
 
-  // ── Bloco de assinaturas ───────────────────────────────────────────────────
   Widget _buildAssinaturas() {
     return Row(
       children: [
@@ -474,81 +413,55 @@ class CertificadoCompetenciasPage extends StatelessWidget {
     );
   }
 
+  // CORREÇÃO CRÍTICA: Substituição do caractere matemático fantasma por ícone ou texto nativo seguro
   Widget _buildAssinatura(String cargo) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Linha de assinatura simulada
         Stack(
           clipBehavior: Clip.none,
           children: [
-            // "x" à esquerda
             const Positioned(
               left: 0,
               bottom: 4,
               child: Text(
                 "x",
-                style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black87),
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.grey),
               ),
             ),
-            // Traço cursivo decorativo
+            // Substituído o glifo matemático que quebrava por uma linha cursiva nativa simulada via Ícone
             Padding(
-              padding: const EdgeInsets.only(left: 18),
-              child: Text(
-                "𝓁",
-                style: TextStyle(
-                  fontSize: 44,
-                  fontFamily: 'serif',
-                  color: Colors.black87,
-                  height: 1.1,
-                ),
+              padding: const EdgeInsets.only(left: 14, bottom: 2),
+              child: Icon(
+                Icons.gesture, 
+                color: Colors.black87.withOpacity(0.7), 
+                size: 32
               ),
             ),
           ],
         ),
         const SizedBox(height: 4),
-        // Pontos da linha de assinatura
+        // Pontos decorativos estruturados da linha de assinatura
         Row(
           children: List.generate(
-            5,
+            6,
             (_) => Container(
-              width: 8,
-              height: 8,
-              margin: const EdgeInsets.only(right: 4),
-              decoration: const BoxDecoration(
-                color: Colors.black87,
-                shape: BoxShape.rectangle,
-              ),
+              width: 6,
+              height: 1.5,
+              margin: const EdgeInsets.only(right: 3),
+              color: Colors.black54,
             ),
           ),
         ),
         const SizedBox(height: 8),
         Text(
           cargo,
-          style: const TextStyle(
-              fontSize: 12, fontWeight: FontWeight.w500),
+          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
         ),
       ],
     );
   }
 
-  // ── Botão de ícone do header ───────────────────────────────────────────────
-  Widget _headerIconButton(IconData icon) {
-    return Container(
-      width: 38,
-      height: 38,
-      decoration: const BoxDecoration(
-        color: Color(0xFF4470AF),
-        shape: BoxShape.circle,
-      ),
-      child: Icon(icon, color: Colors.white, size: 20),
-    );
-  }
-
-  // ── Bottom bar: Gerar PDF + Gerar Excel ───────────────────────────────────
   Widget _buildBottomBar(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
@@ -562,9 +475,7 @@ class CertificadoCompetenciasPage extends StatelessWidget {
             child: _bottomBarButton(
               icon: Icons.picture_as_pdf_outlined,
               label: "Gerar PDF",
-              onTap: () {
-                _gerarPDF(context);
-              },
+              onTap: () => _gerarPDF(context),
             ),
           ),
           const SizedBox(width: 10),
@@ -572,9 +483,7 @@ class CertificadoCompetenciasPage extends StatelessWidget {
             child: _bottomBarButton(
               icon: Icons.grid_on_outlined,
               label: "Gerar Excel",
-              onTap: () {
-                _gerarExcel(context);
-              },
+              onTap: () => _gerarExcel(context),
             ),
           ),
         ],
@@ -601,11 +510,7 @@ class CertificadoCompetenciasPage extends StatelessWidget {
           children: [
             Icon(icon, size: 16),
             const SizedBox(width: 6),
-            Text(
-              label,
-              style: const TextStyle(
-                  fontSize: 12, fontWeight: FontWeight.w500),
-            ),
+            Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
           ],
         ),
       ),

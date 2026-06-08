@@ -70,6 +70,20 @@ class ApiService {
     }
   }
 
+  // REINTRODUZIDO: Método essencial que faltava na branch da tua colega
+  Future<List<Map<String, dynamic>>> getUtilizadores() async {
+    try {
+      final response = await http.get(Uri.parse('$baseUrl/utilizadores'), headers: _headers);
+      if (response.statusCode == 200) {
+        final List data = jsonDecode(response.body);
+        return data.map((e) => e as Map<String, dynamic>).toList();
+      }
+      throw Exception('Erro ao carregar utilizadores');
+    } on SocketException {
+      throw const SocketException('offline');
+    }
+  }
+
   Future<List<Map<String, dynamic>>> getAreas() async {
     try {
       final response = await http.get(Uri.parse('$baseUrl/areas'));
@@ -101,7 +115,6 @@ class ApiService {
 
   Future<List<Map<String, dynamic>>> getBadgesProgresso(int userId) async {
     try {
-      // CORREÇÃO: Adicionado os headers que faltavam no código dela
       final response = await http.get(Uri.parse('$baseUrl/badges/progresso/$userId'), headers: _headers);
       if (response.statusCode == 200) {
         final List data = jsonDecode(response.body);
@@ -115,7 +128,6 @@ class ApiService {
 
   Future<List<Map<String, dynamic>>> getBadgesRecomendados(int userId) async {
     try {
-      // CORREÇÃO: Adicionado os headers que faltavam no código dela
       final response = await http.get(Uri.parse('$baseUrl/badges/recomendados/$userId'), headers: _headers);
       if (response.statusCode == 200) {
         final List data = jsonDecode(response.body);
@@ -176,6 +188,45 @@ class ApiService {
       return agruparBadgesComRequisitos(listaPlana);
     }
     throw Exception('Erro conquistados');
+  }
+
+  Future<List<Map<String, dynamic>>> getCandidaturasPendentes(int userId) async {
+    try {
+      final response = await http.get(Uri.parse('$baseUrl/certificados/pendentes/$userId'), headers: _headers);
+      if (response.statusCode == 200) {
+        final List data = jsonDecode(response.body);
+        return data.map((e) => e as Map<String, dynamic>).toList();
+      }
+      throw Exception('Erro ao carregar candidaturas pendentes');
+    } on SocketException {
+      throw const SocketException('offline');
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> getProgressoLearningPaths(int userId) async {
+    try {
+      final response = await http.get(Uri.parse('$baseUrl/learningpaths/progresso/$userId'), headers: _headers);
+      if (response.statusCode == 200) {
+        final List data = jsonDecode(response.body);
+        return data.map((e) => e as Map<String, dynamic>).toList();
+      }
+      throw Exception('Erro ao carregar progresso das learning paths');
+    } on SocketException {
+      throw const SocketException('offline');
+    }
+  }
+
+  // Adicionado por segurança caso o ecrã de detalhes precise do método limpo
+  Future<Map<String, dynamic>> getCertificado({required int idHistorico, required int idUtilizador}) async {
+    try {
+      final response = await http.get(Uri.parse('$baseUrl/certificados/$idHistorico/$idUtilizador'), headers: _headers);
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      }
+      throw Exception('Erro ao obter ficheiro do certificado');
+    } on SocketException {
+      throw const SocketException('offline');
+    }
   }
 
   List<Map<String, dynamic>> agruparBadgesComRequisitos(List<Map<String, dynamic>> dadosPlanos) {
