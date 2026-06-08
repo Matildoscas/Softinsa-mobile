@@ -3,7 +3,6 @@ import '../services/api_service.dart';
 import 'login.dart';
 
 class AreaRegisterPage extends StatefulWidget {
-  // Recebe os dados do registo — a gravação acontece aqui
   final String nome;
   final String email;
   final String password;
@@ -37,24 +36,17 @@ class _AreaRegPageState extends State<AreaRegisterPage> {
 
   Future<void> _carregarAreas() async {
     try {
-
-      print("A carregar áreas...");
-
+      print("A carregar áreas de forma Offline-First...");
+      
+      // Invoca o método adaptado que descarrega da API ou recorre à cache local do SQFlite
       final lista = await _apiService.getAreas();
-
-      print("Áreas recebidas:");
-      print(lista);
 
       setState(() {
         _areas = lista;
         _isLoading = false;
       });
-
     } catch (e) {
-
-      print("ERRO:");
-      print(e);
-
+      print("ERRO ao ler áreas no registo: $e");
       setState(() => _isLoading = false);
     }
   }
@@ -69,6 +61,7 @@ class _AreaRegPageState extends State<AreaRegisterPage> {
 
     setState(() => _aGravar = true);
 
+    // O registo físico continua a requerer rede (PostgreSQL)
     final sucesso = await _apiService.register(
       nome: widget.nome,
       email: widget.email,
@@ -83,7 +76,10 @@ class _AreaRegPageState extends State<AreaRegisterPage> {
 
     if (sucesso) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Conta criada! Verifique o seu email para ativar a conta.")),
+        const SnackBar(
+          content: Text("Conta criada! Verifique o seu e-mail para ativar a conta."),
+          backgroundColor: Colors.green,
+        ),
       );
 
       Navigator.pushAndRemoveUntil(
@@ -91,10 +87,12 @@ class _AreaRegPageState extends State<AreaRegisterPage> {
         MaterialPageRoute(builder: (context) => const LoginPage()),
         (route) => false,
       );
-
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Erro no registo!")),
+        const SnackBar(
+          content: Text("Erro ao efetuar registo. Verifique a sua ligação."),
+          backgroundColor: Colors.redAccent,
+        ),
       );
     }
   }
@@ -105,19 +103,20 @@ class _AreaRegPageState extends State<AreaRegisterPage> {
       backgroundColor: const Color(0xFFF7F7F7),
       body: SafeArea(
         child: _isLoading
-            ? const Center(child: CircularProgressIndicator())
+            ? const Center(child: CircularProgressIndicator(color: Colors.blueAccent))
             : Column(
                 children: [
-
                   // HEADER
                   Container(
                     color: Colors.white,
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 25, vertical: 10),
+                    padding: const EdgeInsets.symmetric(horizontal: 25, vertical: 10),
                     width: double.infinity,
                     child: Center(
-                      child: Image.asset('lib/img/logo.png',
-                          height: 70, fit: BoxFit.contain),
+                      child: Image.asset(
+                        'lib/img/logo.png',
+                        height: 70,
+                        fit: BoxFit.contain,
+                      ),
                     ),
                   ),
 
@@ -132,13 +131,11 @@ class _AreaRegPageState extends State<AreaRegisterPage> {
                             color: Colors.white,
                             borderRadius: BorderRadius.circular(10),
                             boxShadow: const [
-                              BoxShadow(
-                                  color: Colors.black12, blurRadius: 10)
+                              BoxShadow(color: Colors.black12, blurRadius: 10)
                             ],
                           ),
                           child: Column(
                             children: [
-
                               const Text(
                                 "Área",
                                 style: TextStyle(
@@ -147,41 +144,41 @@ class _AreaRegPageState extends State<AreaRegisterPage> {
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
-
                               const Text("Escolha a sua área de atuação"),
-
                               const SizedBox(height: 30),
 
+                              // DROPDOWN SINCRONIZADO
                               DropdownButtonFormField<int>(
                                 decoration: const InputDecoration(
                                   labelText: "Selecione a Área",
-                                  prefixIcon:
-                                      Icon(Icons.list_alt_outlined),
+                                  prefixIcon: Icon(Icons.list_alt_outlined),
                                   border: OutlineInputBorder(),
                                 ),
-                                initialValue: _selectedAreaId,
+                                value: _selectedAreaId,
+                                // AJUSTE: Mapeia dinamicamente usando os campos do teu pgAdmin (ID_AREAS / NOME_AREA)
                                 items: _areas.map((area) {
+                                  final int id = area['id_areas'] ?? area['id'] ?? 0;
+                                  final String nome = area['nome_area'] ?? area['nome'] ?? 'Sem Nome';
+                                  
                                   return DropdownMenuItem<int>(
-                                    value: area['id'] as int,
-                                    child: Text(area['nome'].toString()),
+                                    value: id,
+                                    child: Text(nome),
                                   );
                                 }).toList(),
-                                onChanged: (value) =>
-                                    setState(() => _selectedAreaId = value),
+                                onChanged: (value) => setState(() => _selectedAreaId = value),
                               ),
-
                               const SizedBox(height: 30),
 
+                              // BOTÃO SUBMETER
                               ElevatedButton(
                                 onPressed: _aGravar ? null : _finalizarRegisto,
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: Colors.blueAccent,
                                   foregroundColor: Colors.white,
-                                  minimumSize:
-                                      const Size(double.infinity, 50),
+                                  minimumSize: const Size(double.infinity, 50),
                                   shape: RoundedRectangleBorder(
-                                      borderRadius:
-                                          BorderRadius.circular(10)),
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
                                 ),
                                 child: _aGravar
                                     ? const SizedBox(
@@ -193,8 +190,7 @@ class _AreaRegPageState extends State<AreaRegisterPage> {
                                         ),
                                       )
                                     : const Row(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.center,
+                                        mainAxisAlignment: MainAxisAlignment.center,
                                         children: [
                                           Text("Concluir registo"),
                                           SizedBox(width: 6),
@@ -202,11 +198,8 @@ class _AreaRegPageState extends State<AreaRegisterPage> {
                                         ],
                                       ),
                               ),
-
                               TextButton(
-                                onPressed: _aGravar
-                                    ? null
-                                    : () => Navigator.pop(context),
+                                onPressed: _aGravar ? null : () => Navigator.pop(context),
                                 child: const Text("Voltar"),
                               ),
                             ],

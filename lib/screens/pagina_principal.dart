@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../services/api_service.dart';
+import '../providers/utilizador_provider.dart'; // Importa o teu Provider local
 
 class HomePage extends StatefulWidget {
   final Map<String, dynamic> userData;
@@ -11,315 +13,157 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-
-  List<Map<String, dynamic>> progresso = [];
-  List<Map<String, dynamic>> recomendados = [];
-  Map<String, dynamic>? especial;
-
+  
   @override
   void initState() {
     super.initState();
-    carregarDados();
-  }
-
-  Future<void> carregarDados() async {
-    final api = ApiService();
-
-    final p = await api.getBadgesProgresso(
-      widget.userData['id_utilizador'],
-    );
-
-    final r = await api.getBadgesRecomendados(
-      widget.userData['id_utilizador'],
-    );
-
-    final e = await api.getBadgeEspecial();
-
-    final dashboard = await api.getDashboard(
-      widget.userData['id_utilizador'],
-    );
-
-    setState(() {
-      progresso = p;
-      recomendados = r;
-      especial = e;
-
-      widget.userData['pontos'] =
-        int.parse(dashboard['total_pontos'].toString());
-
-      widget.userData['badges'] =
-        int.parse(dashboard['total_badges'].toString());
+    // REESCRITA OFFLINE-FIRST: Acorda o Provider no primeiro frame para ler o SQLite local e disparar o Sync
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final int userId = widget.userData['id_utilizador'] ?? 0;
+      Provider.of<UtilizadorProvider>(context, listen: false).inicializarDados(userId);
     });
   }
 
   @override
   Widget build(BuildContext context) {
-
-    String nomeCompleto = widget.userData['nome_completo'] ?? 'Utilizador';
-    String primeiroNome = nomeCompleto.split(' ')[0];
-    int pontos = widget.userData['pontos'] ?? 0;
-    int totalBadges = widget.userData['badges'] ?? 0;
+    final int userId = widget.userData['id_utilizador'] ?? 0;
 
     return Scaffold(
       backgroundColor: const Color(0xFFF7F7F7),
       body: SafeArea(
-        child: Column(
-          children: [
+        // O Consumer fica à escuta do UtilizadorProvider. Sempre que o SQFlite mudar, a UI redesenha-se!
+        child: Consumer<UtilizadorProvider>(
+          builder: (context, provider, child) {
+            
+            // Se estiver a carregar os dados iniciais do disco e a memória estiver vazia, mostra loading
+            if (provider.estaA_Carregar && provider.dashboard.isEmpty) {
+              return const Center(child: CircularProgressIndicator(color: Colors.blueAccent));
+            }
 
-            // ================= HEADER =================
-            Container(
-              color: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
+            // Fallback amigável se a BD estiver totalmente vazia e o servidor offline
+            if (provider.dashboard.isEmpty) {
+              return const Center(child: Text("Sem ligação à internet e sem cache local disponível."));
+            }
 
-                  Image.asset(
-                    'lib/img/logo.png',
-                    height: 35, 
-                    fit: BoxFit.contain,
-                  ),
+            // Mapeamento dinâmico baseado nos dados reativos guardados no Provider
+            final int pontosAtuais = int.parse((provider.dashboard['total_pontos'] ?? 0).toString());
+            final int totalBadges = int.parse((provider.dashboard['total_badges'] ?? 0).toString());
+            final String ranking = provider.dashboard['ranking'] ?? 'N/A';
 
-                  Row(
-                    children: const [
-                      CircleAvatar(
-                        radius: 16,
-                        backgroundColor: Colors.blue,
-                        child: Icon(Icons.notifications, color: Colors.white, size: 18),
-                      ),
-                      SizedBox(width: 10),
-                      CircleAvatar(
-                        radius: 16,
-                        backgroundColor: Colors.blue,
-                        child: Icon(Icons.person, color: Colors.white, size: 18),
-                      ),
-                    ],
-                  )
-                ],
-              ),
-            ),
-
-            // ================= CONTEÚDO =================
-            Expanded(
+            return RefreshIndicator(
+              // Pull-to-Refresh: Se o utilizador puxar o ecrã para baixo, força uma nova sincronização com o pgAdmin
+              onRefresh: () async {
+                await provider.atualizarDashboard(userId);
+              },
               child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(), // Garante que o scroll funciona mesmo com poucos itens
                 child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-
-                    // ================= WELCOME CARD =================
+                    // ================= HEADER =================
                     Container(
-                      margin: const EdgeInsets.all(16),
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          colors: [Color(0xFF4470AF), Color(0xFF3A5C94)],
-                        ),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                      color: Colors.white,
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      child: Row(
                         children: [
-
-                          Text(
-                            "Bom dia, $primeiroNome!",
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 18,
+                          const Text(
+                            "SOFTINSA",
+                            style: TextStyle(
+                              fontSize: 22,
                               fontWeight: FontWeight.bold,
+                              color: Color(0xFF39639C),
                             ),
                           ),
-
-                          const SizedBox(height: 20),
-
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-
-                              buildInfoButton(
-                                icon: Icons.emoji_events,
-                                title: "Badges",
-                                subtitle: "$totalBadges obtidos",
-                                onTap: () {},
-                              ),
-
-                              buildInfoButton(
-                                icon: Icons.star,
-                                title: "Pontos totais",
-                                subtitle: "$pontos pontos",
-                                onTap: () {},
-                              ),
-
-                              buildInfoButton(
-                                icon: Icons.note,
-                                title: "Lembretes",
-                                onTap: () {},
-                              ),
-                            ],
+                          const Spacer(),
+                          Text(
+                            widget.userData['nome_completo'] ?? 'Consultor',
+                            style: const TextStyle(fontWeight: FontWeight.w500),
+                          ),
+                          const SizedBox(width: 8),
+                          const CircleAvatar(
+                            backgroundColor: Colors.grey,
+                            radius: 16,
+                            child: Icon(Icons.person, color: Colors.white, size: 20),
                           )
                         ],
                       ),
                     ),
 
-                    // ================= BOTÃO CATÁLOGO =================
-                    ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.white,
-                        foregroundColor: Colors.black,
-                        shape: const StadiumBorder(),
-                        elevation: 4,
-                      ),
-                      onPressed: () {},
-                      icon: const Icon(Icons.grid_view),
-                      label: const Text("Catálogo de Badges"),
-                    ),
-
-                    const SizedBox(height: 20),
-
-                    // ================= PROGRESSO =================
-                    sectionHeader("Badges com progresso", "Em desenvolvimento"),
-
-                    if (progresso.isEmpty)
-                      const Padding(
-                        padding: EdgeInsets.all(16),
-                        child: Text("Sem progresso de momento"),
-                      )
-                    else
-                      ...progresso.map((b) => badgeCard(
-                        title: b['nome'],
-                        description: b['descricao'],
-                        points: b['pontos'],
-                        progress: b['progress'], // 🔥 agora 0
-                      )),
-
-                    // ================= RECOMENDAÇÃO =================
-                    sectionHeader("Recomendação de Badge", "Sugestão baseada na sua área"),
-
-                    if (recomendados.isEmpty)
-                      const Padding(
-                        padding: EdgeInsets.all(16),
-                        child: Text("Sem recomendações disponíveis"),
-                      )
-                    else
-                      ...recomendados.map((b) => badgeCard(
-                        title: b['nome'],
-                        description: b['descricao'],
-                        points: b['pontos'],
-                      )),
-
-                    // ================= ESPECIAL =================
-                    if (especial != null) ...[
-                      Padding(
+                    // ================= CARD DE PONTOS / RANKING =================
+                    Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Container(
                         padding: const EdgeInsets.all(16),
-                        child: Text(
-                          "Obtenha este badge em ${especial!['dias']} dias e ganhe o dobro dos pontos",
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF39639C),
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceAround,
+                          children: [
+                            _buildStatItem("Pontos", "$pontosAtuais"),
+                            _buildStatItem("Badges", "$totalBadges"),
+                            _buildStatItem("Ranking", ranking),
+                          ],
                         ),
                       ),
+                    ),
 
-                      badgeCard(
-                        title: especial!['nome'],
-                        description: especial!['descricao'],
-                        points: especial!['pontos'],
-                        highlight: true,
+                    // ================= LISTA DE BADGES EM PROGRESSO =================
+                    const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 16.0),
+                      child: Text(
+                        "Badges em Progresso",
+                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                       ),
-                    ],
+                    ),
 
+                    provider.badgesProgresso.isEmpty
+                        ? const Padding(
+                            padding: EdgeInsets.all(16.0),
+                            child: Text("Nenhum badge em progresso de momento.", style: TextStyle(color: Colors.grey)),
+                          )
+                        : ListView.builder(
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            itemCount: provider.badgesProgresso.length,
+                            itemBuilder: (context, index) {
+                              final item = provider.badgesProgresso[index];
+                              return _buildBadgeCard(
+                                title: item['nome_badge'] ?? 'Badge',
+                                description: item['descricao_badge_modelo'] ?? 'Sem descrição',
+                                points: (item['pontos'] ?? 0).toString(),
+                                progress: item['progresso'] != null 
+                                    ? double.tryParse(item['progresso'].toString()) 
+                                    : null,
+                              );
+                            },
+                          ),
                   ],
                 ),
               ),
-            ),
-          ],
+            );
+          },
         ),
       ),
     );
   }
 
-  // ================= BOTÃO INFO =================
-Widget buildInfoButton({
-  required IconData icon,
-  required String title,
-  String? subtitle,
-  required VoidCallback onTap,
-}) {
-  return Expanded(
-    child: GestureDetector(
-      onTap: onTap,
-      child: Container(
-        height: 100, // <--- Definimos uma altura fixa para todos serem iguais
-        margin: const EdgeInsets.symmetric(horizontal: 4),
-        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
-        decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.15),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center, // Centraliza verticalmente
-          children: [
-            Container(
-              padding: const EdgeInsets.all(6),
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.2),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Icon(icon, color: Colors.white, size: 20),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              title,
-              textAlign: TextAlign.center,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 11,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            // Usamos um widget invisível ou o texto para manter o alinhamento
-            Text(
-              subtitle ?? "", // Se não houver subtítulo, fica uma string vazia
-              textAlign: TextAlign.center,
-              maxLines: 1,
-              style: TextStyle(
-                color: subtitle != null ? Colors.white70 : Colors.transparent,
-                fontSize: 9,
-              ),
-            ),
-          ],
-        ),
-      ),
-    ),
-  );
-}
-
-  // ================= HEADER SECÇÃO =================
-  Widget sectionHeader(String title, String subtitle) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(title,
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-              Text(subtitle, style: const TextStyle(fontSize: 12)),
-            ],
-          ),
-          TextButton(
-            onPressed: () {},
-            child: const Text("Ver Todos"),
-          )
-        ],
-      ),
+  // Widgets auxiliares mantidos do teu design original
+  Widget _buildStatItem(String label, String value) {
+    return Column(
+      children: [
+        Text(label, style: const TextStyle(color: Colors.white70, fontSize: 12)),
+        const SizedBox(height: 4),
+        Text(value, style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
+      ],
     );
   }
 
-  // ================= CARD BADGE =================
-  Widget badgeCard({
+  Widget _buildBadgeCard({
     required String title,
     required String description,
-    required int points,
+    required String points,
     double? progress,
     bool highlight = false,
   }) {
@@ -328,39 +172,35 @@ Widget buildInfoButton({
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.shade300),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 4)),
+        ],
       ),
       child: Row(
         children: [
-
           const CircleAvatar(
             radius: 30,
             backgroundColor: Colors.blueAccent,
             child: Text("🏅", style: TextStyle(fontSize: 24)),
           ),
-
           const SizedBox(width: 10),
-
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title),
-                Text(description,
-                    style: const TextStyle(fontSize: 12, color: Colors.grey)),
-
+                Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
+                Text(description, style: const TextStyle(fontSize: 12, color: Colors.grey)),
                 if (progress != null)
                   Column(
                     children: [
                       const SizedBox(height: 6),
-                      LinearProgressIndicator(value: progress),
+                      LinearProgressIndicator(value: progress, color: Colors.blueAccent, backgroundColor: Colors.grey[200]),
                     ],
                   )
               ],
             ),
           ),
-
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
@@ -371,7 +211,7 @@ Widget buildInfoButton({
               children: [
                 const Text("Pontos", style: TextStyle(fontSize: 10)),
                 Text(
-                  "$points",
+                  points,
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
                     color: highlight ? Colors.amber : Colors.black,

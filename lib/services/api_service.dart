@@ -1,77 +1,101 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import '../database/basededados.dart';
 
 class ApiService {
   static const String baseUrl = 'http://192.168.1.76:3000';
-  // Android Emulator → localhost = 10.0.2.2
-  
+  final Basededados _dbLocal = Basededados();
 
-  // GET utilizadores
-  Future<List<dynamic>> getUtilizadores() async {
-    final response = await http.get(Uri.parse('$baseUrl/utilizadores'));
+  // =========================================================================
+  // METODOS REATIVOS: GET COM ATUALIZAÇÃO DA BASE DE DADOS LOCAL (MIRRORING)
+  // =========================================================================
 
-    if (response.statusCode == 200) {
-      return json.decode(response.body);
-    } else {
-      throw Exception('Erro ao carregar utilizadores');
+  // GET utilizadores (Faz o sync do PostgreSQL para o SQFlite local)
+  Future<List<Map<String, dynamic>>> getUtilizadores() async {
+    try {
+      final response = await http.get(Uri.parse('$baseUrl/utilizadores'));
+
+      if (response.statusCode == 200) {
+        final List<dynamic> dadosServidor = json.decode(response.body);
+        
+        // Espelha os dados para a tabela SQLite local
+        for (var user in dadosServidor) {
+          await _dbLocal.salvarRegisto('utilizador', user);
+        }
+      }
+    } catch (e) {
+      print("Modo Offline Ativo para Utilizadores: $e");
     }
+    
+    // Fonte Única de Verdade: Devolve SEMPRE o que está na BD local
+    return await _dbLocal.listarTabela('utilizador');
   }
 
-  // POST utilizador
-  Future<void> criarUtilizador(Map<String, dynamic> user) async {
-    final response = await http.post(
-      Uri.parse('$baseUrl/utilizadores'),
-      headers: {'Content-Type': 'application/json'},
-      body: json.encode(user),
-    );
+  // GET áreas (Faz o sync para o SQFlite local)
+  Future<List<Map<String, dynamic>>> getAreas() async {
+    try {
+      final response = await http.get(Uri.parse('$baseUrl/areas'));
 
-    if (response.statusCode != 201) {
-      throw Exception('Erro ao criar utilizador');
+      if (response.statusCode == 200) {
+        final List<dynamic> dadosServidor = jsonDecode(response.body);
+        
+        for (var area in dadosServidor) {
+          await _dbLocal.salvarRegisto('areas', area);
+        }
+      }
+    } catch (e) {
+      print("Modo Offline Ativo para Áreas: $e");
     }
+
+    return await _dbLocal.listarTabela('areas');
   }
 
-  Future<Map<String, dynamic>> login(
-    String email,
-    String password,
-  ) async {
+  // =========================================================================
+  // AUTENTICAÇÃO (Sincroniza o perfil local após o sucesso na API)
+  // =========================================================================
 
-    final response = await http.post(
-      Uri.parse('$baseUrl/auth/login'),
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: jsonEncode({
-        'email': email,
-        'password': password,
-      }),
-    );
+  Future<Map<String, dynamic>> login(String email, String password) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/auth/login'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'email': email, 'password': password}),
+      );
 
-    final data = jsonDecode(response.body);
+      final data = jsonDecode(response.body);
 
-    // LOGIN OK
-    if (response.statusCode == 200) {
+      if (response.statusCode == 200) {
+        // Se o login correu bem, salvaguardamos os dados do utilizador na BD local
+        if (data['user'] != null) {
+          await _dbLocal.salvarRegisto('utilizador', data['user']);
+        }
+        
+        return {
+          'success': true,
+          ...data,
+        };
+      }
 
-      return {
-        'success': true,
-        ...data,
-      };
-    }
-
-    // EMAIL NÃO VERIFICADO
-    if (response.statusCode == 403) {
+      if (response.statusCode == 403) {
+        return {
+          'success': false,
+          'emailNaoVerificado': true,
+          'message': data['error'],
+        };
+      }
 
       return {
         'success': false,
-        'emailNaoVerificado': true,
-        'message': data['error'],
+        'message': data['error'] ?? 'Erro login',
+      };
+    } catch (e) {
+      print("Erro de rede no Login: $e");
+      // Tentativa de autenticação local básica se estiver totalmente offline (Opcional para a UC)
+      return {
+        'success': false,
+        'message': 'Sem ligação ao servidor para efetuar login.',
       };
     }
-
-    // OUTROS ERROS
-    return {
-      'success': false,
-      'message': data['error'] ?? 'Erro login',
-    };
   }
 
   Future<bool> register({
@@ -94,94 +118,99 @@ class ApiService {
         }),
       );
 
-      print("Resposta do Servidor: ${response.statusCode}");
-      print("Corpo da Resposta: ${response.body}");
-
-      // O status 201 é o que o seu auth.js envia quando corre bem
       return response.statusCode == 201;
-      
     } catch (e) {
       print("ERRO NA API (REGISTER): $e");
       return false;
     }
   }
 
-  Future<List<Map<String, dynamic>>> getAreas() async {
-    final response = await http.get(Uri.parse('$baseUrl/areas'));
+  // =========================================================================
+  // DASHBOARD E BADGES (Mapeamento direto para tabelas locais correspondentes)
+  // =========================================================================
 
-    if (response.statusCode == 200) {
-      final List data = jsonDecode(response.body);
+  Future<Map<String, dynamic>> getDashboard(int userId) async {
+    try {
+      final response = await http.get(Uri.parse('$baseUrl/dashboard/$userId'));
 
-      return data.map((e) => e as Map<String, dynamic>).toList();
-    } else {
-      throw Exception('Erro ao carregar áreas');
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> dashboardData = jsonDecode(response.body);
+        
+        // Se a API enviar os dados do consultor, atualiza a tabela local
+        if (dashboardData['consultor'] != null) {
+          await _dbLocal.salvarRegisto('consultor', dashboardData['consultor']);
+        }
+        return dashboardData;
+      }
+    } catch (e) {
+      print("Modo Offline Ativo para Dashboard: $e");
     }
-  }
 
-  // DASHBOARD
-Future<Map<String, dynamic>> getDashboard(int userId) async {
-    final response = await http.get(
-      Uri.parse('$baseUrl/dashboard/$userId'),
+    // Fallback: Recupera o perfil do consultor localmente se falhar a rede
+    final List<Map<String, dynamic>> consultores = await _dbLocal.listarTabela('consultor');
+    final consultorLocal = consultores.firstWhere(
+      (c) => c['id_utilizador'] == userId, 
+      orElse: () => {},
     );
-
-    if (response.statusCode == 200) {
-      return jsonDecode(response.body);
-    }
-
-    throw Exception('Erro dashboard');
+    return {'consultor': consultorLocal, 'offline': true};
   }
 
-
-  // BADGES PROGRESSO
   Future<List<Map<String, dynamic>>> getBadgesProgresso(int userId) async {
+    try {
+      final response = await http.get(Uri.parse('$baseUrl/badges/progresso/$userId'));
 
-    final response = await http.get(
-      Uri.parse('$baseUrl/badges/progresso/$userId'),
-    );
+      if (response.statusCode == 200) {
+        final List data = jsonDecode(response.body);
+        final List<Map<String, dynamic>> listaBadges = data.map((e) => e as Map<String, dynamic>).toList();
 
-    if (response.statusCode == 200) {
-
-      final List data = jsonDecode(response.body);
-
-      return data.map((e) => e as Map<String, dynamic>).toList();
+        for (var badge in listaBadges) {
+          await _dbLocal.salvarRegisto('badge_atribuido', badge);
+        }
+      }
+    } catch (e) {
+      print("Modo Offline Ativo para Badges de Progresso: $e");
     }
 
-    throw Exception('Erro badges progresso');
+    return await _dbLocal.listarTabela('badge_atribuido');
   }
 
-
-  // BADGES RECOMENDADOS
   Future<List<Map<String, dynamic>>> getBadgesRecomendados(int userId) async {
-    final response = await http.get(
-      Uri.parse('$baseUrl/badges/recomendados/$userId'),
-    );
+    try {
+      final response = await http.get(Uri.parse('$baseUrl/badges/recomendados/$userId'));
 
-    if (response.statusCode == 200) {
+      if (response.statusCode == 200) {
+        final List data = jsonDecode(response.body);
+        final List<Map<String, dynamic>> listaBadges = data.map((e) => e as Map<String, dynamic>).toList();
 
-      final List data = jsonDecode(response.body);
-
-      return data.map((e) => e as Map<String, dynamic>).toList();
+        for (var badge in listaBadges) {
+          await _dbLocal.salvarRegisto('badge_modelo', badge);
+        }
+      }
+    } catch (e) {
+      print("Modo Offline Ativo para Badges Recomendados: $e");
     }
 
-    throw Exception('Erro badges');
+    return await _dbLocal.listarTabela('badge_modelo');
   }
 
-
-  // BADGE ESPECIAL
   Future<Map<String, dynamic>?> getBadgeEspecial() async {
-    final response = await http.get(
-      Uri.parse('$baseUrl/badges/especial'),
-    );
+    try {
+      final response = await http.get(Uri.parse('$baseUrl/badges/especial'));
 
-    if (response.statusCode == 200) {
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data == null) return null;
 
-      final data = jsonDecode(response.body);
-
-      if (data == null) return null;
-
-      return data as Map<String, dynamic>;
+        final Map<String, dynamic> badgeEspecial = data as Map<String, dynamic>;
+        await _dbLocal.salvarRegisto('badge_modelo', badgeEspecial);
+        return badgeEspecial;
+      }
+    } catch (e) {
+      print("Modo Offline Ativo para Badge Especial: $e");
     }
 
-    throw Exception('Erro badge especial');
+    // Retorna o último badge modelo guardado localmente como fallback
+    final badges = await _dbLocal.listarTabela('badge_modelo');
+    return badges.isNotEmpty ? badges.first : null;
   }
 }
