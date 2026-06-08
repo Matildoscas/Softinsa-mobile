@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
-import 'catalogo_badges_utilizador.dart';
-import 'informacoes_badge.dart';
+
+// Imports corrigidos para as classes que ela realmente invoca no código
+import 'catalogo_badges_utilizador.dart'; // Onde reside o MeusBadgesPage
+import 'informacoes_badge.dart';          // Onde reside o BadgeDetalhe
 import 'progresso_page.dart';
 import 'historico_badges_page.dart';
 
@@ -24,6 +26,7 @@ String obterNivel(dynamic idNivel) {
   }
 }
 
+// Variável global que ela criou na branch dela
 List<Map<String, dynamic>> todosBadges = [];
 
 class PerfilPage extends StatefulWidget {
@@ -49,7 +52,6 @@ class _PerfilPageState extends State<PerfilPage> {
     try {
       final api = ApiService();
       final obtidos = await api.getBadgesConquistados(widget.userData['id_utilizador']);
-
       final todos = await api.getTodosBadges();
 
       setState(() {
@@ -80,21 +82,19 @@ class _PerfilPageState extends State<PerfilPage> {
               child: SingleChildScrollView(
                 child: Column(
                   children: [
-                    SizedBox(height: headerHeight),
+                    const SizedBox(height: headerHeight),
 
-                    // Voltar
+                    // Botão Voltar
                     Container(
                       color: Colors.white,
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 12),
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                       child: Row(
                         children: [
                           GestureDetector(
                             onTap: () => Navigator.pop(context),
                             child: const Row(
                               children: [
-                                Icon(Icons.arrow_back,
-                                    size: 20, color: Color(0xFF4470AF)),
+                                Icon(Icons.arrow_back, size: 20, color: Color(0xFF4470AF)),
                                 SizedBox(width: 6),
                                 Text(
                                   "Voltar",
@@ -111,7 +111,7 @@ class _PerfilPageState extends State<PerfilPage> {
                       ),
                     ),
 
-                    // Avatar + nome
+                    // Avatar + Nome do Consultor
                     Container(
                       color: Colors.white,
                       width: double.infinity,
@@ -132,8 +132,7 @@ class _PerfilPageState extends State<PerfilPage> {
                                   : null,
                             ),
                             child: fotoUrl == null
-                                ? const Icon(Icons.person,
-                                    color: Colors.white, size: 52)
+                                ? const Icon(Icons.person, color: Colors.white, size: 52)
                                 : null,
                           ),
                           const SizedBox(height: 10),
@@ -151,7 +150,7 @@ class _PerfilPageState extends State<PerfilPage> {
 
                     const SizedBox(height: 12),
 
-                    // Botões Progresso + Histórico
+                    // Botões de Navegação (Progresso + Histórico)
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16),
                       child: Row(
@@ -175,7 +174,7 @@ class _PerfilPageState extends State<PerfilPage> {
                           const SizedBox(width: 10),
                           Expanded(
                             child: _outlineButton(
-                              icon: Icons.trending_up,
+                              icon: Icons.history, // Corrigido ícone repetido para histórico
                               label: "Histórico Badges",
                               onTap: () {
                                 Navigator.push(
@@ -195,7 +194,7 @@ class _PerfilPageState extends State<PerfilPage> {
 
                     const SizedBox(height: 16),
 
-                    // Cabeçalho "Os seus badges"
+                    // Secção Informativa de Badges Obtidos
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16),
                       child: Row(
@@ -215,8 +214,7 @@ class _PerfilPageState extends State<PerfilPage> {
                                 isLoading
                                     ? "A carregar..."
                                     : "Tem ${badgesConquistados.length}/$totalBadges badges",
-                                style: const TextStyle(
-                                    fontSize: 12, color: Colors.grey),
+                                style: const TextStyle(fontSize: 12, color: Colors.grey),
                               ),
                             ],
                           ),
@@ -224,24 +222,20 @@ class _PerfilPageState extends State<PerfilPage> {
                             onTap: () => Navigator.push(
                               context,
                               MaterialPageRoute(
-                                builder: (_) => MeusBadgesPage(
-                                    userData: widget.userData),
+                                builder: (_) => MeusBadgesPage(userData: widget.userData),
                               ),
                             ),
                             child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 12, vertical: 6),
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                               decoration: BoxDecoration(
                                 color: Colors.white,
                                 borderRadius: BorderRadius.circular(20),
-                                border: Border.all(
-                                    color: Colors.grey.shade300),
+                                border: Border.all(color: Colors.grey.shade300),
                               ),
                               child: const Row(
                                 children: [
-                                  Icon(Icons.menu_book_outlined,
-                                      size: 13, color: Color(0xFF4470AF)),
-                                  SizedBox(width: 5),
+                                  Icon(Icons.menu_book_outlined, size: 13, color: Color(0xFF4470AF)),
+                                  const SizedBox(width: 5),
                                   Text(
                                     "Ver Todos",
                                     style: TextStyle(
@@ -260,24 +254,20 @@ class _PerfilPageState extends State<PerfilPage> {
 
                     const SizedBox(height: 8),
 
-                    // Lista de badges
+                    // Listagem Dinâmica de Badges do Consultor
                     isLoading
                         ? const Padding(
                             padding: EdgeInsets.symmetric(vertical: 40),
-                            child: CircularProgressIndicator(
-                                color: Color(0xFF4470AF)),
+                            child: CircularProgressIndicator(color: Color(0xFF4470AF)),
                           )
                         : badgesConquistados.isEmpty
                             ? _estadoVazio()
                             : ListView.builder(
                                 shrinkWrap: true,
-                                physics:
-                                    const NeverScrollableScrollPhysics(),
-                                padding:
-                                    const EdgeInsets.symmetric(vertical: 4),
+                                physics: const NeverScrollableScrollPhysics(),
+                                padding: const EdgeInsets.symmetric(vertical: 4),
                                 itemCount: badgesConquistados.length,
-                                itemBuilder: (context, index) =>
-                                    _badgeCard(badgesConquistados[index]),
+                                itemBuilder: (context, index) => _badgeCard(badgesConquistados[index]),
                               ),
 
                     const SizedBox(height: 16),
@@ -286,7 +276,7 @@ class _PerfilPageState extends State<PerfilPage> {
               ),
             ),
 
-            // ── HEADER ────────────────────────────────────────────────
+            // ── HEADER TOP FIXO ───────────────────────────────────────────
             Positioned(
               top: 0,
               left: 0,
@@ -294,8 +284,7 @@ class _PerfilPageState extends State<PerfilPage> {
               height: headerHeight,
               child: Container(
                 color: Colors.white,
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 16, vertical: 10),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                 child: Row(
                   children: [
                     Image.asset(
@@ -313,13 +302,11 @@ class _PerfilPageState extends State<PerfilPage> {
     );
   }
 
-  // ── CARD DE BADGE (igual ao catálogo) ─────────────────────────────────────
+  // Card estruturado para listagem de medalhas conquistadas
   Widget _badgeCard(Map<String, dynamic> badge) {
-    final int pontos =
-        int.tryParse(badge['pontos']?.toString() ?? '0') ?? 0;
+    final int pontos = int.tryParse(badge['pontos']?.toString() ?? '0') ?? 0;
     final String? dataConquista = badge['data_atribuicao']?.toString();
-    final String dataFormatada =
-        _formatarData(dataConquista) ?? '—';
+    final String dataFormatada = _formatarData(dataConquista) ?? '—';
 
     return GestureDetector(
       onTap: () {
@@ -328,7 +315,7 @@ class _PerfilPageState extends State<PerfilPage> {
           MaterialPageRoute(
             builder: (_) => BadgeDetalhe(
               userId: widget.userData['id_utilizador'],
-              badgeId: badge['id'], // IMPORTANTE
+              badgeId: badge['id'] ?? badge['id_badge_modelo'] ?? 0,
             ),
           ),
         );
@@ -339,8 +326,7 @@ class _PerfilPageState extends State<PerfilPage> {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(
-              color: const Color(0xFF2E7D32).withOpacity(0.3)),
+          border: Border.all(color: const Color(0xFF2E7D32).withOpacity(0.3)),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withOpacity(0.04),
@@ -353,7 +339,6 @@ class _PerfilPageState extends State<PerfilPage> {
           children: [
             Row(
               children: [
-                // Ícone com check
                 Stack(
                   children: [
                     Container(
@@ -364,8 +349,7 @@ class _PerfilPageState extends State<PerfilPage> {
                         shape: BoxShape.circle,
                       ),
                       child: const Center(
-                        child: Text("🏅",
-                            style: TextStyle(fontSize: 28)),
+                        child: Text("🏅", style: TextStyle(fontSize: 28)),
                       ),
                     ),
                     Positioned(
@@ -377,73 +361,54 @@ class _PerfilPageState extends State<PerfilPage> {
                           color: Color(0xFF2E7D32),
                           shape: BoxShape.circle,
                         ),
-                        child: const Icon(Icons.check,
-                            color: Colors.white, size: 12),
+                        child: const Icon(Icons.check, color: Colors.white, size: 12),
                       ),
                     ),
                   ],
                 ),
-
                 const SizedBox(width: 12),
-
-                // Nome + descrição + nível
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        badge['nome'] ?? '',
-                        style: const TextStyle(
-                            fontWeight: FontWeight.bold, fontSize: 13),
-                        textAlign: TextAlign.center,
+                        badge['nome'] ?? badge['nome_badge'] ?? '',
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        badge['descricao'] ?? '',
-                        style: const TextStyle(
-                            fontSize: 11, color: Colors.grey),
+                        badge['descricao'] ?? badge['descricao_badge_modelo'] ?? '',
+                        style: const TextStyle(fontSize: 11, color: Colors.grey),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
-                        textAlign: TextAlign.center,
                       ),
                       if (badge['id_nivel'] != null) ...[
                         const SizedBox(height: 4),
                         Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 8, vertical: 2),
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                           decoration: BoxDecoration(
                             color: const Color(0xFFEAF0FA),
                             borderRadius: BorderRadius.circular(20),
                           ),
                           child: Text(
-                            "Nivel ${obterNivel(badge['id_nivel'])}",
-                            style: const TextStyle(
-                                fontSize: 10,
-                                color: Color(0xFF4470AF)),
+                            "Nível ${obterNivel(badge['id_nivel'])}",
+                            style: const TextStyle(fontSize: 10, color: Color(0xFF4470AF)),
                           ),
                         ),
                       ],
                     ],
                   ),
                 ),
-
                 const SizedBox(width: 8),
-
-                // Pontos
                 Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 10, vertical: 8),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                   decoration: BoxDecoration(
-                    border:
-                        Border.all(color: const Color(0xFF4470AF)),
+                    border: Border.all(color: const Color(0xFF4470AF)),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Column(
                     children: [
-                      const Text("Pontos",
-                          style: TextStyle(
-                              fontSize: 9,
-                              color: Color(0xFF4470AF))),
+                      const Text("Pontos", style: TextStyle(fontSize: 9, color: Color(0xFF4470AF))),
                       const SizedBox(height: 2),
                       Text(
                         "$pontos",
@@ -458,8 +423,6 @@ class _PerfilPageState extends State<PerfilPage> {
                 ),
               ],
             ),
-
-            // Estado
             const SizedBox(height: 6),
             Divider(height: 1, color: Colors.grey.shade100),
             const SizedBox(height: 6),
@@ -467,10 +430,7 @@ class _PerfilPageState extends State<PerfilPage> {
               alignment: Alignment.centerLeft,
               child: Text(
                 "Conquistado a $dataFormatada",
-                style: const TextStyle(
-                    fontSize: 11,
-                    color: Color(0xFF2E7D32),
-                    fontWeight: FontWeight.w500),
+                style: const TextStyle(fontSize: 11, color: Color(0xFF2E7D32), fontWeight: FontWeight.w500),
               ),
             ),
           ],
@@ -479,7 +439,6 @@ class _PerfilPageState extends State<PerfilPage> {
     );
   }
 
-  // ── BOTÃO OUTLINE ─────────────────────────────────────────────────────────
   Widget _outlineButton({
     required IconData icon,
     required String label,
@@ -499,43 +458,34 @@ class _PerfilPageState extends State<PerfilPage> {
           children: [
             Icon(icon, size: 16),
             const SizedBox(width: 6),
-            Text(label,
-                style: const TextStyle(
-                    fontSize: 12, fontWeight: FontWeight.w500)),
+            Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
           ],
         ),
       ),
     );
   }
 
-  // ── ESTADO VAZIO ──────────────────────────────────────────────────────────
   Widget _estadoVazio() {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 40),
       child: Column(
         children: [
-          Icon(Icons.emoji_events_outlined,
-              size: 52, color: Colors.grey.shade400),
+          Icon(Icons.emoji_events_outlined, size: 52, color: Colors.grey.shade400),
           const SizedBox(height: 12),
           const Text(
             "Ainda sem badges",
-            style: TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.w600,
-                color: Color(0xFF555555)),
+            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: Color(0xFF555555)),
           ),
           const SizedBox(height: 4),
           Text(
             "Completa desafios para conquistar badges.",
-            style:
-                TextStyle(fontSize: 12, color: Colors.grey.shade500),
+            style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
           ),
         ],
       ),
     );
   }
 
-  // ── HELPER ────────────────────────────────────────────────────────────────
   String? _formatarData(String? raw) {
     if (raw == null || raw.isEmpty) return null;
     try {

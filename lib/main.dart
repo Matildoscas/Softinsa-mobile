@@ -95,7 +95,7 @@ class MyApp extends StatelessWidget {
       routes: {
         '/login': (context) => const LoginPage(),
         '/home': (context) => HomePage(userData: const {}),
-        '/perfil': (context) => const Perfil(), // Ligado diretamente ao teu widget corrigido
+        '/perfil': (context) => const PerfilPage(userData: {}),
       },
       
       home: FutureBuilder<Map<String, dynamic>?>(
