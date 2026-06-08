@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart'; // Import adicionado
+import '../providers/utilizador_provider.dart'; // Import adicionado
 import 'login.dart';
 import 'area_register.dart';
 
@@ -17,6 +19,16 @@ class _RegisterPageState extends State<RegisterPage> {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passController = TextEditingController();
   final TextEditingController _confirmPassController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    // CORREÇÃO CRÍTICA: Manda carregar as áreas da API imediatamente em background
+    // enquanto o utilizador digita os dados de registo!
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Provider.of<UtilizadorProvider>(context, listen: false).inicializarDados(0);
+    });
+  }
 
   @override
   void dispose() {
@@ -82,7 +94,6 @@ class _RegisterPageState extends State<RegisterPage> {
     );
   }
 
-  // CORREÇÃO: Abre os Termos de Serviço diretamente num modal nativo
   void _abrirTermosServico() {
     showDialog(
       context: context,
@@ -94,8 +105,8 @@ class _RegisterPageState extends State<RegisterPage> {
             "Ao registar-se na plataforma Softinsa Badges, concorda que os seus dados de progresso, "
             "submissões de evidências e conquistas profissionais sejam armazenados para fins de "
             "gestão de competências e emissão de certificados internos.\n\n"
-            "A cache local do dispositivo guardará informações encriptadas para permitir a utilização "
-            "da aplicação em modo offline.",
+            "A cache local do dispositivo guardará informações para permitir a utilização "
+            "da aplicação em modo offline de forma fluida.",
             style: TextStyle(fontSize: 13, color: Colors.black87, height: 1.4),
           ),
         ),
@@ -118,7 +129,6 @@ class _RegisterPageState extends State<RegisterPage> {
       body: SafeArea(
         child: Column(
           children: [
-            // FIXED HEADER LOGO
             Container(
               color: Colors.white,
               padding: const EdgeInsets.symmetric(horizontal: 25, vertical: 10),
@@ -131,7 +141,6 @@ class _RegisterPageState extends State<RegisterPage> {
                 ),
               ),
             ),
-
             Expanded(
               child: SingleChildScrollView(
                 child: Container(
@@ -164,8 +173,6 @@ class _RegisterPageState extends State<RegisterPage> {
                           ),
                           const Text("Crie a sua conta", style: TextStyle(color: Colors.grey)),
                           const SizedBox(height: 24),
-
-                          // Campo Nome Completo
                           TextField(
                             controller: _nomeController,
                             decoration: const InputDecoration(
@@ -177,8 +184,6 @@ class _RegisterPageState extends State<RegisterPage> {
                             ),
                           ),
                           const SizedBox(height: 14),
-
-                          // Campo Email
                           TextField(
                             controller: _emailController,
                             keyboardType: TextInputType.emailAddress,
@@ -191,8 +196,6 @@ class _RegisterPageState extends State<RegisterPage> {
                             ),
                           ),
                           const SizedBox(height: 14),
-
-                          // Campo Password
                           TextField(
                             controller: _passController,
                             obscureText: _obscureText,
@@ -209,8 +212,6 @@ class _RegisterPageState extends State<RegisterPage> {
                             ),
                           ),
                           const SizedBox(height: 14),
-
-                          // Campo Confirmar Password
                           TextField(
                             controller: _confirmPassController,
                             obscureText: _obscureText,
@@ -227,8 +228,6 @@ class _RegisterPageState extends State<RegisterPage> {
                             ),
                           ),
                           const SizedBox(height: 12),
-
-                          // Checkbox de Termos e Condições
                           Align(
                             alignment: Alignment.centerLeft,
                             child: Row(
@@ -264,8 +263,6 @@ class _RegisterPageState extends State<RegisterPage> {
                             ),
                           ),
                           const SizedBox(height: 20),
-
-                          // Botão Seguinte
                           ElevatedButton(
                             onPressed: _avancarParaArea,
                             style: ElevatedButton.styleFrom(
@@ -285,8 +282,6 @@ class _RegisterPageState extends State<RegisterPage> {
                             ),
                           ),
                           const SizedBox(height: 32),
-
-                          // Voltar para o Login
                           TextButton(
                             onPressed: () {
                               Navigator.pushReplacement(
