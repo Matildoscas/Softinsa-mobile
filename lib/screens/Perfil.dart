@@ -1,242 +1,548 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import '../providers/utilizador_provider.dart';
+import '../services/api_service.dart';
+import 'catalogo_badges_utilizador.dart';
+import 'informacoes_badge.dart';
+import 'progresso_page.dart';
+import 'historico_badges_page.dart';
 
-class Perfil extends StatelessWidget {
-  const Perfil({super.key});
+String obterNivel(dynamic idNivel) {
+  final int? nivel = int.tryParse(idNivel.toString());
+
+  switch (nivel) {
+    case 1:
+      return 'A';
+    case 2:
+      return 'B';
+    case 3:
+      return 'C';
+    case 4:
+      return 'D';
+    case 5:
+      return 'E';
+    default:
+      return '-';
+  }
+}
+
+List<Map<String, dynamic>> todosBadges = [];
+
+class PerfilPage extends StatefulWidget {
+  final Map<String, dynamic> userData;
+
+  const PerfilPage({super.key, required this.userData});
+
+  @override
+  State<PerfilPage> createState() => _PerfilPageState();
+}
+
+class _PerfilPageState extends State<PerfilPage> {
+  List<Map<String, dynamic>> badgesConquistados = [];
+  bool isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _carregarDados();
+  }
+
+  Future<void> _carregarDados() async {
+    try {
+      final api = ApiService();
+      final obtidos = await api.getBadgesConquistados(widget.userData['id_utilizador']);
+
+      final todos = await api.getTodosBadges();
+
+      setState(() {
+        badgesConquistados = List<Map<String, dynamic>>.from(obtidos);
+        todosBadges = List<Map<String, dynamic>>.from(todos);
+        isLoading = false;
+      });
+    } catch (e) {
+      debugPrint("Erro ao carregar perfil: $e");
+      setState(() => isLoading = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    const double headerHeight = 65.0;
+    final String nome = widget.userData['nome_completo'] ?? 'Utilizador';
+    final String? fotoUrl = widget.userData['foto_url'];
+    final int totalBadges = todosBadges.length;
+
     return Scaffold(
       backgroundColor: const Color(0xFFF7F7F7),
       body: SafeArea(
-        // O Consumer fica à escuta do Provider para redesenhar o ecrã se houver Sync em background
-        child: Consumer<UtilizadorProvider>(
-          builder: (context, provider, child) {
-            
-            // Extração segura dos dados guardados na cache do SQFlite local
-            final dashboard = provider.dashboard;
-            final consultor = dashboard['consultor'] ?? {};
-            
-            // Mapeamento dinâmico baseado nos campos oficiais do teu pgAdmin/JSON
-            final String nomeConsultor = dashboard['nome_completo'] ?? 'Consultor';
-            final String emailConsultor = dashboard['email'] ?? 'Sem e-mail registado';
-            final String progressoNivel = consultor['progresso_nivel'] ?? 'Nível Inicial';
-            final String pontosAtuais = (consultor['pontos_atuais'] ?? 0).toString();
+        child: Stack(
+          children: [
+            // ── CONTEÚDO ──────────────────────────────────────────────
+            Positioned.fill(
+              child: SingleChildScrollView(
+                child: Column(
+                  children: [
+                    SizedBox(height: headerHeight),
 
-            return Column(
-              children: [
-                // ================= HEADER COM PESQUISA =================
-                Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Row(
-                    children: [
-                      // Clicar no logótipo remove o ecrã da stack e regressa à HomePage
-                      GestureDetector(
-                        onTap: () => Navigator.pop(context),
-                        child: const Text(
-                          "SOFTINSA",
-                          style: TextStyle(
-                            fontSize: 22,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF39639C),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: Container(
-                          height: 40,
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: const TextField(
-                            decoration: InputDecoration(
-                              hintText: "Pesquisar no perfil...",
-                              prefixIcon: Icon(Icons.search, color: Colors.grey),
-                              border: InputBorder.none,
-                              contentPadding: EdgeInsets.symmetric(vertical: 10),
+                    // Voltar
+                    Container(
+                      color: Colors.white,
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 12),
+                      child: Row(
+                        children: [
+                          GestureDetector(
+                            onTap: () => Navigator.pop(context),
+                            child: const Row(
+                              children: [
+                                Icon(Icons.arrow_back,
+                                    size: 20, color: Color(0xFF4470AF)),
+                                SizedBox(width: 6),
+                                Text(
+                                  "Voltar",
+                                  style: TextStyle(
+                                    fontSize: 15,
+                                    color: Color(0xFF4470AF),
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
-                        ),
+                        ],
                       ),
-                    ],
-                  ),
-                ),
+                    ),
 
-                // ================= CARD INFORMATIVO DO CONSULTOR =================
-                Card(
-                  margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  color: Colors.white,
-                  child: Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Row(
-                      children: [
-                        const CircleAvatar(
-                          radius: 35,
-                          backgroundColor: Color(0xFF39639C),
-                          child: Icon(Icons.person, size: 45, color: Colors.white),
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: Column(
+                    // Avatar + nome
+                    Container(
+                      color: Colors.white,
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(vertical: 24),
+                      child: Column(
+                        children: [
+                          Container(
+                            width: 100,
+                            height: 100,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF4470AF),
+                              borderRadius: BorderRadius.circular(20),
+                              image: fotoUrl != null
+                                  ? DecorationImage(
+                                      image: NetworkImage(fotoUrl),
+                                      fit: BoxFit.cover,
+                                    )
+                                  : null,
+                            ),
+                            child: fotoUrl == null
+                                ? const Icon(Icons.person,
+                                    color: Colors.white, size: 52)
+                                : null,
+                          ),
+                          const SizedBox(height: 10),
+                          Text(
+                            nome,
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF111111),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(height: 12),
+
+                    // Botões Progresso + Histórico
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: _outlineButton(
+                              icon: Icons.trending_up,
+                              label: "Progresso",
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => ProgressoPage(
+                                      userData: widget.userData,
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: _outlineButton(
+                              icon: Icons.trending_up,
+                              label: "Histórico Badges",
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => HistoricoBadgesPage(
+                                      userData: widget.userData,
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(height: 16),
+
+                    // Cabeçalho "Os seus badges"
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(
-                                nomeConsultor,
-                                style: const TextStyle(
-                                  fontSize: 18,
+                              const Text(
+                                "Os seus badges",
+                                style: TextStyle(
                                   fontWeight: FontWeight.bold,
+                                  fontSize: 14,
                                 ),
                               ),
-                              const SizedBox(height: 4),
                               Text(
-                                emailConsultor,
-                                style: const TextStyle(color: Colors.grey, fontSize: 13),
-                              ),
-                              const SizedBox(height: 6),
-                              Text(
-                                "Progresso: $progressoNivel",
+                                isLoading
+                                    ? "A carregar..."
+                                    : "Tem ${badgesConquistados.length}/$totalBadges badges",
                                 style: const TextStyle(
-                                  color: Colors.blueAccent,
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 13,
-                                ),
+                                    fontSize: 12, color: Colors.grey),
                               ),
                             ],
                           ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-
-                // ================= TÍTULO DA LISTA DE BADGES =================
-                const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 16.0, vertical: 12),
-                  child: Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      "Os Meus Badges Atribuídos",
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                    ),
-                  ),
-                ),
-
-                // ================= LISTA DINÂMICA OFFLINE-FIRST =================
-                Expanded(
-                  child: provider.badgesProgresso.isEmpty
-                      ? const Center(
-                          child: Text(
-                            "Ainda não existem badges guardados localmente.",
-                            style: TextStyle(color: Colors.grey),
+                          GestureDetector(
+                            onTap: () => Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => MeusBadgesPage(
+                                    userData: widget.userData),
+                              ),
+                            ),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 12, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(
+                                    color: Colors.grey.shade300),
+                              ),
+                              child: const Row(
+                                children: [
+                                  Icon(Icons.menu_book_outlined,
+                                      size: 13, color: Color(0xFF4470AF)),
+                                  SizedBox(width: 5),
+                                  Text(
+                                    "Ver Todos",
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Color(0xFF4470AF),
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
                           ),
-                        )
-                      : ListView.builder(
-                          itemCount: provider.badgesProgresso.length,
-                          itemBuilder: (context, index) {
-                            final badge = provider.badgesProgresso[index];
-                            return _buildBadgeCard(
-                              title: badge['nome_badge'] ?? 'Badge Gamificado',
-                              description: badge['descricao_badge_modelo'] ?? 'Sincronizado da plataforma Softinsa.',
-                              points: pontosAtuais,
-                              date: badge['data_atribuicao'] ?? 'Pendente',
-                            );
-                          },
-                        ),
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(height: 8),
+
+                    // Lista de badges
+                    isLoading
+                        ? const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 40),
+                            child: CircularProgressIndicator(
+                                color: Color(0xFF4470AF)),
+                          )
+                        : badgesConquistados.isEmpty
+                            ? _estadoVazio()
+                            : ListView.builder(
+                                shrinkWrap: true,
+                                physics:
+                                    const NeverScrollableScrollPhysics(),
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 4),
+                                itemCount: badgesConquistados.length,
+                                itemBuilder: (context, index) =>
+                                    _badgeCard(badgesConquistados[index]),
+                              ),
+
+                    const SizedBox(height: 16),
+                  ],
                 ),
-              ],
-            );
-          },
+              ),
+            ),
+
+            // ── HEADER ────────────────────────────────────────────────
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              height: headerHeight,
+              child: Container(
+                color: Colors.white,
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 16, vertical: 10),
+                child: Row(
+                  children: [
+                    Image.asset(
+                      'lib/img/logo.png',
+                      height: 35,
+                      fit: BoxFit.contain,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
 
-  // Card modular de Badges adaptado para o teu design gráfico original
-  Widget _buildBadgeCard({
-    required String title,
-    required String description,
-    required String points,
-    required String date,
-  }) {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.02),
-            blurRadius: 6,
-            offset: const Offset(0, 2),
+  // ── CARD DE BADGE (igual ao catálogo) ─────────────────────────────────────
+  Widget _badgeCard(Map<String, dynamic> badge) {
+    final int pontos =
+        int.tryParse(badge['pontos']?.toString() ?? '0') ?? 0;
+    final String? dataConquista = badge['data_atribuicao']?.toString();
+    final String dataFormatada =
+        _formatarData(dataConquista) ?? '—';
+
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => BadgeDetalhe(
+              userId: widget.userData['id_utilizador'],
+              badgeId: badge['id'], // IMPORTANTE
+            ),
           ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const CircleAvatar(
-                radius: 20,
-                backgroundColor: Color(0xFFE8F0FE),
-                child: Icon(Icons.workspace_premium, color: Color(0xFF39639C)),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+        );
+      },
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+              color: const Color(0xFF2E7D32).withOpacity(0.3)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.04),
+              blurRadius: 6,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Column(
+          children: [
+            Row(
+              children: [
+                // Ícone com check
+                Stack(
                   children: [
-                    Text(
-                      title,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 14,
+                    Container(
+                      width: 60,
+                      height: 60,
+                      decoration: const BoxDecoration(
+                        color: Color(0xFFE8F5E9),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Center(
+                        child: Text("🏅",
+                            style: TextStyle(fontSize: 28)),
                       ),
                     ),
-                    const SizedBox(height: 2),
-                    Text(
-                      description,
-                      style: const TextStyle(fontSize: 11, color: Colors.grey),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
+                    Positioned(
+                      right: 0,
+                      bottom: 0,
+                      child: Container(
+                        padding: const EdgeInsets.all(2),
+                        decoration: const BoxDecoration(
+                          color: Color(0xFF2E7D32),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.check,
+                            color: Colors.white, size: 12),
+                      ),
                     ),
                   ],
                 ),
-              ),
-              const SizedBox(width: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  border: Border.all(color: const Color(0xFF39639C)),
-                  borderRadius: BorderRadius.circular(10),
+
+                const SizedBox(width: 12),
+
+                // Nome + descrição + nível
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        badge['nome'] ?? '',
+                        style: const TextStyle(
+                            fontWeight: FontWeight.bold, fontSize: 13),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        badge['descricao'] ?? '',
+                        style: const TextStyle(
+                            fontSize: 11, color: Colors.grey),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        textAlign: TextAlign.center,
+                      ),
+                      if (badge['id_nivel'] != null) ...[
+                        const SizedBox(height: 4),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFEAF0FA),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Text(
+                            "Nivel ${obterNivel(badge['id_nivel'])}",
+                            style: const TextStyle(
+                                fontSize: 10,
+                                color: Color(0xFF4470AF)),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
                 ),
-                child: Column(
-                  children: [
-                    const Text("Pontos", style: TextStyle(fontSize: 10)),
-                    Text(
-                      points,
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                    ),
-                  ],
+
+                const SizedBox(width: 8),
+
+                // Pontos
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 10, vertical: 8),
+                  decoration: BoxDecoration(
+                    border:
+                        Border.all(color: const Color(0xFF4470AF)),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Column(
+                    children: [
+                      const Text("Pontos",
+                          style: TextStyle(
+                              fontSize: 9,
+                              color: Color(0xFF4470AF))),
+                      const SizedBox(height: 2),
+                      Text(
+                        "$pontos",
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 15,
+                          color: Color(0xFF4470AF),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
+              ],
+            ),
+
+            // Estado
+            const SizedBox(height: 6),
+            Divider(height: 1, color: Colors.grey.shade100),
+            const SizedBox(height: 6),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                "Conquistado a $dataFormatada",
+                style: const TextStyle(
+                    fontSize: 11,
+                    color: Color(0xFF2E7D32),
+                    fontWeight: FontWeight.w500),
               ),
-            ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ── BOTÃO OUTLINE ─────────────────────────────────────────────────────────
+  Widget _outlineButton({
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(30),
+          border: Border.all(color: Colors.black87, width: 1.5),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, size: 16),
+            const SizedBox(width: 6),
+            Text(label,
+                style: const TextStyle(
+                    fontSize: 12, fontWeight: FontWeight.w500)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ── ESTADO VAZIO ──────────────────────────────────────────────────────────
+  Widget _estadoVazio() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 40),
+      child: Column(
+        children: [
+          Icon(Icons.emoji_events_outlined,
+              size: 52, color: Colors.grey.shade400),
+          const SizedBox(height: 12),
+          const Text(
+            "Ainda sem badges",
+            style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFF555555)),
           ),
-          const Divider(height: 24, thickness: 0.5),
+          const SizedBox(height: 4),
           Text(
-            "Conquistado a: $date",
-            style: const TextStyle(fontSize: 11, color: Colors.grey),
+            "Completa desafios para conquistar badges.",
+            style:
+                TextStyle(fontSize: 12, color: Colors.grey.shade500),
           ),
         ],
       ),
     );
+  }
+
+  // ── HELPER ────────────────────────────────────────────────────────────────
+  String? _formatarData(String? raw) {
+    if (raw == null || raw.isEmpty) return null;
+    try {
+      final dt = DateTime.parse(raw);
+      return "${dt.day.toString().padLeft(2, '0')}/${dt.month.toString().padLeft(2, '0')}/${dt.year}";
+    } catch (_) {
+      return raw;
+    }
   }
 }

@@ -6,6 +6,9 @@ import '../services/api_service.dart';
 import '../providers/utilizador_provider.dart'; // Importa o nosso Provider reativo
 import 'register.dart';
 import 'pagina_principal.dart';
+import '../services/notification_service.dart';
+import 'package:firebase_analytics/observer.dart';
+import 'package:firebase_analytics/firebase_analytics.dart';
 
 class LoginPage extends StatelessWidget {
   const LoginPage({super.key});
@@ -53,13 +56,49 @@ class _LogPageState extends State<LogPage> {
       final response = await _apiService.login(email, password);
 
       if (response['success'] == true) {
+
+        final user = response['user'];
+        final token = response['token'];
+        final tokenFcm = await NotificationService().iniciarNotificacoes();
+
+        await FirebaseAnalytics.instance.logLogin(
+          loginMethod: 'email_password',
+        );
+
+        try {
+          await FirebaseAnalytics.instance.logEvent(
+            name: 'teste_debugview_login',
+            parameters: {
+              'origem': 'login_page',
+            },
+          );
+
+          print("✅ Evento Analytics enviado: teste_debugview_login");
+        } catch (e) {
+          print("❌ Erro Analytics: $e");
+        }
+
+        if (tokenFcm != null) {
+          await _apiService.atualizarFcmToken(
+            idUtilizador: user['id_utilizador'],
+            fcmToken: tokenFcm,
+          );
+        }
+
         final prefs = await SharedPreferences.getInstance();
 
         // 1. Guarda os tokens e metadados de sessão em SharedPreferences para persistência física
         await prefs.setString('token', response['token']);
         await prefs.setString('user', jsonEncode(response['user']));
 
-        final int userId = response['user']['id_utilizador'] ?? 0;
+        print("TOKEN FCM: $tokenFcm");
+
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (context) => HomePage(userData: user),
+          ),
+        );
 
         if (mounted) {
           // 2. REESCRITA OFFLINE-FIRST: Instancia e alimenta o Provider local
