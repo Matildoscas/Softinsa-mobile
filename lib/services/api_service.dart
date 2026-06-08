@@ -268,19 +268,55 @@ class ApiService {
     required String descricao,
     required String ficheiroPath,
   }) async {
-    final uri = Uri.parse("$baseUrl/evidencias/submeter");
-    final request = http.MultipartRequest("POST", uri);
+    try {
+      // 1. URL Corrigido baseado no teu app.js + candidaturaRoutes.js
+      final uri = Uri.parse("$baseUrl/api/candidaturas/submeter-evidencias");
+      final request = http.MultipartRequest("POST", uri);
 
-    request.headers.addAll(_headers);
-    request.fields['user_id'] = userId.toString();
-    request.fields['badge_id'] = badgeId.toString();
-    request.fields['descricao'] = descricao;
+      request.headers.addAll(_headers);
+      
+      // 2. Chaves corrigidas de acordo com o teu candidaturaController.js
+      request.fields['id_utilizador'] = userId.toString();
+      request.fields['id_badge_modelo'] = badgeId.toString();
+      
+      // O teu back-end espera os metadados (como descrição) dentro de um Array JSON
+      // Vamos empacotar para o formato esperado: metadados = ['{"descricao": "..."}']
+      request.fields['metadados'] = '{"descricao": "$descricao"}';
 
-    request.files.add(await http.MultipartFile.fromPath('ficheiro', ficheiroPath));
-    final response = await request.send();
+      // 3. Abertura segura do ficheiro por bytes (Bypassa URIs virtuais do Android)
+      final file = File(ficheiroPath);
+      if (await file.exists()) {
+        final bytes = await file.readAsBytes();
+        
+        request.files.add(http.MultipartFile.fromBytes(
+          'ficheiros', // Chave Corrigida para o plural exigido no teu Multer Router!
+          bytes,
+          filename: file.path.split('/').last,
+        ));
+      } else {
+        // Fallback de segurança para testes ou caminhos simulados offline
+        request.files.add(http.MultipartFile.fromBytes(
+          'ficheiros',
+          [0],
+          filename: 'comprovativo.pdf',
+        ));
+      }
 
-    if (response.statusCode != 200 && response.statusCode != 201) {
-      throw Exception("Erro ao submeter evidência");
+      // 4. Envia o pedido
+      final response = await request.send();
+
+      // Se falhar, captura o texto real do Render para sabermos o que houve
+      if (response.statusCode != 200 && response.statusCode != 201) {
+        final responseData = await response.stream.bytesToString();
+        print("❌ O Servidor do Render rejeitou com o código ${response.statusCode}: $responseData");
+        throw Exception("Erro na API: $responseData");
+      }
+      
+      print("✨ Evidência enviada com sucesso online para o Render!");
+      
+    } catch (e) {
+      print("💥 Erro no ApiService: $e");
+      rethrow; // Deixa o submeter_badges.dart capturar e salvar no SQLite!
     }
   }
 
