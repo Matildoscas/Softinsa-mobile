@@ -144,13 +144,13 @@ class _SubmeterBadgeState extends State<SubmeterBadge> {
       debugPrint("Falha de rede ou timeout ao submeter evidência. Salvando localmente SQFlite... ($e)");
 
       try {
-        // 2. MIRRORING OFFLINE: Salva na tabela atómica local
+        // CORREÇÃO CRÍTICA: Mapeamento de colunas simplificado para bater certo com o teu basededados.dart
         await _dbLocal.salvarRegisto('candidatura_pedido', {
           'id_candidatura_pedido': DateTime.now().millisecondsSinceEpoch, 
           'id_utilizador': widget.userId,
           'id_badge_modelo': widget.badgeId,
-          'data_candidatura_pedido': DateTime.now().toString(),
-          'estado_candidatura_pedido': 'Aguardando Sincronização',
+          'data_submissao': DateTime.now().toString(), // Alterado para bater certo com a coluna real do SQLite
+          'estado_badge_atribuido': 'Aguardando Sincronização', // Campo mapeado de forma simples
           'observacoes': descricaoTexto,
         });
 
