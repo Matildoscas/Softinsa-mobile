@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart'; 
+import 'package:shared_preferences/shared_preferences.dart';
 import '../pop/notificacoes.dart';
 import '../pop/definicoes.dart';
 import 'catalogo_badges.dart';
@@ -99,9 +100,24 @@ class _HomePageState extends State<HomePage> {
                                 ),
                               );
                             },
-                            onLogout: () {
-                              Navigator.pushNamedAndRemoveUntil(context, '/login', (_) => false);
-                            },
+                            onLogout: () async {
+                              // 1. Fecha o menu lateral para não ficar aberto visualmente em background
+                              Navigator.pop(context); 
+
+                              // 2. Destrói os tokens de autenticação locais para esquecer o utilizador
+                              final prefs = await SharedPreferences.getInstance();
+                              await prefs.remove('token');
+                              await prefs.remove('user');
+
+                              // 3. Expulsa o consultor para a página de login limpando o histórico de ecrãs
+                              if (context.mounted) {
+                                Navigator.pushNamedAndRemoveUntil(
+                                  context,
+                                  '/login',
+                                  (_) => false,
+                                );
+                              }
+                            }
                           ),
                         ],
                       )
