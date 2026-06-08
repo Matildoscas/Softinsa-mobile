@@ -172,7 +172,7 @@ class _BadgeDetalheState extends State<BadgeDetalhe> {
     }
   }
 
-  // CORREÇÃO CRÍTICA: Método reativo para buscar requisitos na tabela correta do SQLite
+  // Método reativo para buscar requisitos na tabela correta do SQLite
   Future<void> atualizarListaRequisitos(String letraNivel) async {
     List<Map<String, dynamic>> reqs = [];
     final int alvoNivelId = obterIdNivel(letraNivel);
@@ -184,7 +184,7 @@ class _BadgeDetalheState extends State<BadgeDetalhe> {
           .where((r) => r['id_nivel']?.toString() == alvoNivelId.toString() || rawRequisitos.length <= 5)
           .toList();
     } else {
-      // CORREÇÃO DE TABELA: Alterado de 'requisitos' para 'badge_requisito' de acordo com o DB
+      // CORREÇÃO DE TABELA: Buscando da tabela 'badge_requisito' mapeada no SQLite
       final todosReqsLocais = await _dbLocal.listarTabela('badge_requisito');
       reqs = todosReqsLocais
           .where((r) => r['id_badge_modelo'].toString() == widget.badgeId.toString())
@@ -243,7 +243,7 @@ class _BadgeDetalheState extends State<BadgeDetalhe> {
 
     final nome = badge!['nome'] ?? badge!['nome_badge'] ?? '';
     final descricao = badge!['descricao'] ?? badge!['descricao_badge_modelo'] ?? '';
-    final pontos = int.tryParse(badge!['pontos']?.toString() ?? '0') ?? 0;
+    final pontos = int.tryParse(badge!['points']?.toString() ?? badge!['pontos']?.toString() ?? '0') ?? 0;
     final nivelId = badge!['id_nivel']; 
     final letraNivelReal = obterNivel(nivelId); 
     final corDoNivel = obterCorNivel(letraNivelReal);
@@ -396,7 +396,7 @@ class _BadgeDetalheState extends State<BadgeDetalhe> {
                     ),
                     const SizedBox(height: 16),
 
-                    // NÍVEL + REQUISITOS (CORRIGIDO E INTERATIVO)
+                    // NÍVEL + REQUISITOS (INTERATIVO)
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16),
                       child: IntrinsicHeight(
@@ -423,7 +423,6 @@ class _BadgeDetalheState extends State<BadgeDetalhe> {
                                       final isSelecionado = n == nivelVisualizado;
                                       final corCirculo = obterCorNivel(n);
 
-                                      // CORREÇÃO: Envolvido em InkWell para tornar as letras clicáveis e reativas!
                                       return InkWell(
                                         onTap: () => atualizarListaRequisitos(n),
                                         borderRadius: BorderRadius.circular(18),
@@ -464,13 +463,19 @@ class _BadgeDetalheState extends State<BadgeDetalhe> {
                                     if (requisitos.isEmpty)
                                       const Expanded(
                                         child: Center(
-                                          child: Text("Sem requisitos cadastrados.", style: TextStyle(fontSize: 11, color: Colors.grey,做Style: TextStyle(fontStyle: FontStyle.italic))),
+                                          child: Text(
+                                            "Sem requisitos cadastrados.", 
+                                            style: TextStyle(fontSize: 11, color: Colors.grey, fontStyle: FontStyle.italic),
+                                          ),
                                         ),
                                       )
                                     else
                                       ...requisitos.map((req) {
                                         final textoCirculo = req['titulo']?.toString() ?? 'REQ';
                                         final textoFrente = req['nome']?.toString() ?? '';
+                                        
+                                        // CORREÇÃO: Tratamento seguro de strings para evitar estouro de índice
+                                        final abreviatura = textoCirculo.length > 3 ? textoCirculo.substring(0, 3) : textoCirculo;
                                         
                                         return Padding(
                                           padding: const EdgeInsets.only(bottom: 8),
@@ -483,7 +488,7 @@ class _BadgeDetalheState extends State<BadgeDetalhe> {
                                                   width: 26,
                                                   height: 26,
                                                   decoration: const BoxDecoration(color: Color(0xFFFFC107), shape: BoxShape.circle),
-                                                  child: Center(child: Text(textoCirculo.substring(0, index.clamp(0, 3)), style: const TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: Colors.white))),
+                                                  child: Center(child: Text(abreviatura, style: const TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: Colors.white))),
                                                 ),
                                                 const SizedBox(width: 8),
                                                 Expanded(child: Text(textoFrente, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600))),
@@ -601,7 +606,7 @@ class _BadgeDetalheState extends State<BadgeDetalhe> {
   Widget _badgeRelacionadoCard(Map<String, dynamic> b) {
     final bool conquistadoRel = b['conquistado'] == true;
     final double? progressRel = double.tryParse(b['progress']?.toString() ?? '');
-    final int pontosRel = int.tryParse(b['pontos']?.toString() ?? '0') ?? 0;
+    final int pontosRel = int.tryParse(b['points']?.toString() ?? b['pontos']?.toString() ?? '0') ?? 0;
 
     String estadoTexto;
     Color estadoCor;
