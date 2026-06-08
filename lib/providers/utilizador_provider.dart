@@ -27,12 +27,23 @@ class UtilizadorProvider with ChangeNotifier {
     _estaA_Carregar = true;
     notifyListeners(); // Mostra o loading inicial na UI
 
-    // ── 1. FLUXO DAS ÁREAS ──────────────────────────────────────────
+    // ── 1. FLUXO DAS ÁREAS (CORRIGIDO) ──────────────────────────────────
     try {
-      _areas = await _apiService.getAreas();
-      // Se correu bem, espelha para o SQFlite local para consultas futuras
+      final dadosAreasRaw = await _apiService.getAreas();
+      _areas = List<Map<String, dynamic>>.from(dadosAreasRaw);
+      
+      // Se correu bem, espelha para o SQFlite local normalizando os IDs
       for (var area in _areas) {
-        await _dbLocal.salvarRegisto('areas', area);
+        final Map<String, dynamic> areaNormalizada = {
+          'id_areas': int.tryParse((area['id_areas'] ?? area['id'] ?? '0').toString()) ?? 0,
+          'id_serviceline': area['id_serviceline'] != null ? int.tryParse(area['id_serviceline'].toString()) : null,
+          'nome_area': area['nome_area'] ?? area['nome'] ?? 'Área Sem Nome',
+          'descricao_area': area['descricao_area'] ?? area['descricao'] ?? '',
+          'data_criacao': area['data_criacao']?.toString(),
+          'numero_consultores': int.tryParse((area['numero_consultores'] ?? '0').toString()) ?? 0,
+        };
+
+        await _dbLocal.salvarRegisto('areas', areaNormalizada);
       }
     } catch (_) {
       // Falhou a rede? Carrega a cache local de imediato
@@ -40,25 +51,33 @@ class UtilizadorProvider with ChangeNotifier {
     }
     notifyListeners();
 
-    // ── 2. FLUXO DO DASHBOARD (PONTOS, RANKING) ────────────────────
+    // ── 2. FLUXO DO DASHBOARD (Mapeado com base no basededados.dart) ──
     try {
       _dashboard = await _apiService.getDashboard(userId);
-      // Salva os dados do consultor localmente (Podes precisar de ajustar o nome da tabela 'consultor')
+      
+      // Ajustado com base nas colunas da tabela 'consultor' do teu SQLite
       await _dbLocal.salvarRegisto('consultor', {
         'id_utilizador': userId,
-        'pontos': _dashboard['total_pontos'] ?? 0,
-        'badges': _dashboard['total_badges'] ?? 0,
-        'ranking': _dashboard['ranking'] ?? 'N/A'
+        'id_areas': _dashboard['id_areas'],
+        'pontos_atuais': int.tryParse((_dashboard['total_pontos'] ?? _dashboard['pontos_atuais'] ?? '0').toString()) ?? 0,
+        'badges_conquistas_total': int.tryParse((_dashboard['total_badges'] ?? _dashboard['badges_conquistas_total'] ?? '0').toString()) ?? 0,
+        'progresso_nivel': _dashboard['ranking'] ?? _dashboard['progresso_nivel'] ?? 'N/A',
+        'ultima_atualizacao_perfil': DateTime.now().toString(),
       });
     } catch (_) {
       // Se falhar, monta o mapa de fallback baseado na tabela local do SQFlite
       final dadosLocais = await _dbLocal.listarTabela('consultor');
       if (dadosLocais.isNotEmpty) {
+        final meuConsultor = dadosLocais.firstWhere(
+          (c) => c['id_utilizador'].toString() == userId.toString(),
+          orElse: () => dadosLocais.first,
+        );
         _dashboard = {
-          'total_pontos': dadosLocais.first['pontos'],
-          'total_badges': dadosLocais.first['badges'],
-          'ranking': dadosLocais.first['ranking'],
-          'offline': true // Flag útil se quiseres meter um aviso discreto na UI
+          'total_pontos': meuConsultor['pontos_atuais'] ?? 0,
+          'total_badges': meuConsultor['badges_conquistas_total'] ?? 0,
+          'ranking': meuConsultor['progresso_nivel'] ?? 'N/A',
+          'id_areas': meuConsultor['id_areas'],
+          'offline': true
         };
       }
     }
@@ -69,8 +88,8 @@ class UtilizadorProvider with ChangeNotifier {
       _badgesProgresso = await _apiService.getBadgesProgresso(userId);
       for (var badge in _badgesProgresso) {
         await _dbLocal.salvarRegisto('badge_atribuido', {
-          'id_badge_atribuido': badge['id_badge_atribuido'] ?? badge['id'] ?? 0,
-          'id_badge_modelo': badge['id_badge_modelo'] ?? badge['id'] ?? 0,
+          'id_badge_atribuido': int.tryParse((badge['id_badge_atribuido'] ?? badge['id'] ?? '0').toString()) ?? 0,
+          'id_badge_modelo': int.tryParse((badge['id_badge_modelo'] ?? badge['id_modelo'] ?? '0').toString()) ?? 0,
           'data_atribuicao': badge['data_atribuicao']?.toString(),
           'data_validade': badge['data_validade']?.toString(),
           'estado_badge_atribuido': badge['estado_badge_atribuido'] ?? 'Em Progresso',
@@ -86,7 +105,17 @@ class UtilizadorProvider with ChangeNotifier {
       final dadosRaw = await _apiService.getUtilizadores();
       _utilizadores = List<Map<String, dynamic>>.from(dadosRaw);
       for (var user in _utilizadores) {
-        await _dbLocal.salvarRegisto('utilizador', user);
+        // Mapeamento defensivo para bater 100% certo com as colunas do SQLite
+        final Map<String, dynamic> userLocal = {
+          'id_utilizador': int.tryParse((user['id_utilizador'] ?? user['id'] ?? '0').toString()) ?? 0,
+          'nome_completo': user['nome_completo'] ?? user['nome'] ?? '',
+          'email': user['email'] ?? '',
+          'contacto': user['contacto'] ?? '',
+          'estado_conta': user['estado_conta'] ?? 'Ativo',
+          'password': user['password'] ?? '',
+          'aceitou_termos': (user['aceitou_termos'] == true || user['aceitou_termos'] == 1 || user['aceitar_termos'] == 1) ? 1 : 0,
+        };
+        await _dbLocal.salvarRegisto('utilizador', userLocal);
       }
     } catch (_) {
       _utilizadores = await _dbLocal.listarTabela('utilizador');
@@ -105,15 +134,24 @@ class UtilizadorProvider with ChangeNotifier {
       _dashboard = d;
       _badgesProgresso = p;
 
-      // Atualiza a cache local em background
+      // Atualiza a cache local em background respeitando os campos mapeados
       await _dbLocal.salvarRegisto('consultor', {
         'id_utilizador': userId,
-        'pontos': _dashboard['total_pontos'] ?? 0,
-        'badges': _dashboard['total_badges'] ?? 0,
-        'ranking': _dashboard['ranking'] ?? 'N/A'
+        'id_areas': _dashboard['id_areas'],
+        'pontos_atuais': int.tryParse((_dashboard['total_pontos'] ?? _dashboard['pontos_atuais'] ?? '0').toString()) ?? 0,
+        'badges_conquistas_total': int.tryParse((_dashboard['total_badges'] ?? _dashboard['badges_conquistas_total'] ?? '0').toString()) ?? 0,
+        'progresso_nivel': _dashboard['ranking'] ?? _dashboard['progresso_nivel'] ?? 'N/A',
+        'ultima_atualizacao_perfil': DateTime.now().toString(),
       });
+
       for (var badge in _badgesProgresso) {
-        await _dbLocal.salvarRegisto('badge_atribuido', badge);
+        await _dbLocal.salvarRegisto('badge_atribuido', {
+          'id_badge_atribuido': int.tryParse((badge['id_badge_atribuido'] ?? badge['id'] ?? '0').toString()) ?? 0,
+          'id_badge_modelo': int.tryParse((badge['id_badge_modelo'] ?? badge['id_modelo'] ?? '0').toString()) ?? 0,
+          'data_atribuicao': badge['data_atribuicao']?.toString(),
+          'data_validade': badge['data_validade']?.toString(),
+          'estado_badge_atribuido': badge['estado_badge_atribuido'] ?? 'Em Progresso',
+        });
       }
       
       notifyListeners();
