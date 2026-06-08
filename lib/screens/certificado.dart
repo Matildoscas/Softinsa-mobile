@@ -1,7 +1,6 @@
-/*
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'database_service.dart';
+import '../database/basededados.dart';
 
 class CertificadoPage extends StatefulWidget {
   final Map<String, dynamic> userData;
@@ -13,15 +12,48 @@ class CertificadoPage extends StatefulWidget {
 }
 
 class _CertificadoPageState extends State<CertificadoPage> {
-  final DatabaseService _dbService = DatabaseService();
+  final Basededados _dbLocal = Basededados();
   Future<Map<String, dynamic>?>? _certificadoFuture;
 
   @override
   void initState() {
     super.initState();
-    _certificadoFuture = _dbService.obterDadosCertificado(
-      widget.userData['id_badge_atrib'] ?? 1,
-    );
+    _certificadoFuture = _carregarDadosCertificadoLocal();
+  }
+
+  // REESCRITA OFFLINE-FIRST: Procura os metadados do certificado diretamente nas tabelas locais do SQFlite
+  Future<Map<String, dynamic>?> _carregarDadosCertificadoLocal() async {
+    try {
+      final int userId = widget.userData['id_utilizador'] ?? 0;
+      
+      // Realiza uma consulta combinando os dados do utilizador com as tabelas do ecossistema local[cite: 12]
+      final db = await _dbLocal.database;
+      
+      final List<Map<String, dynamic>> resultado = await db.rawQuery('''
+        SELECT 
+          u.nome_completo AS nome,
+          c.progresso_nivel AS nivel,
+          bm.nome_badge AS badge,
+          ch.data_entrada_historico AS data,
+          ch.id_candidatura_historico AS codigo
+        FROM utilizador u
+        INNER JOIN consultor c ON u.id_utilizador = c.id_utilizador
+        LEFT JOIN candidatura_pedido cp ON c.id_utilizador = cp.id_utilizador
+        LEFT JOIN badge_modelo bm ON cp.id_badge_modelo = bm.id_badge_modelo
+        LEFT JOIN candidatura_tm ctm ON cp.id_candidatura_pedido = ctm.id_candidatura_pedido
+        LEFT JOIN candidatura_sll csll ON ctm.id_candidatura_tm = csll.id_candidatura_tm
+        LEFT JOIN candidatura_historico ch ON csll.id_candidatura_sll = ch.id_candidatura_sll
+        WHERE u.id_utilizador = ? AND ch.estado_final = 'APROVADO'
+        LIMIT 1
+      ''', [userId]);
+
+      if (resultado.isNotEmpty) {
+        return resultado.first;
+      }
+    } catch (e) {
+      print("Erro ao ler certificado local: $e");
+    }
+    return null;
   }
 
   @override
@@ -34,14 +66,21 @@ class _CertificadoPageState extends State<CertificadoPage> {
             // ================= HEADER (Sempre Visível) =================
             Container(
               color: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               child: Row(
                 children: [                 
-                  // Logo
-                  Image.asset('lib/img/logo.png', height: 30, fit: BoxFit.contain),
-                  
-                  const Spacer(), // Empurra os ícones para a direita
-                  
+                  GestureDetector(
+                    onTap: () => Navigator.pop(context),
+                    child: const Text(
+                      "SOFTINSA",
+                      style: TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF39639C),
+                      ),
+                    ),
+                  ),
+                  const Spacer(),
                   Row(
                     children: const [
                       CircleAvatar(
@@ -57,34 +96,32 @@ class _CertificadoPageState extends State<CertificadoPage> {
                       ),
                     ],
                   ),
-                  const SizedBox(width: 8),
                 ],
               ),
             ),
 
-            // ================= CONTEÚDO DINÂMICO =================
+            // ================= CONTEÚDO DINÂMICO LOCAL =================
             Expanded(
               child: FutureBuilder<Map<String, dynamic>?>(
                 future: _certificadoFuture,
                 builder: (context, snapshot) {
                   if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Center(child: CircularProgressIndicator());
+                    return const Center(child: CircularProgressIndicator(color: Colors.blueAccent));
                   }
 
-                  // Caso dê erro ou não existam dados
                   if (snapshot.hasError || !snapshot.hasData || snapshot.data == null) {
                     return Center(
                       child: Padding(
                         padding: const EdgeInsets.all(20.0),
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const Icon(Icons.info_outline, size: 60, color: Colors.grey),
+                          children: const [
+                            Icon(Icons.info_outline, size: 60, color: Colors.grey),
                             const SizedBox(height: 16),
-                            const Text(
-                              "Certificado não disponível ou ainda não aprovado.",
+                            Text(
+                              "Certificado não disponível localmente ou ainda não foi aprovado pela equipa Softinsa.",
                               textAlign: TextAlign.center,
-                              style: TextStyle(fontSize: 16, color: Colors.grey),
+                              style: TextStyle(fontSize: 15, color: Colors.grey),
                             ),
                           ],
                         ),
@@ -93,40 +130,54 @@ class _CertificadoPageState extends State<CertificadoPage> {
                   }
 
                   final dados = snapshot.data!;
-                  // Formatação da data (Garante que 'data' não é nulo no seu DB)
-                  final dataFormatada = dados['data'] != null 
-                      ? DateFormat('d \'de\' MMMM \'de\' yyyy', 'pt_BR').format(dados['data'])
-                      : "Data pendente";
+                  
+                  // Tratamento seguro da data armazenada como TEXT no SQLite
+                  String dataFormatada = "Data pendente";
+                  if (dados['data'] != null) {
+                    final DateTime? dataParsed = DateTime.tryParse(dados['data'].toString());
+                    if (dataParsed != null) {
+                      dataFormatada = DateFormat("d 'de' MMMM 'de' yyyy").format(dataParsed);
+                    }
+                  }
 
                   return SingleChildScrollView(
                     child: Padding(
-                      padding: const EdgeInsets.all(20.0),
+                      padding: const EdgeInsets.all(24.0),
                       child: Column(
                         children: [
-                          const Text("Certificado de Competências", 
-                            style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
-                          const SizedBox(height: 10),
-                          Image.asset('lib/img/logo.png', height: 40),
+                          const Text(
+                            "Certificado de Competências", 
+                            style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                          ),
+                          const SizedBox(height: 20),
+                          const Icon(Icons.workspace_premium, size: 80, color: Color(0xFF4470AF)),
                           
                           const SizedBox(height: 40),
                           const Text("Certificamos que:", style: TextStyle(fontSize: 16)),
                           const SizedBox(height: 10),
-                          Text(dados['nome'] ?? "Utilizador", 
-                            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFF4470AF))),
-                          Text("${dados['cargo'] ?? ''}", style: const TextStyle(fontSize: 14)),
+                          Text(
+                            dados['nome'] ?? widget.userData['nome_completo'] ?? "Utilizador", 
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFF4470AF)),
+                          ),
+                          const Text("Consultor Softinsa", style: TextStyle(fontSize: 14, color: Colors.grey)),
                           
                           const SizedBox(height: 30),
                           const Text("Concluiu com sucesso o badge:", style: TextStyle(fontSize: 16)),
                           const SizedBox(height: 10),
-                          Text("${dados['badge'] ?? 'Badge'} – Nível ${dados['nivel'] ?? 'I'}", 
+                          Text(
+                            "${dados['badge'] ?? 'Formação Base'} – ${dados['nivel'] ?? 'Nível A'}", 
                             textAlign: TextAlign.center,
-                            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+                            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+                          ),
 
                           const SizedBox(height: 40),
-                          Text("Data de emissão: $dataFormatada"),
-                          Text("Código único de Verificação: ${dados['codigo'] ?? '---'}"),
+                          Divider(color: Colors.grey[300]),
+                          const SizedBox(height: 10),
+                          Text("Data de emissão: $dataFormatada", style: const TextStyle(fontSize: 13)),
+                          Text("Código Único Softinsa: CERT-${dados['codigo'] ?? '000'}", style: const TextStyle(fontSize: 13, color: Colors.grey)),
                           
-                          const SizedBox(height: 50),
+                          const SizedBox(height: 40),
                           
                           // ÁREA DE ASSINATURAS
                           Row(
@@ -144,13 +195,13 @@ class _CertificadoPageState extends State<CertificadoPage> {
                             children: [
                               Expanded(
                                 child: _buildActionButton(Icons.picture_as_pdf, "Gerar PDF", Colors.red, () {
-                                  print("A gerar PDF...");
+                                  print("A gerar PDF do certificado...");
                                 }),
                               ),
-                              const SizedBox(width: 10),
+                              const SizedBox(width: 12),
                               Expanded(
                                 child: _buildActionButton(Icons.table_view, "Gerar EXCEL", Colors.green, () {
-                                  print("A gerar Excel...");
+                                  print("A gerar listagem Excel...");
                                 }),
                               ),
                             ],
@@ -171,10 +222,10 @@ class _CertificadoPageState extends State<CertificadoPage> {
   Widget _buildAssinatura(String cargo) {
     return Column(
       children: [
-        const Icon(Icons.edit_note, size: 50, color: Colors.grey),
-        Container(width: 120, height: 1, color: Colors.black),
-        const SizedBox(height: 4),
-        Text(cargo, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+        const Icon(Icons.edit_note, size: 40, color: Colors.grey),
+        Container(width: 120, height: 1, color: Colors.black45),
+        const SizedBox(height: 6),
+        Text(cargo, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
       ],
     );
   }
@@ -185,13 +236,13 @@ class _CertificadoPageState extends State<CertificadoPage> {
         backgroundColor: Colors.white,
         foregroundColor: Colors.black,
         padding: const EdgeInsets.symmetric(vertical: 12),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(5)),
-        elevation: 2,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        side: BorderSide(color: Colors.grey.shade300),
+        elevation: 0,
       ),
       onPressed: onTap,
-      icon: Icon(icon, size: 22, color: color),
+      icon: Icon(icon, size: 20, color: color),
       label: Text(label, style: const TextStyle(fontSize: 13)),
     );
   }
 }
-*/

@@ -27,9 +27,8 @@ class _RegisterPageState extends State<RegisterPage> {
     super.dispose();
   }
 
-  // Só valida — não grava nada na BD
+  // Validação local dos dados antes de avançar para a escolha da Área
   void _avancarParaArea() {
-
     final nome = _nomeController.text.trim();
     final email = _emailController.text.trim();
     final password = _passController.text;
@@ -39,55 +38,33 @@ class _RegisterPageState extends State<RegisterPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text("Preencha todos os campos obrigatórios!"),
+          backgroundColor: Colors.orangeAccent,
         ),
       );
       return;
     }
 
-    // validar email
-    final emailRegex =
-        RegExp(r'^[^@]+@[^@]+\.[^@]+');
-
-    if (!emailRegex.hasMatch(email)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("Email inválido!"),
-        ),
-      );
-      return;
-    }
-
-    // password mínima
-    if (password.length < 6) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("A password deve ter pelo menos 6 caracteres!"),
-        ),
-      );
-      return;
-    }
-
-    // confirmar password
     if (password != confirmPassword) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text("As passwords não coincidem!"),
+          content: Text("As palavras-passe não coincidem!"),
+          backgroundColor: Colors.redAccent,
         ),
       );
       return;
     }
 
-    // aceitar termos
     if (!_aceitouTermos) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text("Deve aceitar os Termos de Serviço!"),
+          content: Text("Deve aceitar os Termos e Condições para continuar."),
+          backgroundColor: Colors.orangeAccent,
         ),
       );
       return;
     }
 
-    // avançar
+    // Avança para a AreaRegisterPage levando os dados validados em pipeline
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -108,8 +85,7 @@ class _RegisterPageState extends State<RegisterPage> {
       body: SafeArea(
         child: Column(
           children: [
-
-            // HEADER
+            // HEADER COM LOGÓTIPO FIXED
             Container(
               color: Colors.white,
               padding: const EdgeInsets.symmetric(horizontal: 25, vertical: 10),
@@ -123,182 +99,152 @@ class _RegisterPageState extends State<RegisterPage> {
               ),
             ),
 
-            // CONTEÚDO
+            // FORMULÁRIO DE REGISTO
             Expanded(
-              child: SingleChildScrollView(
-                child: Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(10),
-                  child: Center(
+              child: Center(
+                child: SingleChildScrollView(
+                  child: Padding(
+                    padding: const EdgeInsets.all(20),
                     child: Container(
-                      padding: const EdgeInsets.all(15),
+                      padding: const EdgeInsets.all(20),
                       decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(10),
                         boxShadow: const [
-                          BoxShadow(
-                            color: Colors.black12,
-                            blurRadius: 10,
-                            offset: Offset(0, 5),
-                          ),
+                          BoxShadow(color: Colors.black12, blurRadius: 10)
                         ],
                       ),
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-
                           const Text(
                             "Registar",
                             style: TextStyle(
-                              color: Color.fromARGB(255, 105, 147, 190),
-                              fontSize: 50,
+                              color: Color(0xFF6993BE),
+                              fontSize: 40,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
+                          const Text("Crie a sua conta para aceder à plataforma"),
+                          const SizedBox(height: 30),
 
-                          const Text("Crie a sua conta"),
-
-                          const SizedBox(height: 20),
-
+                          // INPUT NOME
                           TextField(
                             controller: _nomeController,
                             decoration: const InputDecoration(
                               labelText: "Nome Completo",
-                              prefixIcon: Icon(Icons.person),
+                              prefixIcon: Icon(Icons.person_outline),
                               border: OutlineInputBorder(),
                             ),
                           ),
+                          const SizedBox(height: 20),
 
-                          const SizedBox(height: 15),
-
+                          // INPUT EMAIL
                           TextField(
                             controller: _emailController,
                             keyboardType: TextInputType.emailAddress,
                             decoration: const InputDecoration(
-                              labelText: "Email",
+                              labelText: "E-mail",
                               prefixIcon: Icon(Icons.email_outlined),
                               border: OutlineInputBorder(),
                             ),
                           ),
+                          const SizedBox(height: 20),
 
-                          const SizedBox(height: 15),
-
+                          // INPUT PASSWORD
                           TextField(
                             controller: _passController,
                             obscureText: _obscureText,
                             decoration: InputDecoration(
-                              labelText: "Password",
+                              labelText: "Palavra-passe",
                               prefixIcon: const Icon(Icons.lock_outline),
                               suffixIcon: IconButton(
                                 icon: Icon(
                                   _obscureText
-                                      ? Icons.visibility_off
-                                      : Icons.visibility,
+                                      ? Icons.visibility_outlined
+                                      : Icons.visibility_off_outlined,
                                 ),
-                                onPressed: () =>
-                                    setState(() => _obscureText = !_obscureText),
+                                onPressed: () {
+                                  setState(() {
+                                    _obscureText = !_obscureText;
+                                  });
+                                },
                               ),
                               border: const OutlineInputBorder(),
                             ),
                           ),
+                          const SizedBox(height: 20),
 
-                          const SizedBox(height: 15),
-
+                          // INPUT CONFIRM PASSWORD
                           TextField(
                             controller: _confirmPassController,
                             obscureText: _obscureText,
-                            decoration: InputDecoration(
-                              labelText: "Confirme a Password",
-                              prefixIcon: const Icon(Icons.lock_outline),
-                              suffixIcon: IconButton(
-                                icon: Icon(
-                                  _obscureText
-                                      ? Icons.visibility_off
-                                      : Icons.visibility,
-                                ),
-                                onPressed: () =>
-                                    setState(() => _obscureText = !_obscureText),
+                            decoration: const InputDecoration(
+                              labelText: "Confirmar Palavra-passe",
+                              prefixIcon: Icon(Icons.lock_clock_outlined),
+                              border: OutlineInputBorder(),
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+
+                          // CHECKBOX TERMOS
+                          Row(
+                            children: [
+                              Checkbox(
+                                value: _aceitouTermos,
+                                onChanged: (value) {
+                                  setState(() {
+                                    _aceitouTermos = value ?? false;
+                                  });
+                                },
                               ),
-                              border: const OutlineInputBorder(),
-                            ),
-                          ),
-
-                          const SizedBox(height: 4),
-
-                          Align(
-                            alignment: Alignment.centerLeft,
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Checkbox(
-                                  value: _aceitouTermos,
-                                  onChanged: (bool? value) {
-                                    setState(() {
-                                      _aceitouTermos = value ?? false;
-                                    });
-                                  },
+                              const Expanded(
+                                child: Text(
+                                  "Aceito os Termos e Condições",
+                                  style: TextStyle(fontSize: 14),
                                 ),
-                                TextButton(
-                                  onPressed: () {
-                                    // Lógica para abrir os Termos de Serviço
-                                  },
-                                  style: TextButton.styleFrom(
-                                    padding: EdgeInsets.zero,
-                                    minimumSize: Size.zero,
-                                    tapTargetSize:
-                                        MaterialTapTargetSize.shrinkWrap,
-                                  ),
-                                  child: const Text(
-                                    "Aceito os Termos de Serviço",
-                                    style: TextStyle(
-                                      color: Colors.blueAccent,
-                                      fontSize: 13,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
+                              ),
+                            ],
                           ),
+                          const SizedBox(height: 20),
 
-                          const SizedBox(height: 4),
-
+                          // BOTÃO SEGUINTE
                           ElevatedButton(
                             onPressed: _avancarParaArea,
                             style: ElevatedButton.styleFrom(
                               backgroundColor: Colors.blueAccent,
                               foregroundColor: Colors.white,
+                              minimumSize: const Size(double.infinity, 50),
                               shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(13),
+                                borderRadius: BorderRadius.circular(10),
                               ),
-                              elevation: 5,
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 97, vertical: 14),
                             ),
                             child: const Row(
-                              mainAxisSize: MainAxisSize.min,
+                              mainAxisAlignment: MainAxisAlignment.center,
                               children: [
                                 Text("Seguinte"),
-                                SizedBox(width: 4),
+                                SizedBox(width: 6),
                                 Icon(Icons.arrow_forward),
                               ],
                             ),
                           ),
+                          const SizedBox(height: 16),
 
-                          const SizedBox(height: 80),
-
+                          // LINK RETORNAR AO LOGIN
                           TextButton(
-                            onPressed: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                    builder: (context) => const LoginPage()),
-                              );
-                            },
                             style: TextButton.styleFrom(
                               padding: EdgeInsets.zero,
                               minimumSize: Size.zero,
                               tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                             ),
+                            onPressed: () {
+                              Navigator.pushReplacement(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => const LoginPage(),
+                                ),
+                              );
+                            },
                             child: const Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [

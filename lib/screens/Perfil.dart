@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../providers/utilizador_provider.dart';
 
 class Perfil extends StatelessWidget {
   const Perfil({super.key});
@@ -6,256 +8,232 @@ class Perfil extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Color(0xFFF7F7F7),
+      backgroundColor: const Color(0xFFF7F7F7),
       body: SafeArea(
-        child: Column(
-          children: [
-            // ================= HEADER COM PESQUISA =================
-            Padding(
-              padding: EdgeInsets.all(16.0),
-              child: Row(
-                children: [
-                  // Logo que volta para a Home ao clicar
-                  GestureDetector(
-                    onTap: () => Navigator.pop(context),
-                    child: Text(
-                      "SOFTINSA",
-                      style: TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF39639C),
-                      ),
-                    ),
-                  ),
-                  SizedBox(width: 16),
-                  Expanded(
-                    child: Container(
-                      height: 40,
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: TextField(
-                        decoration: InputDecoration(
-                          hintText: "Pesquisar...",
-                          prefixIcon: Icon(Icons.search),
-                          border: InputBorder.none,
-                          contentPadding: EdgeInsets.symmetric(vertical: 10),
+        // O Consumer fica à escuta do Provider para redesenhar o ecrã se houver Sync em background
+        child: Consumer<UtilizadorProvider>(
+          builder: (context, provider, child) {
+            
+            // Extração segura dos dados guardados na cache do SQFlite local
+            final dashboard = provider.dashboard;
+            final consultor = dashboard['consultor'] ?? {};
+            
+            // Mapeamento dinâmico baseado nos campos oficiais do teu pgAdmin/JSON
+            final String nomeConsultor = dashboard['nome_completo'] ?? 'Consultor';
+            final String emailConsultor = dashboard['email'] ?? 'Sem e-mail registado';
+            final String progressoNivel = consultor['progresso_nivel'] ?? 'Nível Inicial';
+            final String pontosAtuais = (consultor['pontos_atuais'] ?? 0).toString();
+
+            return Column(
+              children: [
+                // ================= HEADER COM PESQUISA =================
+                Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Row(
+                    children: [
+                      // Clicar no logótipo remove o ecrã da stack e regressa à HomePage
+                      GestureDetector(
+                        onTap: () => Navigator.pop(context),
+                        child: const Text(
+                          "SOFTINSA",
+                          style: TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF39639C),
+                          ),
                         ),
                       ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            // ================= BOTÃO VOLTAR =================
-            Padding(
-              padding: EdgeInsets.symmetric(horizontal: 16),
-              child: InkWell(
-                onTap: () => Navigator.pop(context),
-                child: Row(
-                  children: [
-                    Icon(Icons.arrow_back, color: Color(0xFF39639C)),
-                    SizedBox(width: 8),
-                    Text("Voltar", style: TextStyle(color: Color(0xFF39639C))),
-                  ],
-                ),
-              ),
-            ),
-
-            // ================= CARD PERFIL (AZUL) =================
-            Container(
-              margin: EdgeInsets.all(16),
-              padding: EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: Color(0xFF4470AF),
-                borderRadius: BorderRadius.circular(25),
-              ),
-              child: Column(
-                children: [
-                  CircleAvatar(
-                    radius: 40,
-                    backgroundColor: Colors.white.withValues(alpha: 0.3),
-                    child: Icon(
-                      Icons.person_outline,
-                      size: 50,
-                      color: Colors.white,
-                    ),
-                  ),
-                  SizedBox(height: 10),
-                  Text(
-                    "Ana Luisa",
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 18,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            // ================= BOTÕES PROGRESSO / HISTÓRICO =================
-            Padding(
-              padding: EdgeInsets.symmetric(horizontal: 16),
-              child: Row(
-                children: [
-                  Expanded(child: actionButton(Icons.trending_up, "Progresso")),
-                  SizedBox(width: 12),
-                  Expanded(
-                    child: actionButton(Icons.history, "Histórico Badges"),
-                  ),
-                ],
-              ),
-            ),
-
-            SizedBox(height: 20),
-
-            // ================= SECÇÃO BADGES =================
-            Padding(
-              padding: EdgeInsets.symmetric(horizontal: 16),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        "Os seus badges",
-                        style: TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                      Text(
-                        "Tem 5/12 badges",
-                        style: TextStyle(fontSize: 12, color: Colors.grey),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Container(
+                          height: 40,
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: const TextField(
+                            decoration: InputDecoration(
+                              hintText: "Pesquisar no perfil...",
+                              prefixIcon: Icon(Icons.search, color: Colors.grey),
+                              border: InputBorder.none,
+                              contentPadding: EdgeInsets.symmetric(vertical: 10),
+                            ),
+                          ),
+                        ),
                       ),
                     ],
                   ),
-                  ElevatedButton.icon(
-                    onPressed:
-                        () {}, // Aqui abriria a página de todos os badges
-                    icon: Icon(Icons.menu_book, size: 16),
-                    label: Text("Ver Todos"),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.white,
-                      foregroundColor: Colors.black,
-                      elevation: 0,
-                      side: BorderSide(color: Colors.grey.shade300),
+                ),
+
+                // ================= CARD INFORMATIVO DO CONSULTOR =================
+                Card(
+                  margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  color: Colors.white,
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Row(
+                      children: [
+                        const CircleAvatar(
+                          radius: 35,
+                          backgroundColor: Color(0xFF39639C),
+                          child: Icon(Icons.person, size: 45, color: Colors.white),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                nomeConsultor,
+                                style: const TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                emailConsultor,
+                                style: const TextStyle(color: Colors.grey, fontSize: 13),
+                              ),
+                              const SizedBox(height: 6),
+                              Text(
+                                "Progresso: $progressoNivel",
+                                style: const TextStyle(
+                                  color: Colors.blueAccent,
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 13,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                ],
-              ),
-            ),
+                ),
 
-            // ================= LISTA DE BADGES (SCROLL) =================
-            Expanded(
-              child: ListView(
-                padding: EdgeInsets.all(16),
-                children: [
-                  profileBadgeCard(
-                    "SAP Explorer - Nível A",
-                    "10",
-                    "03/02/2025",
+                // ================= TÍTULO DA LISTA DE BADGES =================
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 16.0, vertical: 12),
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      "Os Meus Badges Atribuídos",
+                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                    ),
                   ),
-                  profileBadgeCard(
-                    "Module Navigator - Nível B",
-                    "13",
-                    "12/02/2025",
-                  ),
-                  profileBadgeCard(
-                    "Business Process Master - Nível C",
-                    "16",
-                    "28/03/2025",
-                  ),
-                ],
-              ),
-            ),
-          ],
+                ),
+
+                // ================= LISTA DINÂMICA OFFLINE-FIRST =================
+                Expanded(
+                  child: provider.badgesProgresso.isEmpty
+                      ? const Center(
+                          child: Text(
+                            "Ainda não existem badges guardados localmente.",
+                            style: TextStyle(color: Colors.grey),
+                          ),
+                        )
+                      : ListView.builder(
+                          itemCount: provider.badgesProgresso.length,
+                          itemBuilder: (context, index) {
+                            final badge = provider.badgesProgresso[index];
+                            return _buildBadgeCard(
+                              title: badge['nome_badge'] ?? 'Badge Gamificado',
+                              description: badge['descricao_badge_modelo'] ?? 'Sincronizado da plataforma Softinsa.',
+                              points: pontosAtuais,
+                              date: badge['data_atribuicao'] ?? 'Pendente',
+                            );
+                          },
+                        ),
+                ),
+              ],
+            );
+          },
         ),
       ),
     );
   }
 
-  // Widget para os botões arredondados de Progresso/Histórico
-  Widget actionButton(IconData icon, String label) {
+  // Card modular de Badges adaptado para o teu design gráfico original
+  Widget _buildBadgeCard({
+    required String title,
+    required String description,
+    required String points,
+    required String date,
+  }) {
     return Container(
-      padding: EdgeInsets.symmetric(vertical: 12),
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(25),
-        border: Border.all(color: Colors.black87),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(icon, size: 18),
-          SizedBox(width: 8),
-          Text(
-            label,
-            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.02),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
           ),
         ],
       ),
-    );
-  }
-
-  // Widget para o Card de Badge específico do Perfil
-  Widget profileBadgeCard(String title, String points, String date) {
-    return Container(
-      margin: EdgeInsets.only(bottom: 12),
-      padding: EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(15),
-        boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 4)],
-      ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              CircleAvatar(
-                radius: 25,
-                backgroundColor: Color(0xFFF0F7FF),
-                child: Text("🏅", style: TextStyle(fontSize: 20)),
+              const CircleAvatar(
+                radius: 20,
+                backgroundColor: Color(0xFFE8F0FE),
+                child: Icon(Icons.workspace_premium, color: Color(0xFF39639C)),
               ),
-              SizedBox(width: 12),
+              const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       title,
-                      style: TextStyle(
+                      style: const TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 14,
                       ),
                     ),
+                    const SizedBox(height: 2),
                     Text(
-                      "Introdução ao SAP: estrutura, módulos principais...",
-                      style: TextStyle(fontSize: 11, color: Colors.grey),
+                      description,
+                      style: const TextStyle(fontSize: 11, color: Colors.grey),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ],
                 ),
               ),
+              const SizedBox(width: 8),
               Container(
-                padding: EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
-                  border: Border.all(color: Color(0xFF39639C)),
+                  border: Border.all(color: const Color(0xFF39639C)),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Column(
                   children: [
-                    Text("Pontos", style: TextStyle(fontSize: 10)),
-                    Text(points, style: TextStyle(fontWeight: FontWeight.bold)),
+                    const Text("Pontos", style: TextStyle(fontSize: 10)),
+                    Text(
+                      points,
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                    ),
                   ],
                 ),
               ),
             ],
           ),
-          Divider(height: 20),
+          const Divider(height: 24, thickness: 0.5),
           Text(
-            "Conquistado a $date",
-            style: TextStyle(fontSize: 11, color: Colors.grey),
+            "Conquistado a: $date",
+            style: const TextStyle(fontSize: 11, color: Colors.grey),
           ),
         ],
       ),
