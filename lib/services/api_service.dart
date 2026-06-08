@@ -270,7 +270,7 @@ class ApiService {
   }) async {
     try {
       // 1. URL Corrigido baseado no teu app.js + candidaturaRoutes.js
-      final uri = Uri.parse("$baseUrl/api/candidaturas/submeter-evidencias");
+      final uri = Uri.parse("$baseUrl/candidaturas/submeter-evidencias");
       final request = http.MultipartRequest("POST", uri);
 
       request.headers.addAll(_headers);
