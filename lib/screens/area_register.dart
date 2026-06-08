@@ -132,20 +132,18 @@ class _AreaRegPageState extends State<AreaRegisterPage> {
 
                                   // Dropdown reativo com chaves corrigidas para o teu SQLite
                                   DropdownButtonFormField<int>(
-                                    decoration: const InputDecoration(
-                                      labelText: "Selecione a Área",
-                                      prefixIcon: Icon(Icons.list_alt_outlined),
-                                      border: OutlineInputBorder(),
-                                    ),
-                                    value: _selectedAreaId,
-                                    items: listaAreas.map((area) {
-                                      // CORREÇÃO CRÍTICA: Mapeamento ajustado para as tuas colunas reais 'id_areas' e 'nome_area'
-                                      final int id = int.tryParse((area['id_areas'] ?? area['id'] ?? '0').toString()) ?? 0;
-                                      final String nome = (area['nome_area'] ?? area['nome'] ?? 'Área Sem Nome').toString();
-
+                                    isExpanded: true, // 1. Garante que o dropdown ocupa a largura correta do ecrã
+                                    items: provider.areas.map((area) {
                                       return DropdownMenuItem<int>(
-                                        value: id,
-                                        child: Text(nome),
+                                        value: area['id_areas'],
+                                        child: Container(
+                                          width: 200, // Ajusta ou remove se necessário
+                                          child: Text(
+                                            area['nome_area'] ?? 'Sem Nome',
+                                            overflow: TextOverflow.ellipsis, // 2. Se for muito grande, mete os "..." no fim!
+                                            maxLines: 1, // Mantém tudo numa linha limpa
+                                          ),
+                                        ),
                                       );
                                     }).toList(),
                                     onChanged: (value) => setState(() => _selectedAreaId = value),

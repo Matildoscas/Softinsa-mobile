@@ -18,6 +18,17 @@ String obterNivel(dynamic idNivel) {
   }
 }
 
+int obterIdNivel(String letra) {
+  switch (letra) {
+    case 'A': return 1;
+    case 'B': return 2;
+    case 'C': return 3;
+    case 'D': return 4;
+    case 'E': return 5;
+    default: return 1;
+  }
+}
+
 Color obterCorNivel(String letraNivel) {
   switch (letraNivel) {
     case 'A':
@@ -56,6 +67,9 @@ class _BadgeDetalheState extends State<BadgeDetalhe> {
   List<Map<String, dynamic>> requisitos = [];
   bool loading = true;
   bool descricaoExpandida = false;
+  
+  // Estado para controlar qual o nível que o utilizador está a inspecionar ativamente
+  String nivelVisualizado = 'A';
 
   static const Color _azul = Color(0xFF4470AF);
 
@@ -68,7 +82,6 @@ class _BadgeDetalheState extends State<BadgeDetalhe> {
   Future<void> carregar() async {
     List<Map<String, dynamic>> todos = [];
     List<Map<String, dynamic>> obtidos = [];
-    List<Map<String, dynamic>> reqs = [];
 
     int getId(Map b) => int.tryParse((b['id'] ?? b['id_badge_modelo'] ?? b['id_badge'] ?? '').toString()) ?? -1;
 
@@ -77,7 +90,6 @@ class _BadgeDetalheState extends State<BadgeDetalhe> {
       todos = await _apiService.getTodosBadges();
       obtidos = await _apiService.getBadgesConquistados(widget.userId);
 
-      // CORREÇÃO DEFENSIVA: Evita quebrar se as rotas de notificações/certificados falharem
       try {
         final notificacoes = await _apiService.getNotifications(widget.userId);
         certificadoDisponivel = notificacoes.firstWhere(
@@ -116,6 +128,11 @@ class _BadgeDetalheState extends State<BadgeDetalhe> {
       orElse: () => <String, dynamic>{},
     );
 
+    // Configura o nível visualizado inicial baseado no nível real do badge
+    if (badgeEncontrado.isNotEmpty) {
+      nivelVisualizado = obterNivel(badgeEncontrado['id_nivel']);
+    }
+
     // ── PROGRESSO DO UTILIZADOR ─────────────────────
     final progressoEncontrado = obtidos.firstWhere(
       (b) => getId(b) == widget.badgeId,
@@ -143,26 +160,45 @@ class _BadgeDetalheState extends State<BadgeDetalhe> {
         })
         .toList();
 
-    // ── CARREGAMENTO DE REQUISITOS (Suporte Online e SQLite) ────────
-    final rawRequisitos = badgeEncontrado['requisitos'];
-    if (rawRequisitos is List) {
-      reqs = rawRequisitos.map((item) => Map<String, dynamic>.from(item)).toList();
-    } else {
-      // Se estiver offline ou a API falhar no merge, puxa da tabela 'requisitos' do SQFlite
-      final todosReqsLocais = await _dbLocal.listarTabela('requisitos');
-      reqs = todosReqsLocais
-          .where((r) => r['id_badge_modelo'].toString() == widget.badgeId.toString())
-          .map((r) => {'titulo': r['titulo'] ?? 'R', 'nome': r['nome_requisito'] ?? r['descricao_requisito'] ?? ''})
-          .toList();
-    }
-
     if (mounted) {
       setState(() {
         badge = badgeEncontrado.isNotEmpty ? badgeEncontrado : null;
         progresso = progressoEncontrado.isNotEmpty ? progressoEncontrado : null;
         badgesRelacionados = relacionados;
-        requisitos = reqs;
         loading = false;
+      });
+      // Carrega os requisitos do nível padrão
+      atualizarListaRequisitos(nivelVisualizado);
+    }
+  }
+
+  // CORREÇÃO CRÍTICA: Método reativo para buscar requisitos na tabela correta do SQLite
+  Future<void> atualizarListaRequisitos(String letraNivel) async {
+    List<Map<String, dynamic>> reqs = [];
+    final int alvoNivelId = obterIdNivel(letraNivel);
+
+    final rawRequisitos = badge?['requisitos'];
+    if (rawRequisitos is List) {
+      reqs = rawRequisitos
+          .map((item) => Map<String, dynamic>.from(item))
+          .where((r) => r['id_nivel']?.toString() == alvoNivelId.toString() || rawRequisitos.length <= 5)
+          .toList();
+    } else {
+      // CORREÇÃO DE TABELA: Alterado de 'requisitos' para 'badge_requisito' de acordo com o DB
+      final todosReqsLocais = await _dbLocal.listarTabela('badge_requisito');
+      reqs = todosReqsLocais
+          .where((r) => r['id_badge_modelo'].toString() == widget.badgeId.toString())
+          .map((r) => {
+                'titulo': r['nome_requisito'] ?? 'REQ', 
+                'nome': r['descricao_requisito'] ?? 'Sem descrição cadastrada localmente.'
+              })
+          .toList();
+    }
+
+    if (mounted) {
+      setState(() {
+        nivelVisualizado = letraNivel;
+        requisitos = reqs;
       });
     }
   }
@@ -170,8 +206,8 @@ class _BadgeDetalheState extends State<BadgeDetalhe> {
   bool get conquistado => progresso != null && progresso!.isNotEmpty;
 
   double? get progressoValor => progresso != null
-    ? double.tryParse(progresso!['progress']?.toString() ?? '')
-    : null;
+      ? double.tryParse(progresso!['progress']?.toString() ?? '')
+      : null;
 
   String? get dataConquista => progresso?['data_atribuicao']?.toString();
 
@@ -209,8 +245,8 @@ class _BadgeDetalheState extends State<BadgeDetalhe> {
     final descricao = badge!['descricao'] ?? badge!['descricao_badge_modelo'] ?? '';
     final pontos = int.tryParse(badge!['pontos']?.toString() ?? '0') ?? 0;
     final nivelId = badge!['id_nivel']; 
-    final letraNivel = obterNivel(nivelId); 
-    final corDoNivel = obterCorNivel(letraNivel);
+    final letraNivelReal = obterNivel(nivelId); 
+    final corDoNivel = obterCorNivel(letraNivelReal);
 
     String estadoTexto;
     Color estadoCor;
@@ -360,7 +396,7 @@ class _BadgeDetalheState extends State<BadgeDetalhe> {
                     ),
                     const SizedBox(height: 16),
 
-                    // NÍVEL + REQUISITOS
+                    // NÍVEL + REQUISITOS (CORRIGIDO E INTERATIVO)
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16),
                       child: IntrinsicHeight(
@@ -384,20 +420,24 @@ class _BadgeDetalheState extends State<BadgeDetalhe> {
                                     spacing: 8,
                                     runSpacing: 8,
                                     children: _todosNiveis.map((n) {
-                                      final letraAtualDoBadge = obterNivel(badge!['id_nivel']);
-                                      final isAtual = n == letraAtualDoBadge;
+                                      final isSelecionado = n == nivelVisualizado;
                                       final corCirculo = obterCorNivel(n);
 
-                                      return Container(
-                                        width: 36,
-                                        height: 36,
-                                        decoration: BoxDecoration(
-                                          color: isAtual ? corCirculo : Colors.grey.shade100,
-                                          shape: BoxShape.circle,
-                                          border: Border.all(color: isAtual ? corCirculo : Colors.grey.shade300),
-                                        ),
-                                        child: Center(
-                                          child: Text(n, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: isAtual ? Colors.white : Colors.grey)),
+                                      // CORREÇÃO: Envolvido em InkWell para tornar as letras clicáveis e reativas!
+                                      return InkWell(
+                                        onTap: () => atualizarListaRequisitos(n),
+                                        borderRadius: BorderRadius.circular(18),
+                                        child: Container(
+                                          width: 36,
+                                          height: 36,
+                                          decoration: BoxDecoration(
+                                            color: isSelecionado ? corCirculo : Colors.grey.shade100,
+                                            shape: BoxShape.circle,
+                                            border: Border.all(color: isSelecionado ? corCirculo : Colors.grey.shade300, width: isSelecionado ? 2 : 1),
+                                          ),
+                                          child: Center(
+                                            child: Text(n, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: isSelecionado ? Colors.white : Colors.grey)),
+                                          ),
                                         ),
                                       );
                                     }).toList(),
@@ -419,27 +459,31 @@ class _BadgeDetalheState extends State<BadgeDetalhe> {
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    const Text("Requisitos", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                                    Text("Requisitos (Nível $nivelVisualizado)", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                                     const SizedBox(height: 12),
                                     if (requisitos.isEmpty)
-                                      const Text("Sem requisitos específicos", style: TextStyle(fontSize: 12, color: Colors.grey))
+                                      const Expanded(
+                                        child: Center(
+                                          child: Text("Sem requisitos cadastrados.", style: TextStyle(fontSize: 11, color: Colors.grey,做Style: TextStyle(fontStyle: FontStyle.italic))),
+                                        ),
+                                      )
                                     else
                                       ...requisitos.map((req) {
-                                        final textoCirculo = req['titulo']?.toString() ?? '-';
+                                        final textoCirculo = req['titulo']?.toString() ?? 'REQ';
                                         final textoFrente = req['nome']?.toString() ?? '';
                                         
                                         return Padding(
                                           padding: const EdgeInsets.only(bottom: 8),
                                           child: Container(
                                             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                                            decoration: BoxDecoration(color: Colors.grey.shade50, borderRadius: BorderRadius.circular(30), border: Border.all(color: Colors.grey.shade200)),
+                                            decoration: BoxDecoration(color: Colors.grey.shade50, borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.grey.shade200)),
                                             child: Row(
                                               children: [
                                                 Container(
-                                                  width: 32,
-                                                  height: 32,
+                                                  width: 26,
+                                                  height: 26,
                                                   decoration: const BoxDecoration(color: Color(0xFFFFC107), shape: BoxShape.circle),
-                                                  child: Center(child: Text(textoCirculo, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white))),
+                                                  child: Center(child: Text(textoCirculo.substring(0, index.clamp(0, 3)), style: const TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: Colors.white))),
                                                 ),
                                                 const SizedBox(width: 8),
                                                 Expanded(child: Text(textoFrente, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600))),
@@ -458,7 +502,7 @@ class _BadgeDetalheState extends State<BadgeDetalhe> {
                     ),
                     const SizedBox(height: 20),
 
-                    // BOTÕES DE AÇÃO CORRIGIDOS (Sem métodos fantasmas da API)
+                    // BOTÕES DE AÇÃO
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16),
                       child: conquistado
@@ -467,7 +511,7 @@ class _BadgeDetalheState extends State<BadgeDetalhe> {
                                 Expanded(
                                   child: OutlinedButton.icon(
                                     style: OutlinedButton.styleFrom(foregroundColor: Colors.black87, side: const BorderSide(color: Colors.black87, width: 1.5), shape: const StadiumBorder(), padding: const EdgeInsets.symmetric(vertical: 12)),
-                                    onPressed: () {}, // Partilhar LinkedIn
+                                    onPressed: () {}, 
                                     icon: Container(width: 22, height: 22, decoration: BoxDecoration(color: const Color(0xFF0077B5), borderRadius: BorderRadius.circular(4)), child: const Center(child: Text("in", style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)))),
                                     label: const Text("Partilhar no LinkedIn", style: TextStyle(fontSize: 12)),
                                   ),
@@ -477,7 +521,6 @@ class _BadgeDetalheState extends State<BadgeDetalhe> {
                                   child: OutlinedButton.icon(
                                     style: OutlinedButton.styleFrom(foregroundColor: Colors.black87, side: const BorderSide(color: Colors.black87, width: 1.5), shape: const StadiumBorder(), padding: const EdgeInsets.symmetric(vertical: 12)),
                                     onPressed: () {
-                                      // CORREÇÃO CRÍTICA: Redireciona diretamente e reconstrói o mapa de dados com segurança
                                       Navigator.push(
                                         context,
                                         MaterialPageRoute(
