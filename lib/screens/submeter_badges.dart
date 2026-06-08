@@ -114,7 +114,7 @@ class _SubmeterBadgeState extends State<SubmeterBadge> {
     );
   }
 
-  // CORREÇÃO CRÍTICA: Fluxo assíncrono com controle rígido de loading e timeouts
+  // FLUXO ASSÍNCRONO CORRIGIDO E ALINHADO COM AS COLUNAS DO BASEDEDADOS.DART
   Future<void> _submeter() async {
     if (!_podeSubmeter || _submetido) return;
 
@@ -144,20 +144,38 @@ class _SubmeterBadgeState extends State<SubmeterBadge> {
       debugPrint("Falha de rede ou timeout ao submeter evidência. Salvando localmente SQFlite... ($e)");
 
       try {
-        // CORREÇÃO CRÍTICA: Mapeamento de colunas simplificado para bater certo com o teu basededados.dart
+        final int idPedidoGeradoLocal = DateTime.now().millisecondsSinceEpoch;
+
+        // CORREÇÃO CIRÚRGICA: Mapeamento de colunas batendo 100% com o teu base de dados
         await _dbLocal.salvarRegisto('candidatura_pedido', {
-          'id_candidatura_pedido': DateTime.now().millisecondsSinceEpoch, 
+          'id_candidatura_pedido': idPedidoGeradoLocal, 
           'id_utilizador': widget.userId,
           'id_badge_modelo': widget.badgeId,
-          'data_submissao': DateTime.now().toString(), // Alterado para bater certo com a coluna real do SQLite
-          'estado_badge_atribuido': 'Aguardando Sincronização', // Campo mapeado de forma simples
-          'observacoes': descricaoTexto,
+          'data_submisao': DateTime.now().toString(), // Grafia correta: apenas um "s"
+          'estado_candidatura_pedido': 'Aguardando Sincronização', // Coluna correta do DB
         });
+
+        // Para não perderes o texto longo e o anexo em offline, espelhamos para a tabela de evidencias
+        try {
+          await _dbLocal.salvarRegisto('evidencias', {
+            'id_evidencia': idPedidoGeradoLocal + 1,
+            'id_requisitos': null, // Atribuído pelo SLL na validação online
+            'id_candidatura_pedido': idPedidoGeradoLocal,
+            'descricao': descricaoTexto,
+            'nome_ficheiro': _ficheiro!.name,
+            'formato_ficheiro': _ficheiro!.extension ?? 'file',
+            'data_submissao': DateTime.now().toString(),
+            'estado_evidencia': 'Pendente',
+            'caminho_ficheiro': pathFicheiro,
+          });
+        } catch (erroEvidencia) {
+          debugPrint("Nota: Inserção na tabela secundária de evidências falhou: $erroEvidencia");
+        }
 
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text("💾 Guardado localmente! Será sincronizado automaticamente assim que recuperar internet."),
+            content: Text("💾 Guardado localmente com sucesso! Será sincronizado assim que recuperar internet."),
             backgroundColor: Colors.orange,
             duration: Duration(seconds: 5),
           ),
@@ -169,7 +187,7 @@ class _SubmeterBadgeState extends State<SubmeterBadge> {
         _mostrarErro("Erro crítico ao gravar localmente no SQLite: $errDb");
       }
     } finally {
-      // 3. REGRA DE OURO: Desliga sempre o loading se o widget ainda estiver ativo
+      // Regra de ouro: desliga sempre o indicador de progresso para não congelar o ecrã
       if (mounted) {
         setState(() {
           _submetido = false;
