@@ -49,12 +49,10 @@ class _SubmeterBadgeState extends State<SubmeterBadge> {
     List<Map<String, dynamic>> todos = [];
     
     try {
-      // 1. Tenta carregar os modelos de badges online
       todos = await _apiService.getTodosBadges();
     } catch (e) {
       debugPrint("Modo Offline Ativo ao carregar badge para submissão: $e");
       
-      // 2. Fallback: Se estiver offline, lê a tabela local do SQFlite
       final localModelos = await _dbLocal.listarTabela('badge_modelo');
       todos = localModelos.map((e) => {
         'id': e['id_badge_modelo'],
@@ -65,7 +63,6 @@ class _SubmeterBadgeState extends State<SubmeterBadge> {
       }).toList();
     }
 
-    // Procura o badge de forma segura usando o mapeamento unificado de IDs
     final encontrado = todos.firstWhere(
       (b) => (int.tryParse((b['id'] ?? b['id_badge_modelo'] ?? '').toString()) ?? -1) == widget.badgeId,
       orElse: () => <String, dynamic>{},
@@ -117,21 +114,25 @@ class _SubmeterBadgeState extends State<SubmeterBadge> {
     );
   }
 
+  // CORREÇÃO CRÍTICA: Fluxo assíncrono com controle rígido de loading e timeouts
   Future<void> _submeter() async {
-    if (!_podeSubmeter) return;
-    setState(() => _submetido = true);
+    if (!_podeSubmeter || _submetido) return;
+
+    setState(() {
+      _submetido = true; // Ativa o loading circular no botão
+    });
 
     final String descricaoTexto = _descricaoController.text;
     final String pathFicheiro = _ficheiro!.path ?? 'cache_offline_path';
 
     try {
-      // 1. Tenta enviar em tempo real para o servidor da Softinsa
+      // 1. Tenta enviar para o Render com limite de 20 segundos de resposta
       await _apiService.submeterEvidencia(
         userId: widget.userId,
         badgeId: widget.badgeId,
         descricao: descricaoTexto,
         ficheiroPath: pathFicheiro,
-      );
+      ).timeout(const Duration(seconds: 20));
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -140,27 +141,40 @@ class _SubmeterBadgeState extends State<SubmeterBadge> {
       Navigator.pop(context, true);
 
     } catch (e) {
-      debugPrint("Falha de rede ao submeter evidência. Salvando na fila local SQFlite... ($e)");
+      debugPrint("Falha de rede ou timeout ao submeter evidência. Salvando localmente SQFlite... ($e)");
 
-      // 2. MIRRORING OFFLINE: Guarda na tabela 'candidatura_pedido' com estado pendente
-      await _dbLocal.salvarRegisto('candidatura_pedido', {
-        'id_candidatura_pedido': DateTime.now().millisecondsSinceEpoch, // ID temporário local
-        'id_utilizador': widget.userId,
-        'id_badge_modelo': widget.badgeId,
-        'data_candidatura_pedido': DateTime.now().toString(),
-        'estado_candidatura_pedido': 'Aguardando Sincronização',
-        'observacoes': descricaoTexto,
-      });
+      try {
+        // 2. MIRRORING OFFLINE: Salva na tabela atómica local
+        await _dbLocal.salvarRegisto('candidatura_pedido', {
+          'id_candidatura_pedido': DateTime.now().millisecondsSinceEpoch, 
+          'id_utilizador': widget.userId,
+          'id_badge_modelo': widget.badgeId,
+          'data_candidatura_pedido': DateTime.now().toString(),
+          'estado_candidatura_pedido': 'Aguardando Sincronização',
+          'observacoes': descricaoTexto,
+        });
 
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("Modo Offline: Evidência guardada no dispositivo. Será enviada quando recuperar rede!"),
-          backgroundColor: Colors.blueGrey,
-          duration: Duration(seconds: 5),
-        ),
-      );
-      Navigator.pop(context, true);
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("💾 Guardado localmente! Será sincronizado automaticamente assim que recuperar internet."),
+            backgroundColor: Colors.orange,
+            duration: Duration(seconds: 5),
+          ),
+        );
+        Navigator.pop(context, true);
+
+      } catch (errDb) {
+        if (!mounted) return;
+        _mostrarErro("Erro crítico ao gravar localmente no SQLite: $errDb");
+      }
+    } finally {
+      // 3. REGRA DE OURO: Desliga sempre o loading se o widget ainda estiver ativo
+      if (mounted) {
+        setState(() {
+          _submetido = false;
+        });
+      }
     }
   }
 
@@ -193,7 +207,7 @@ class _SubmeterBadgeState extends State<SubmeterBadge> {
             Positioned.fill(
               child: Column(
                 children: [
-                  SizedBox(height: headerHeight),
+                  const SizedBox(height: headerHeight),
 
                   // Voltar
                   Container(
@@ -218,7 +232,7 @@ class _SubmeterBadgeState extends State<SubmeterBadge> {
                   // Formulário
                   Expanded(
                     child: SingleChildScrollView(
-                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
+                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 120),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -244,7 +258,7 @@ class _SubmeterBadgeState extends State<SubmeterBadge> {
                           ),
                           const SizedBox(height: 16),
 
-                          // EXPANDIDO: NÍVEL INDICATOR
+                          // NÍVEL INDICATOR
                           Container(
                             padding: const EdgeInsets.all(16),
                             decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: _azul.withOpacity(0.3))),
@@ -278,7 +292,7 @@ class _SubmeterBadgeState extends State<SubmeterBadge> {
                           ),
                           const SizedBox(height: 16),
 
-                          // CAIXA DE TEXTO DA DESCRIÇÃO (EVIDÊNCIAS)
+                          // CAIXA DE TEXTO DA DESCRIÇÃO
                           Container(
                             padding: const EdgeInsets.all(16),
                             decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: _azul.withOpacity(0.3))),
@@ -296,6 +310,7 @@ class _SubmeterBadgeState extends State<SubmeterBadge> {
                                 TextField(
                                   controller: _descricaoController,
                                   maxLines: 8,
+                                  enabled: !_submetido,
                                   decoration: InputDecoration(
                                     hintText: "Descreva de forma detalhada o projeto, tarefas executadas e de que forma aplicou os conhecimentos desta Service Line...",
                                     hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 13),
@@ -332,7 +347,7 @@ class _SubmeterBadgeState extends State<SubmeterBadge> {
                                 ),
                                 const SizedBox(height: 12),
                                 GestureDetector(
-                                  onTap: _escolherFicheiro,
+                                  onTap: !_submetido ? _escolherFicheiro : null,
                                   child: Container(
                                     width: double.infinity,
                                     padding: const EdgeInsets.symmetric(vertical: 28),
@@ -375,9 +390,7 @@ class _SubmeterBadgeState extends State<SubmeterBadge> {
 
             // BOTÃO FIXO DE SUBMISSÃO
             Positioned(
-              bottom: 0,
-              left: 0,
-              right: 0,
+              bottom: 0, left: 0, right: 0,
               child: Container(
                 color: Colors.white,
                 padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
@@ -388,7 +401,7 @@ class _SubmeterBadgeState extends State<SubmeterBadge> {
                       width: double.infinity,
                       child: ElevatedButton.icon(
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: _podeSubmeter ? _azul : Colors.grey.shade400,
+                          backgroundColor: _podeSubmeter && !_submetido ? _azul : Colors.grey.shade400,
                           foregroundColor: Colors.white,
                           shape: const StadiumBorder(),
                           padding: const EdgeInsets.symmetric(vertical: 16),
@@ -401,7 +414,7 @@ class _SubmeterBadgeState extends State<SubmeterBadge> {
                         label: Text(_submetido ? "A processar submissão..." : "Submeter para Validação", style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
                       ),
                     ),
-                    if (!_podeSubmeter) ...[
+                    if (!_podeSubmeter && !_submetido) ...[
                       const SizedBox(height: 6),
                       Text(
                         _ficheiro == null ? "Falta anexar o ficheiro comprovativo" : "A descrição necessita de ter pelo menos 500 caracteres",
