@@ -5,7 +5,6 @@ import '../services/api_service.dart';
 import 'register.dart';
 import 'pagina_principal.dart';
 import '../services/notification_service.dart';
-import 'package:firebase_analytics/observer.dart';
 import 'package:firebase_analytics/firebase_analytics.dart';
 
 

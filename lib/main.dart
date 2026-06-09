@@ -10,7 +10,6 @@ import 'firebase_options.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 
 import 'package:firebase_analytics/firebase_analytics.dart';
-import 'package:firebase_analytics/observer.dart';
 
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   if (Firebase.apps.isEmpty) {

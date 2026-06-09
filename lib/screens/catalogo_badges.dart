@@ -60,6 +60,12 @@ class _CatalogoBadgesPageState extends State<CatalogoBadgesPage> {
     // 1. Todos os badges do catálogo (sem filtro de utilizador)
     final todos = await api.getTodosBadges();
 
+    print("==== IMAGENS RECEBIDAS NO FLUTTER ====");
+
+    for (final b in todos) {
+      print("${b['id']} | ${b['nome']} | imagem: ${b['imagem']}");
+    }
+
     // 2. Badges conquistados/em progresso do utilizador
     final obtidos = await api.getBadgesConquistados(widget.userData['id_utilizador']);
 
@@ -381,6 +387,8 @@ class _CatalogoBadgesPageState extends State<CatalogoBadgesPage> {
       estadoCor = Colors.grey;
     }
 
+    print("BADGE NO CARD: ${badge['nome']} -> ${badge['imagem']}");
+
     return GestureDetector(
       onTap: () {
         Navigator.push(
@@ -421,20 +429,9 @@ class _CatalogoBadgesPageState extends State<CatalogoBadgesPage> {
                 // Ícone
                 Stack(
                   children: [
-                    Container(
-                      width: 60,
-                      height: 60,
-                      decoration: BoxDecoration(
-                        color: conquistado
-                        ? const Color(0xFFE8F5E9)
-                        : emValidacao
-                            ? const Color(0xFFFFEBEE)
-                            : const Color(0xFFEAF0FA),
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Center(
-                        child: Text("🏅", style: TextStyle(fontSize: 28)),
-                      ),
+                    BadgeImage(
+                      imageUrl: badge['imagem']?.toString(),
+                      size: 60,
                     ),
                     if (conquistado)
                       Positioned(
@@ -721,6 +718,63 @@ class _CatalogoBadgesPageState extends State<CatalogoBadgesPage> {
                     fontSize: 12, fontWeight: FontWeight.w500)),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class BadgeImage extends StatelessWidget {
+  final String? imageUrl;
+  final double size;
+
+  const BadgeImage({
+    super.key,
+    required this.imageUrl,
+    this.size = 60,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final url = imageUrl?.trim();
+
+    if (url == null || url.isEmpty || url == 'null') {
+      return _fallback();
+    }
+
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        color: const Color(0xFFEFF6FF),
+        shape: BoxShape.circle,
+        border: Border.all(
+          color: const Color(0xFFDCE8F7),
+          width: 1,
+        ),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Image.network(
+        url,
+        fit: BoxFit.cover,
+        alignment: Alignment.center,
+        errorBuilder: (context, error, stackTrace) {
+          print("ERRO IMAGEM BADGE:");
+          print(url);
+          print(error);
+          return _fallback();
+        },
+      ),
+    );
+  }
+
+  Widget _fallback() {
+    return CircleAvatar(
+      radius: size / 2,
+      backgroundColor: const Color(0xFFEFF6FF),
+      child: Icon(
+        Icons.workspace_premium,
+        size: size * 0.45,
+        color: Colors.amber,
       ),
     );
   }
