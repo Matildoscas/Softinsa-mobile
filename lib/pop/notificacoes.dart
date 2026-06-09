@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 import '../screens/notificacoes_page.dart';
 
-/// ================= MODELO =================
 class NotificationItem {
   final String title;
   final String description;
@@ -21,8 +20,11 @@ class NotificationItem {
   });
 
   factory NotificationItem.fromJson(Map<String, dynamic> json) {
-    print("tipo_notificacao = ${json['tipo_notificacao']}");
-    final data = DateTime.parse(json['data_envio']);
+    final dataRaw = json['data_envio'];
+    DateTime data = DateTime.now();
+    try {
+      if (dataRaw != null) data = DateTime.parse(dataRaw.toString());
+    } catch (_) {}
 
     return NotificationItem(
       title: json['tipo_notificacao'] ?? 'Notificação',
@@ -35,7 +37,6 @@ class NotificationItem {
   }
 }
 
-/// ================= POPUP =================
 class NotificationsPopup extends StatelessWidget {
   final List<NotificationItem> notifications;
   final VoidCallback? onViewAll;
@@ -68,75 +69,58 @@ class NotificationsPopup extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // ── Estado vazio ──────────────────────────────────────
             if (notifications.isEmpty)
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 36),
                 child: Column(
                   children: const [
-                    Icon(
-                      Icons.notifications_off_outlined,
-                      size: 48,
-                      color: Colors.grey,
-                    ),
+                    Icon(Icons.notifications_off_outlined, size: 48, color: Colors.grey),
                     SizedBox(height: 12),
                     Text(
                       'Sem notificações',
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
-                        color: Color(0xFF555555),
-                      ),
+                      style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: Color(0xFF555555)),
                     ),
                     SizedBox(height: 4),
                     Text(
                       'Não tens notificações de momento.',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey,
-                      ),
+                      style: TextStyle(fontSize: 12, color: Colors.grey),
                     ),
                   ],
                 ),
               ),
 
-            // ── Lista de notificações ─────────────────────────────
             if (notifications.isNotEmpty)
-              ListView.separated(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: notifications.length,
-                separatorBuilder: (_, _) => const Divider(height: 1),
-                itemBuilder: (context, index) {
-                  final item = notifications[index];
-                  return ListTile(
-                    leading: item.isSystem
-                      ? const CircleAvatar(
-                          backgroundColor: Color(0xFF4CAF50),
-                          child: Icon(
-                            Icons.check,
-                            color: Colors.white,
+              Flexible( // CORREÇÃO: Evita estouros de layout se a lista for muito comprida no popup
+                child: ListView.separated(
+                  shrinkWrap: true,
+                  padding: EdgeInsets.zero,
+                  itemCount: notifications.length,
+                  separatorBuilder: (_, _) => const Divider(height: 1),
+                  itemBuilder: (context, index) {
+                    final item = notifications[index];
+                    return ListTile(
+                      leading: item.isSystem
+                        ? const CircleAvatar(
+                            backgroundColor: Color(0xFF4CAF50),
+                            child: Icon(Icons.check, color: Colors.white, size: 18),
+                          )
+                        : const CircleAvatar(
+                            backgroundColor: Color(0xFFEF5350),
+                            child: Icon(Icons.priority_high, color: Colors.white, size: 18),
                           ),
-                        )
-                      : const CircleAvatar(
-                          backgroundColor: Color(0xFFEF5350),
-                          child: Icon(
-                            Icons.priority_high,
-                            color: Colors.white,
-                          ),
-                        ),
-                    title: Text(
-                      item.title.isEmpty ? "TÍTULO VAZIO" : item.title,
-                      style: const TextStyle(color: Colors.black),
-                    ),
-                    subtitle: Text(
-                      item.description.isEmpty
-                          ? "DESCRIÇÃO VAZIA"
-                          : item.description,
-                      style: const TextStyle(color: Colors.black),
-                    ),
-                  );
-                },
+                      title: Text(
+                        item.title,
+                        style: const TextStyle(color: Colors.black87, fontSize: 13, fontWeight: FontWeight.bold),
+                      ),
+                      subtitle: Text(
+                        item.description,
+                        style: const TextStyle(color: Colors.black54, fontSize: 12),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    );
+                  },
+                ),
               ),
 
             const Divider(height: 1),
@@ -146,14 +130,10 @@ class NotificationsPopup extends StatelessWidget {
                 onViewAll?.call();
                 Navigator.push(
                   context,
-                  MaterialPageRoute(
-                    builder: (_) => NotificacoesPage(
-                      userId: userId,
-                    ),
-                  ),
+                  MaterialPageRoute(builder: (_) => NotificacoesPage(userId: userId)),
                 );
               },
-              child: const Text("Ver todas as notificações"),
+              child: const Text("Ver todas as notificações", style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF4470AF))),
             ),
           ],
         ),
@@ -162,21 +142,16 @@ class NotificationsPopup extends StatelessWidget {
   }
 }
 
-/// ================= BELL + API =================
 class NotificationBell extends StatefulWidget {
   final int userId;
 
-  const NotificationBell({
-    super.key,
-    required this.userId,
-  });
+  const NotificationBell({super.key, required this.userId});
 
   @override
   State<NotificationBell> createState() => _NotificationBellState();
 }
 
-class _NotificationBellState extends State<NotificationBell>
-    with SingleTickerProviderStateMixin {
+class _NotificationBellState extends State<NotificationBell> with SingleTickerProviderStateMixin {
   OverlayEntry? _overlay;
   bool _open = false;
   List<NotificationItem> notifications = [];
@@ -188,15 +163,9 @@ class _NotificationBellState extends State<NotificationBell>
   @override
   void initState() {
     super.initState();
-
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 200),
-    );
-
+    _controller = AnimationController(vsync: this, duration: const Duration(milliseconds: 200));
     _scale = CurvedAnimation(parent: _controller, curve: Curves.easeOutBack);
     _fade = CurvedAnimation(parent: _controller, curve: Curves.easeOut);
-
     _loadNotifications();
   }
 
@@ -204,32 +173,17 @@ class _NotificationBellState extends State<NotificationBell>
     try {
       final api = ApiService();
       final data = await api.getNotifications(widget.userId);
-
-
-      print(data);
-      print(data.first);
-
-      
-      setState(() {
-        notifications =
-            data.map((e) => NotificationItem.fromJson(e)).toList();
-
-            for (var n in notifications) {
-              print("${n.title} -> isSystem = ${n.isSystem}");
-            }
-      });
+      if (mounted) {
+        setState(() {
+          notifications = data.map((e) => NotificationItem.fromJson(e)).toList();
+        });
+      }
     } catch (e) {
-      debugPrint("Erro notificações: $e");
+      debugPrint("Erro ao carregar o sino de notificações: $e");
     }
   }
 
-  void _toggle() {
-    if (_open) {
-      _close();
-    } else {
-      _openPopup();
-    }
-  }
+  void _toggle() => _open ? _close() : _openPopup();
 
   void _openPopup() {
     final renderBox = context.findRenderObject() as RenderBox;
@@ -238,6 +192,7 @@ class _NotificationBellState extends State<NotificationBell>
 
     _overlay = OverlayEntry(
       builder: (context) => GestureDetector(
+        behavior: HitTestBehavior.translucent,
         onTap: _close,
         child: Stack(
           children: [
@@ -248,12 +203,11 @@ class _NotificationBellState extends State<NotificationBell>
                 opacity: _fade,
                 child: ScaleTransition(
                   scale: _scale,
+                  alignment: Alignment.topRight,
                   child: NotificationsPopup(
                     notifications: notifications,
                     userId: widget.userId,
-                    onViewAll: () {
-                      _close();
-                    },
+                    onViewAll: _close,
                   ),
                 ),
               ),
@@ -272,7 +226,7 @@ class _NotificationBellState extends State<NotificationBell>
     _controller.reverse().then((_) {
       _overlay?.remove();
       _overlay = null;
-      setState(() => _open = false);
+      if (mounted) setState(() => _open = false);
     });
   }
 
@@ -284,43 +238,32 @@ class _NotificationBellState extends State<NotificationBell>
   }
 
   @override
-    Widget build(BuildContext context) {
-      return GestureDetector(
-        onTap: _toggle,
-        child: Container(
-          width: 35,
-          height: 35,
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: _toggle,
+      child: Container(
+        width: 35,
+        height: 35,
+        alignment: Alignment.center,
+        decoration: const BoxDecoration(color: Color(0xFF4470AF), shape: BoxShape.circle),
+        child: Stack(
+          clipBehavior: Clip.none,
           alignment: Alignment.center,
-          decoration: const BoxDecoration(
-            color: Colors.blue,
-            shape: BoxShape.circle,
-          ),
-          child: Stack(
-            clipBehavior: Clip.none,
-            alignment: Alignment.center,
-            children: [
-              const Icon(
-                Icons.notifications,
-                color: Colors.white,
-                size: 24,
-              ),
-
-              if (notifications.isNotEmpty)
-                Positioned(
-                  right: -2,
-                  top: -2,
-                  child: Container(
-                    width: 8,
-                    height: 8,
-                    decoration: const BoxDecoration(
-                      color: Colors.red,
-                      shape: BoxShape.circle,
-                    ),
-                  ),
+          children: [
+            const Icon(Icons.notifications, color: Colors.white, size: 20),
+            if (notifications.isNotEmpty)
+              Positioned(
+                right: -1,
+                top: -1,
+                child: Container(
+                  width: 8,
+                  height: 8,
+                  decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle),
                 ),
-            ],
-          ),
+              ),
+          ],
         ),
-      );
-    }
+      ),
+    );
+  }
 }

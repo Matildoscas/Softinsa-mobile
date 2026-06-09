@@ -1,5 +1,7 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
+import '../database/basededados.dart'; // Import central para o fallback de base de dados
 
 class HistoricoBadgesPage extends StatefulWidget {
   final Map<String, dynamic> userData;
@@ -14,6 +16,9 @@ class HistoricoBadgesPage extends StatefulWidget {
 }
 
 class _HistoricoBadgesPageState extends State<HistoricoBadgesPage> {
+  final ApiService _apiService = ApiService();
+  final Basededados _dbLocal = Basededados(); // Instância para cache local do SQLite
+
   bool isLoading = true;
   List<Map<String, dynamic>> badges = [];
 
@@ -24,32 +29,53 @@ class _HistoricoBadgesPageState extends State<HistoricoBadgesPage> {
   }
 
   Future<void> carregarBadges() async {
+    final userId = widget.userData['id_utilizador'];
+    List<Map<String, dynamic>> dadosRaw = [];
+
     try {
-      final api = ApiService();
-      final userId = widget.userData['id_utilizador'];
+      // 1. Tenta ir buscar os badges conquistados em tempo real à API
+      dadosRaw = await _apiService.getBadgesConquistados(userId);
 
-      final dados = await api.getBadgesConquistados(userId);
-
-      debugPrint("BADGES HISTÓRICO API:");
-      debugPrint(dados.toString());
-
-      final Map<int, Map<String, dynamic>> unicos = {};
-
-      for (final b in dados) {
-        final id = int.tryParse(b['id'].toString());
-
-        if (id != null && !unicos.containsKey(id)) {
-          unicos[id] = Map<String, dynamic>.from(b);
-        }
+      // 2. MIRRORING: Guarda os dados na cache local para suportar o modo offline
+      for (var b in dadosRaw) {
+        await _dbLocal.salvarRegisto('badge_atribuido', {
+          'id_badge_atribuido': b['id_badge_atribuido'] ?? b['id'] ?? 0,
+          'id_badge_modelo': b['id_badge_modelo'] ?? b['id'] ?? 0,
+          'data_atribuicao': b['data_atribuicao']?.toString(),
+          'data_validade': b['data_validade']?.toString(),
+          'estado_badge_atribuido': 'Conquistado',
+        });
       }
+    } catch (e) {
+      debugPrint("Modo Offline Ativo no Histórico: Carregando cache local... ($e)");
+      
+      // 3. FALLBACK: Lê as tabelas locais se o servidor estiver inacessível
+      final localAtribuidos = await _dbLocal.listarTabela('badge_atribuido');
+      
+      dadosRaw = localAtribuidos.map((e) => {
+        'id': e['id_badge_modelo'],
+        'nome': e['nome'] ?? 'Badge Conquistado',
+        'descricao': e['descricao'] ?? 'Dados guardados localmente.',
+        'pontos': e['pontos'] ?? 0,
+        'data_atribuicao': e['data_atribuicao'],
+        'data_validade': e['data_validade'],
+      }).toList();
+    }
 
+    // 4. LÓGICA DE UNIFICAÇÃO (Preservada a remoção de duplicados original da tua colega)
+    final Map<int, Map<String, dynamic>> unicos = {};
+    for (final b in dadosRaw) {
+      final id = int.tryParse(b['id'].toString());
+      if (id != null && !unicos.containsKey(id)) {
+        unicos[id] = Map<String, dynamic>.from(b);
+      }
+    }
+
+    if (mounted) {
       setState(() {
         badges = unicos.values.toList();
         isLoading = false;
       });
-    } catch (e) {
-      debugPrint("Erro ao carregar histórico: $e");
-      setState(() => isLoading = false);
     }
   }
 
@@ -101,7 +127,7 @@ class _HistoricoBadgesPageState extends State<HistoricoBadgesPage> {
 
     if (diasRestantes <= 30) {
       return {
-        'texto': 'Expira em $diasRestantes dias',
+        'texto': 'Expira em $diasRestantes d',
         'cor': Colors.orange,
         'fundo': const Color(0xFFFFF3E0),
         'icone': Icons.warning_amber_rounded,
@@ -132,6 +158,7 @@ class _HistoricoBadgesPageState extends State<HistoricoBadgesPage> {
       body: SafeArea(
         child: Column(
           children: [
+            // FIXED APP HEADER
             Container(
               color: Colors.white,
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
@@ -146,6 +173,7 @@ class _HistoricoBadgesPageState extends State<HistoricoBadgesPage> {
               ),
             ),
 
+            // BOTÃO VOLTAR
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
               child: Row(
@@ -170,6 +198,7 @@ class _HistoricoBadgesPageState extends State<HistoricoBadgesPage> {
               ),
             ),
 
+            // CARDS DE RESUMO (Calculados dinamicamente com base na cache ou rede)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               child: Row(
@@ -189,6 +218,7 @@ class _HistoricoBadgesPageState extends State<HistoricoBadgesPage> {
               ),
             ),
 
+            // LISTAGEM PRINCIPAL
             Expanded(
               child: isLoading
                   ? const Center(
@@ -209,10 +239,6 @@ class _HistoricoBadgesPageState extends State<HistoricoBadgesPage> {
                           itemBuilder: (context, index) {
                             final badge = badges[index];
                             final estado = _estadoBadge(badge);
-
-                            debugPrint("BADGE NO CARD:");
-                            debugPrint(badge.toString());
-
                             return _badgeHistoricoCard(
                               badge: badge,
                               estado: estado,
@@ -349,7 +375,6 @@ class _HistoricoBadgesPageState extends State<HistoricoBadgesPage> {
                 label: "Conquistado",
                 value: _formatarData(badge['data_atribuicao']),
               ),
-
               _dataInfo(
                 label: "Validade",
                 value: _formatarData(badge['data_validade']),

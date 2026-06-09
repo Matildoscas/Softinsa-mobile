@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart'; // Import crucial adicionado para limpar a sessão
 
 /// ================= POPUP DE PERFIL =================
 class ProfilePopup extends StatelessWidget {
@@ -160,26 +161,36 @@ class _ProfileButtonState extends State<ProfileButton>
                     scale: _scale,
                     alignment: Alignment.topRight,
                     child: ProfilePopup(
-                        onProfile: widget.onProfile != null
-                            ? () {
-                                _close();
-                                widget.onProfile!();
-                              }
-                            : null,
+                      onProfile: widget.onProfile != null
+                          ? () {
+                              _close();
+                              widget.onProfile!();
+                            }
+                          : null,
+                      onSettings: widget.onSettings != null
+                          ? () {
+                              _close();
+                              widget.onSettings!();
+                            }
+                          : null,
+                      // CORREÇÃO: Limpa a cache local antes de deslogar o consultor
+                      onLogout: () async {
+                        _close();
+                        
+                        // Limpa o estado e os tokens locais de sessão
+                        final prefs = await SharedPreferences.getInstance();
+                        await prefs.remove('token');
+                        await prefs.remove('user');
 
-                        onSettings: widget.onSettings != null
-                            ? () {
-                                _close();
-                                widget.onSettings!();
-                              }
-                            : null,
-
-                        onLogout: widget.onLogout != null
-                            ? () {
-                                _close();
-                                widget.onLogout!();
-                              }
-                            : null,
+                        if (widget.onLogout != null) {
+                          widget.onLogout!();
+                        } else {
+                          // Fallback de navegação seguro caso o callback não venha definido
+                          if (mounted) {
+                            Navigator.pushNamedAndRemoveUntil(context, '/login', (_) => false);
+                          }
+                        }
+                      },
                     ),
                   ),
                 ),
@@ -218,7 +229,7 @@ class _ProfileButtonState extends State<ProfileButton>
         width: 35,
         height: 35,
         decoration: const BoxDecoration(
-          color: Colors.blue,
+          color: Color(0xFF4470AF), // Azul consistente com o cabeçalho da app
           shape: BoxShape.circle,
         ),
         child: const Icon(Icons.person, color: Colors.white, size: 20),
