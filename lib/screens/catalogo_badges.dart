@@ -352,20 +352,9 @@ class _CatalogoBadgesPageState extends State<CatalogoBadgesPage> {
               children: [
                 Stack(
                   children: [
-                    Container(
-                      width: 60,
-                      height: 60,
-                      decoration: BoxDecoration(
-                        color: conquistado
-                        ? const Color(0xFFE8F5E9)
-                        : emValidacao
-                            ? const Color(0xFFFFEBEE)
-                            : const Color(0xFFEAF0FA),
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Center(
-                        child: Text("🏅", style: TextStyle(fontSize: 28)),
-                      ),
+                    BadgeImage(
+                      imageUrl: badge['imagem']?.toString(),
+                      size: 60,
                     ),
                     if (conquistado)
                       Positioned(
