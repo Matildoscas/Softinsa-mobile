@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 import '../database/basededados.dart'; // Import da tua classe SQFlite

@@ -136,7 +136,7 @@ class _AreaRegPageState extends State<AreaRegisterPage> {
                                     items: provider.areas.map((area) {
                                       return DropdownMenuItem<int>(
                                         value: area['id_areas'],
-                                        child: Container(
+                                        child: SizedBox(
                                           width: 200, // Ajusta ou remove se necessário
                                           child: Text(
                                             area['nome_area'] ?? 'Sem Nome',

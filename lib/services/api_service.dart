@@ -243,6 +243,7 @@ class ApiService {
           'descricao': linha['descricao'],
           'pontos': linha['pontos'],
           'id_nivel': linha['id_nivel'],
+          'imagem': linha['imagem'],
           'data_atribuicao': linha['data_atribuicao'],
           'data_validade': linha['data_validade'],
           'estado_badge_atribuido': linha['estado_badge_atribuido'],

@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 import '../database/basededados.dart'; // Import crucial para ler os requisitos offline
@@ -306,10 +305,9 @@ class _BadgeDetalheState extends State<BadgeDetalhe> {
                             ),
                             child: Column(
                               children: [
-                                const CircleAvatar(
-                                  radius: 40,
-                                  backgroundColor: Color(0xFFEAF0FA),
-                                  child: Text("🏅", style: TextStyle(fontSize: 44)),
+                                BadgeImage(
+                                  imageUrl: badge!['imagem']?.toString(),
+                                  size: 60,
                                 ),
                                 const SizedBox(height: 10),
                                 Text(nome, textAlign: TextAlign.center, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
@@ -651,7 +649,11 @@ class _BadgeDetalheState extends State<BadgeDetalhe> {
                       width: 54,
                       height: 54,
                       decoration: BoxDecoration(color: conquistadoRel ? const Color(0xFFE8F5E9) : const Color(0xFFEAF0FA), shape: BoxShape.circle),
-                      child: const Center(child: Text("🏅", style: TextStyle(fontSize: 26))),
+                      child: 
+                        BadgeImage(
+                          imageUrl: b['imagem']?.toString(),
+                          size: 60,
+                        ),
                     ),
                     if (conquistadoRel)
                       Positioned(
@@ -696,6 +698,59 @@ class _BadgeDetalheState extends State<BadgeDetalhe> {
               child: Text(estadoTexto, style: TextStyle(fontSize: 11, color: estadoCor, fontWeight: FontWeight.w500)),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class BadgeImage extends StatelessWidget {
+  final String? imageUrl;
+  final double size;
+
+  const BadgeImage({
+    super.key,
+    required this.imageUrl,
+    this.size = 60,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final hasImage = imageUrl != null && imageUrl!.trim().isNotEmpty;
+
+    if (!hasImage) {
+      return CircleAvatar(
+        radius: size / 2,
+        backgroundColor: const Color(0xFFEFF6FF),
+        child: Icon(
+          Icons.workspace_premium,
+          size: size * 0.45,
+          color: Colors.amber,
+        ),
+      );
+    }
+
+    return Container(
+      width: size,
+      height: size,
+      decoration: const BoxDecoration(
+        color: Color(0xFFEFF6FF),
+        shape: BoxShape.circle,
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Transform.scale(
+        scale: 8,
+        child: Image.network(
+          imageUrl!,
+          fit: BoxFit.contain,
+          alignment: Alignment.center,
+          errorBuilder: (context, error, stackTrace) {
+            return Icon(
+              Icons.workspace_premium,
+              size: size * 0.45,
+              color: Colors.amber,
+            );
+          },
         ),
       ),
     );

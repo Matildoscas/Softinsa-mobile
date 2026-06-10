@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 import '../database/basededados.dart'; // Import central para a cache local
@@ -571,46 +570,42 @@ class BadgeImage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final url = imageUrl?.trim();
+    final hasImage = imageUrl != null && imageUrl!.trim().isNotEmpty;
 
-    if (url == null || url.isEmpty || url == 'null') {
-      return _fallback();
+    if (!hasImage) {
+      return CircleAvatar(
+        radius: size / 2,
+        backgroundColor: const Color(0xFFEFF6FF),
+        child: Icon(
+          Icons.workspace_premium,
+          size: size * 0.45,
+          color: Colors.amber,
+        ),
+      );
     }
 
     return Container(
       width: size,
       height: size,
-      decoration: BoxDecoration(
-        color: const Color(0xFFEFF6FF),
+      decoration: const BoxDecoration(
+        color: Color(0xFFEFF6FF),
         shape: BoxShape.circle,
-        border: Border.all(
-          color: const Color(0xFFDCE8F7),
-          width: 1,
-        ),
       ),
       clipBehavior: Clip.antiAlias,
-      child: Image.network(
-        url,
-        fit: BoxFit.cover,
-        alignment: Alignment.center,
-        errorBuilder: (context, error, stackTrace) {
-          print("ERRO IMAGEM BADGE:");
-          print(url);
-          print(error);
-          return _fallback();
-        },
-      ),
-    );
-  }
-
-  Widget _fallback() {
-    return CircleAvatar(
-      radius: size / 2,
-      backgroundColor: const Color(0xFFEFF6FF),
-      child: Icon(
-        Icons.workspace_premium,
-        size: size * 0.45,
-        color: Colors.amber,
+      child: Transform.scale(
+        scale: 8,
+        child: Image.network(
+          imageUrl!,
+          fit: BoxFit.contain,
+          alignment: Alignment.center,
+          errorBuilder: (context, error, stackTrace) {
+            return Icon(
+              Icons.workspace_premium,
+              size: size * 0.45,
+              color: Colors.amber,
+            );
+          },
+        ),
       ),
     );
   }
