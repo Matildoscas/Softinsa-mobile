@@ -347,11 +347,9 @@ class _PerfilPageState extends State<PerfilPage> {
               children: [
                 Stack(
                   children: [
-                    Container(
-                      width: 60,
-                      height: 60,
-                      decoration: const BoxDecoration(color: Color(0xFFE8F5E9), shape: BoxShape.circle),
-                      child: const Center(child: Text("🏅", style: TextStyle(fontSize: 28))),
+                    BadgeImage(
+                      imageUrl: badge['imagem']?.toString(),
+                      size: 60,
                     ),
                     Positioned(
                       right: 0,
@@ -475,5 +473,58 @@ class _PerfilPageState extends State<PerfilPage> {
     } catch (_) {
       return raw;
     }
+  }
+}
+
+class BadgeImage extends StatelessWidget {
+  final String? imageUrl;
+  final double size;
+
+  const BadgeImage({
+    super.key,
+    required this.imageUrl,
+    this.size = 60,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final hasImage = imageUrl != null && imageUrl!.trim().isNotEmpty;
+
+    if (!hasImage) {
+      return CircleAvatar(
+        radius: size / 2,
+        backgroundColor: const Color(0xFFEFF6FF),
+        child: Icon(
+          Icons.workspace_premium,
+          size: size * 0.45,
+          color: Colors.amber,
+        ),
+      );
+    }
+
+    return Container(
+      width: size,
+      height: size,
+      decoration: const BoxDecoration(
+        color: Color(0xFFEFF6FF),
+        shape: BoxShape.circle,
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Transform.scale(
+        scale: 8,
+        child: Image.network(
+          imageUrl!,
+          fit: BoxFit.contain,
+          alignment: Alignment.center,
+          errorBuilder: (context, error, stackTrace) {
+            return Icon(
+              Icons.workspace_premium,
+              size: size * 0.45,
+              color: Colors.amber,
+            );
+          },
+        ),
+      ),
+    );
   }
 }

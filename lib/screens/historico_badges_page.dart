@@ -303,10 +303,9 @@ class _HistoricoBadgesPageState extends State<HistoricoBadgesPage> {
         children: [
           Row(
             children: [
-              const CircleAvatar(
-                radius: 28,
-                backgroundColor: Color(0xFFEAF0FA),
-                child: Text("🏅", style: TextStyle(fontSize: 24)),
+              BadgeImage(
+                imageUrl: badge['imagem']?.toString(),
+                size: 60,
               ),
               const SizedBox(width: 12),
 
@@ -411,6 +410,59 @@ class _HistoricoBadgesPageState extends State<HistoricoBadgesPage> {
           ),
         ),
       ],
+    );
+  }
+}
+
+class BadgeImage extends StatelessWidget {
+  final String? imageUrl;
+  final double size;
+
+  const BadgeImage({
+    super.key,
+    required this.imageUrl,
+    this.size = 60,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final hasImage = imageUrl != null && imageUrl!.trim().isNotEmpty;
+
+    if (!hasImage) {
+      return CircleAvatar(
+        radius: size / 2,
+        backgroundColor: const Color(0xFFEFF6FF),
+        child: Icon(
+          Icons.workspace_premium,
+          size: size * 0.45,
+          color: Colors.amber,
+        ),
+      );
+    }
+
+    return Container(
+      width: size,
+      height: size,
+      decoration: const BoxDecoration(
+        color: Color(0xFFEFF6FF),
+        shape: BoxShape.circle,
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Transform.scale(
+        scale: 8,
+        child: Image.network(
+          imageUrl!,
+          fit: BoxFit.contain,
+          alignment: Alignment.center,
+          errorBuilder: (context, error, stackTrace) {
+            return Icon(
+              Icons.workspace_premium,
+              size: size * 0.45,
+              color: Colors.amber,
+            );
+          },
+        ),
+      ),
     );
   }
 }

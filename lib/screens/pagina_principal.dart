@@ -327,7 +327,16 @@ class _HomePageState extends State<HomePage> {
             ],
           ),
           TextButton(
-            onPressed: () {},
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => CatalogoBadgesPage(
+                    userData: widget.userData,
+                  ),
+                ),
+              );
+            },
             child: const Text("Ver Todos", style: TextStyle(fontSize: 12, color: Color(0xFF4470AF))),
           )
         ],

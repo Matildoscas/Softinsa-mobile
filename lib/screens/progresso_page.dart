@@ -417,9 +417,29 @@ class _ProgressoPageState extends State<ProgressoPage> {
     final String nome = item['nome'] ?? item['nome_badge'] ?? 'Badge';
     final int pontos = int.tryParse(item['pontos']?.toString() ?? '0') ?? 0;
 
-    final medalhas = ["🥇", "🥈", "🥉"];
-    final medalha = index < 3 ? medalhas[index] : "🏅";
+    final rankingStyles = [
+      {
+        'bg': const Color(0xFFFFF8E1),       // ouro claro
+        'border': const Color(0xFFFFC107),   // ouro
+        'text': const Color(0xFF8A6D00),
+        'label': '1.º lugar',
+      },
+      {
+        'bg': const Color(0xFFF3F4F6),       // prata claro
+        'border': const Color(0xFF9CA3AF),   // prata
+        'text': const Color(0xFF4B5563),
+        'label': '2.º lugar',
+      },
+      {
+        'bg': const Color(0xFFFFF1E6),       // bronze claro
+        'border': const Color(0xFFD97706),   // bronze
+        'text': const Color(0xFF92400E),
+        'label': '3.º lugar',
+      },
+    ];
 
+    final style = rankingStyles[index.clamp(0, 2)];
+    
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -443,16 +463,42 @@ class _ProgressoPageState extends State<ProgressoPage> {
                           : const Color(0xFFF0F0F0),
               shape: BoxShape.circle,
             ),
-            child: Center(child: Text(medalha, style: const TextStyle(fontSize: 20))),
+            child: BadgeImage(
+              imageUrl: item['imagem']?.toString() ??
+                  item['imagem_url']?.toString() ??
+                  item['url_imagem']?.toString(),
+              size: 40,
+            ),
           ),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(nome, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                Text(
+                  nome,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
                 const SizedBox(height: 2),
-                Text("Ganhou +$pontos pts", style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
+                Text(
+                  style['label'] as String,
+                  style: TextStyle(
+                    fontSize: 10,
+                    color: style['text'] as Color,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  "Ganhou +$pontos pts",
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: Colors.grey.shade600,
+                  ),
+                ),
               ],
             ),
           ),
@@ -496,4 +542,57 @@ class _CirculoPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_CirculoPainter old) => old.ratio != ratio;
+}
+
+class BadgeImage extends StatelessWidget {
+  final String? imageUrl;
+  final double size;
+
+  const BadgeImage({
+    super.key,
+    required this.imageUrl,
+    this.size = 60,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final hasImage = imageUrl != null && imageUrl!.trim().isNotEmpty;
+
+    if (!hasImage) {
+      return CircleAvatar(
+        radius: size / 2,
+        backgroundColor: const Color(0xFFEFF6FF),
+        child: Icon(
+          Icons.workspace_premium,
+          size: size * 0.45,
+          color: Colors.amber,
+        ),
+      );
+    }
+
+    return Container(
+      width: size,
+      height: size,
+      decoration: const BoxDecoration(
+        color: Color(0xFFEFF6FF),
+        shape: BoxShape.circle,
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Transform.scale(
+        scale: 8,
+        child: Image.network(
+          imageUrl!,
+          fit: BoxFit.contain,
+          alignment: Alignment.center,
+          errorBuilder: (context, error, stackTrace) {
+            return Icon(
+              Icons.workspace_premium,
+              size: size * 0.45,
+              color: Colors.amber,
+            );
+          },
+        ),
+      ),
+    );
+  }
 }
