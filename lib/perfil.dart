@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'progresso.dart';
 
 class Perfil extends StatelessWidget {
   @override
@@ -96,32 +95,20 @@ class Perfil extends StatelessWidget {
             ),
 
             // ================= BOTÕES PROGRESSO / HISTÓRICO =================
-           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Row(
-              children: [
-                // Botão de Progresso com clique
-                Expanded(
-                  child: GestureDetector(
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (context) => const Progresso()),
-                      );
-                    },
-                    child: actionButton(Icons.trending_up, "Progresso"),
+            Padding(
+              padding: EdgeInsets.symmetric(horizontal: 16),
+              child: Row(
+                children: [
+                  Expanded(child: actionButton(Icons.trending_up, "Progresso")),
+                  SizedBox(width: 12),
+                  Expanded(
+                    child: actionButton(Icons.history, "Histórico Badges"),
                   ),
-                ),
+                ],
+              ),
+            ),
 
-                const SizedBox(width: 12),
-      
-      // Botão de Histórico (por enquanto sem ação)
-      Expanded(
-        child: actionButton(Icons.history, "Histórico Badges"),
-      ),
-    ],
-  ),
-),
+            SizedBox(height: 20),
 
             // ================= SECÇÃO BADGES =================
             Padding(
