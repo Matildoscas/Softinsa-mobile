@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../services/api_service.dart';
+import '../providers/utilizador_provider.dart'; // Import crucial para ler a cache offline
 import 'login.dart';
 
 class AreaRegisterPage extends StatefulWidget {
-  // Recebe os dados do registo — a gravação acontece aqui
   final String nome;
   final String email;
   final String password;
@@ -25,38 +26,16 @@ class _AreaRegPageState extends State<AreaRegisterPage> {
   final ApiService _apiService = ApiService();
 
   int? _selectedAreaId;
-  List<Map<String, dynamic>> _areas = [];
-  bool _isLoading = true;
   bool _aGravar = false;
 
   @override
   void initState() {
     super.initState();
-    _carregarAreas();
-  }
-
-  Future<void> _carregarAreas() async {
-    try {
-
-      print("A carregar áreas...");
-
-      final lista = await _apiService.getAreas();
-
-      print("Áreas recebidas:");
-      print(lista);
-
-      setState(() {
-        _areas = lista;
-        _isLoading = false;
-      });
-
-    } catch (e) {
-
-      print("ERRO:");
-      print(e);
-
-      setState(() => _isLoading = false);
-    }
+    // Força o Provider a carregar e sincronizar as áreas logo no arranque do ecrã
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      // Passamos um ID 0 ou fictício apenas para inicializar as áreas na cache offline
+      Provider.of<UtilizadorProvider>(context, listen: false).inicializarDados(0);
+    });
   }
 
   Future<void> _finalizarRegisto() async {
@@ -91,7 +70,6 @@ class _AreaRegPageState extends State<AreaRegisterPage> {
         MaterialPageRoute(builder: (context) => const LoginPage()),
         (route) => false,
       );
-
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Erro no registo!")),
@@ -104,119 +82,113 @@ class _AreaRegPageState extends State<AreaRegisterPage> {
     return Scaffold(
       backgroundColor: const Color(0xFFF7F7F7),
       body: SafeArea(
-        child: _isLoading
-            ? const Center(child: CircularProgressIndicator())
-            : Column(
-                children: [
+        // Consome o Provider diretamente para escutar a lista de áreas (Online ou SQLite)
+        child: Consumer<UtilizadorProvider>(
+          builder: (context, provider, child) {
+            final listaAreas = provider.areas;
 
-                  // HEADER
-                  Container(
-                    color: Colors.white,
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 25, vertical: 10),
-                    width: double.infinity,
-                    child: Center(
-                      child: Image.asset('lib/img/logo.png',
-                          height: 70, fit: BoxFit.contain),
-                    ),
-                  ),
-
-                  // CONTEÚDO
-                  Expanded(
-                    child: SingleChildScrollView(
-                      child: Padding(
-                        padding: const EdgeInsets.all(20),
-                        child: Container(
-                          padding: const EdgeInsets.all(20),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(10),
-                            boxShadow: const [
-                              BoxShadow(
-                                  color: Colors.black12, blurRadius: 10)
-                            ],
-                          ),
-                          child: Column(
-                            children: [
-
-                              const Text(
-                                "Área",
-                                style: TextStyle(
-                                  color: Color(0xFF6993BE),
-                                  fontSize: 40,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-
-                              const Text("Escolha a sua área de atuação"),
-
-                              const SizedBox(height: 30),
-
-                              DropdownButtonFormField<int>(
-                                decoration: const InputDecoration(
-                                  labelText: "Selecione a Área",
-                                  prefixIcon:
-                                      Icon(Icons.list_alt_outlined),
-                                  border: OutlineInputBorder(),
-                                ),
-                                initialValue: _selectedAreaId,
-                                items: _areas.map((area) {
-                                  return DropdownMenuItem<int>(
-                                    value: area['id'] as int,
-                                    child: Text(area['nome'].toString()),
-                                  );
-                                }).toList(),
-                                onChanged: (value) =>
-                                    setState(() => _selectedAreaId = value),
-                              ),
-
-                              const SizedBox(height: 30),
-
-                              ElevatedButton(
-                                onPressed: _aGravar ? null : _finalizarRegisto,
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.blueAccent,
-                                  foregroundColor: Colors.white,
-                                  minimumSize:
-                                      const Size(double.infinity, 50),
-                                  shape: RoundedRectangleBorder(
-                                      borderRadius:
-                                          BorderRadius.circular(10)),
-                                ),
-                                child: _aGravar
-                                    ? const SizedBox(
-                                        height: 20,
-                                        width: 20,
-                                        child: CircularProgressIndicator(
-                                          color: Colors.white,
-                                          strokeWidth: 2,
-                                        ),
-                                      )
-                                    : const Row(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.center,
-                                        children: [
-                                          Text("Concluir registo"),
-                                          SizedBox(width: 6),
-                                          Icon(Icons.check),
-                                        ],
-                                      ),
-                              ),
-
-                              TextButton(
-                                onPressed: _aGravar
-                                    ? null
-                                    : () => Navigator.pop(context),
-                                child: const Text("Voltar"),
-                              ),
-                            ],
+            return provider.estaA_Carregar && listaAreas.isEmpty
+                ? const Center(child: CircularProgressIndicator(color: Color(0xFF6993BE)))
+                : Column(
+                    children: [
+                      // HEADER
+                      Container(
+                        color: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 25, vertical: 10),
+                        width: double.infinity,
+                        child: Center(
+                          child: Image.asset(
+                            'lib/img/logo.png',
+                            height: 70,
+                            fit: BoxFit.contain,
                           ),
                         ),
                       ),
-                    ),
-                  ),
-                ],
-              ),
+
+                      // CONTEÚDO
+                      Expanded(
+                        child: SingleChildScrollView(
+                          child: Padding(
+                            padding: const EdgeInsets.all(20),
+                            child: Container(
+                              padding: const EdgeInsets.all(20),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(10),
+                                boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 10)],
+                              ),
+                              child: Column(
+                                children: [
+                                  const Text(
+                                    "Área",
+                                    style: TextStyle(
+                                      color: Color(0xFF6993BE),
+                                      fontSize: 40,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  const Text("Escolha a sua área de atuação"),
+                                  const SizedBox(height: 30),
+
+                                  // Dropdown reativo com chaves corrigidas para o teu SQLite
+                                  DropdownButtonFormField<int>(
+                                    isExpanded: true, // 1. Garante que o dropdown ocupa a largura correta do ecrã
+                                    items: provider.areas.map((area) {
+                                      return DropdownMenuItem<int>(
+                                        value: area['id_areas'],
+                                        child: SizedBox(
+                                          width: 200, // Ajusta ou remove se necessário
+                                          child: Text(
+                                            area['nome_area'] ?? 'Sem Nome',
+                                            overflow: TextOverflow.ellipsis, // 2. Se for muito grande, mete os "..." no fim!
+                                            maxLines: 1, // Mantém tudo numa linha limpa
+                                          ),
+                                        ),
+                                      );
+                                    }).toList(),
+                                    onChanged: (value) => setState(() => _selectedAreaId = value),
+                                  ),
+
+                                  const SizedBox(height: 30),
+
+                                  ElevatedButton(
+                                    onPressed: _aGravar ? null : _finalizarRegisto,
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: const Color(0xFF6993BE), // Padronizado com o header
+                                      foregroundColor: Colors.white,
+                                      minimumSize: const Size(double.infinity, 50),
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                    ),
+                                    child: _aGravar
+                                        ? const SizedBox(
+                                            height: 20,
+                                            width: 20,
+                                            child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                                          )
+                                        : const Row(
+                                            mainAxisAlignment: MainAxisAlignment.center,
+                                            children: [
+                                              Text("Concluir registo"),
+                                              SizedBox(width: 6),
+                                              Icon(Icons.check),
+                                            ],
+                                          ),
+                                  ),
+
+                                  TextButton(
+                                    onPressed: _aGravar ? null : () => Navigator.pop(context),
+                                    child: const Text("Voltar"),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  );
+          },
+        ),
       ),
     );
   }

@@ -1,173 +1,308 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../services/api_service.dart';
+import '../database/basededados.dart'; // Import crucial para ler a cache offline
+import '../providers/utilizador_provider.dart';
+import 'catalogo_badges_utilizador.dart';
+import 'informacoes_badge.dart';
+import 'progresso_page.dart';
+import 'historico_badges_page.dart';
 
-class Perfil extends StatelessWidget {
-  const Perfil({super.key});
+String obterNivel(dynamic idNivel) {
+  final int? nivel = int.tryParse(idNivel.toString());
+  switch (nivel) {
+    case 1: return 'A';
+    case 2: return 'B';
+    case 3: return 'C';
+    case 4: return 'D';
+    case 5: return 'E';
+    default: return '-';
+  }
+}
+
+class PerfilPage extends StatefulWidget {
+  final Map<String, dynamic> userData;
+
+  const PerfilPage({super.key, required this.userData});
+
+  @override
+  State<PerfilPage> createState() => _PerfilPageState();
+}
+
+class _PerfilPageState extends State<PerfilPage> {
+  final ApiService _apiService = ApiService();
+  final Basededados _dbLocal = Basededados(); // Conexão local para modo Offline
+
+  List<Map<String, dynamic>> badgesConquistados = [];
+  List<Map<String, dynamic>> todosBadges = []; // CORREÇÃO: Movido de global para local da Store
+  bool isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _carregarDadosPerfil();
+  }
+
+  Future<void> _carregarDadosPerfil() async {
+    final int userId = int.parse(widget.userData['id_utilizador'].toString());
+    
+    try {
+      // 1. Tenta puxar tudo da API via HTTP
+      final obtidos = await _apiService.getBadgesConquistados(userId);
+      final todos = await _apiService.getTodosBadges();
+
+      if (mounted) {
+        setState(() {
+          badgesConquistados = List<Map<String, dynamic>>.from(obtidos);
+          todosBadges = List<Map<String, dynamic>>.from(todos);
+          isLoading = false;
+        });
+      }
+
+      // 2. Faz o Mirroring (Sincronização em Background para o SQFlite)
+      for (var b in obtidos) {
+        await _dbLocal.salvarRegisto('badge_atribuido', {
+          'id_badge_atribuido': b['id_badge_atribuido'] ?? b['id'] ?? 0,
+          'id_badge_modelo': b['id_badge_modelo'] ?? b['id'] ?? 0,
+          'data_atribuicao': b['data_atribuicao']?.toString(),
+          'estado_badge_atribuido': 'Conquistado',
+        });
+      }
+    } catch (e) {
+      debugPrint("Modo Offline Ativo no Perfil (Carregando cache local): $e");
+      
+      // 3. Fallback de Emergência: Lê as tabelas locais do SQFlite se a API falhar
+      final obtidosLocais = await _dbLocal.listarTabela('badge_atribuido');
+      final todosLocais = await _dbLocal.listarTabela('badge_modelo');
+
+      if (mounted) {
+        setState(() {
+          // Filtra apenas os que estão conquistados na cache local
+          badgesConquistados = obtidosLocais.map((e) => {
+            'id': e['id_badge_modelo'],
+            'nome': e['nome'] ?? 'Badge Guardado',
+            'descricao': e['descricao'] ?? 'Disponível em modo offline.',
+            'pontos': e['pontos'] ?? 0,
+            'data_atribuicao': e['data_atribuicao'],
+            'id_nivel': e['id_nivel']
+          }).toList();
+          
+          todosBadges = List<Map<String, dynamic>>.from(todosLocais);
+          isLoading = false;
+        });
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Color(0xFFF7F7F7),
-      body: SafeArea(
-        child: Column(
-          children: [
-            // ================= HEADER COM PESQUISA =================
-            Padding(
-              padding: EdgeInsets.all(16.0),
-              child: Row(
-                children: [
-                  // Logo que volta para a Home ao clicar
-                  GestureDetector(
-                    onTap: () => Navigator.pop(context),
-                    child: Text(
-                      "SOFTINSA",
-                      style: TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF39639C),
-                      ),
-                    ),
-                  ),
-                  SizedBox(width: 16),
-                  Expanded(
-                    child: Container(
-                      height: 40,
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: TextField(
-                        decoration: InputDecoration(
-                          hintText: "Pesquisar...",
-                          prefixIcon: Icon(Icons.search),
-                          border: InputBorder.none,
-                          contentPadding: EdgeInsets.symmetric(vertical: 10),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
+    const double headerHeight = 65.0;
+    
+    // Consome o Provider para obter os dados do consultor atualizados em tempo real na Home
+    final userProvider = Provider.of<UtilizadorProvider>(context);
+    
+    final String nome = userProvider.dashboard.isNotEmpty 
+        ? (userProvider.dashboard['nome_completo'] ?? widget.userData['nome_completo'] ?? 'Utilizador')
+        : (widget.userData['nome_completo'] ?? 'Utilizador');
+        
+    final String? fotoUrl = widget.userData['foto_url'];
+    final int totalBadges = todosBadges.isNotEmpty ? todosBadges.length : 24; // Fallback estático seguro
 
-            // ================= BOTÃO VOLTAR =================
-            Padding(
-              padding: EdgeInsets.symmetric(horizontal: 16),
-              child: InkWell(
-                onTap: () => Navigator.pop(context),
-                child: Row(
+    return Scaffold(
+      backgroundColor: const Color(0xFFF7F7F7),
+      body: SafeArea(
+        child: Stack(
+          children: [
+            // ── CONTEÚDO ──────────────────────────────────────────────
+            Positioned.fill(
+              child: SingleChildScrollView(
+                child: Column(
                   children: [
-                    Icon(Icons.arrow_back, color: Color(0xFF39639C)),
-                    SizedBox(width: 8),
-                    Text("Voltar", style: TextStyle(color: Color(0xFF39639C))),
+                    SizedBox(height: headerHeight),
+
+                    // Voltar
+                    Container(
+                      color: Colors.white,
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      child: Row(
+                        children: [
+                          GestureDetector(
+                            onTap: () => Navigator.pop(context),
+                            child: const Row(
+                              children: [
+                                Icon(Icons.arrow_back, size: 20, color: Color(0xFF4470AF)),
+                                SizedBox(width: 6),
+                                Text(
+                                  "Voltar",
+                                  style: TextStyle(
+                                    fontSize: 15,
+                                    color: Color(0xFF4470AF),
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    // Avatar + nome
+                    Container(
+                      color: Colors.white,
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(vertical: 24),
+                      child: Column(
+                        children: [
+                          Container(
+                            width: 100,
+                            height: 100,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF4470AF),
+                              borderRadius: BorderRadius.circular(20),
+                              image: fotoUrl != null
+                                  ? DecorationImage(image: NetworkImage(fotoUrl), fit: BoxFit.cover)
+                                  : null,
+                            ),
+                            child: fotoUrl == null
+                                ? const Icon(Icons.person, color: Colors.white, size: 52)
+                                : null,
+                          ),
+                          const SizedBox(height: 10),
+                          Text(
+                            nome,
+                            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF111111)),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(height: 12),
+
+                    // Botões Progresso + Histórico
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: _outlineButton(
+                              icon: Icons.trending_up,
+                              label: "Progresso",
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(builder: (_) => ProgressoPage(userData: widget.userData)),
+                                );
+                              },
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: _outlineButton(
+                              icon: Icons.history, // Ícone corrigido para histórico
+                              label: "Histórico Badges",
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(builder: (_) => HistoricoBadgesPage(userData: widget.userData)),
+                                );
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(height: 16),
+
+                    // Cabeçalho "Os seus badges"
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text("Os seus badges", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                              Text(
+                                isLoading
+                                    ? "A carregar..."
+                                    : "Tem ${badgesConquistados.length}/$totalBadges badges",
+                                style: const TextStyle(fontSize: 12, color: Colors.grey),
+                              ),
+                            ],
+                          ),
+                          GestureDetector(
+                            onTap: () => Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (_) => MeusBadgesPage(userData: widget.userData)),
+                            ),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(color: Colors.grey.shade300),
+                              ),
+                              child: const Row(
+                                children: [
+                                  Icon(Icons.menu_book_outlined, size: 13, color: Color(0xFF4470AF)),
+                                  SizedBox(width: 5),
+                                  Text(
+                                    "Ver Todos",
+                                    style: TextStyle(fontSize: 12, color: Color(0xFF4470AF), fontWeight: FontWeight.w500),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(height: 8),
+
+                    // Lista de badges com tratamento de estados
+                    isLoading
+                        ? const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 40),
+                            child: CircularProgressIndicator(color: Color(0xFF4470AF)),
+                          )
+                        : badgesConquistados.isEmpty
+                            ? _estadoVazio()
+                            : ListView.builder(
+                                shrinkWrap: true,
+                                physics: const NeverScrollableScrollPhysics(),
+                                padding: const EdgeInsets.symmetric(vertical: 4),
+                                itemCount: badgesConquistados.length,
+                                itemBuilder: (context, index) => _badgeCard(badgesConquistados[index]),
+                              ),
+
+                    const SizedBox(height: 16),
                   ],
                 ),
               ),
             ),
 
-            // ================= CARD PERFIL (AZUL) =================
-            Container(
-              margin: EdgeInsets.all(16),
-              padding: EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: Color(0xFF4470AF),
-                borderRadius: BorderRadius.circular(25),
-              ),
-              child: Column(
-                children: [
-                  CircleAvatar(
-                    radius: 40,
-                    backgroundColor: Colors.white.withValues(alpha: 0.3),
-                    child: Icon(
-                      Icons.person_outline,
-                      size: 50,
-                      color: Colors.white,
+            // ── HEADER FIXED ──────────────────────────────────────────
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              height: headerHeight,
+              child: Container(
+                color: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                child: Row(
+                  children: [
+                    Image.asset(
+                      'lib/img/logo.png',
+                      height: 35,
+                      fit: BoxFit.contain,
                     ),
-                  ),
-                  SizedBox(height: 10),
-                  Text(
-                    "Ana Luisa",
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 18,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            // ================= BOTÕES PROGRESSO / HISTÓRICO =================
-            Padding(
-              padding: EdgeInsets.symmetric(horizontal: 16),
-              child: Row(
-                children: [
-                  Expanded(child: actionButton(Icons.trending_up, "Progresso")),
-                  SizedBox(width: 12),
-                  Expanded(
-                    child: actionButton(Icons.history, "Histórico Badges"),
-                  ),
-                ],
-              ),
-            ),
-
-            SizedBox(height: 20),
-
-            // ================= SECÇÃO BADGES =================
-            Padding(
-              padding: EdgeInsets.symmetric(horizontal: 16),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        "Os seus badges",
-                        style: TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                      Text(
-                        "Tem 5/12 badges",
-                        style: TextStyle(fontSize: 12, color: Colors.grey),
-                      ),
-                    ],
-                  ),
-                  ElevatedButton.icon(
-                    onPressed:
-                        () {}, // Aqui abriria a página de todos os badges
-                    icon: Icon(Icons.menu_book, size: 16),
-                    label: Text("Ver Todos"),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.white,
-                      foregroundColor: Colors.black,
-                      elevation: 0,
-                      side: BorderSide(color: Colors.grey.shade300),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            // ================= LISTA DE BADGES (SCROLL) =================
-            Expanded(
-              child: ListView(
-                padding: EdgeInsets.all(16),
-                children: [
-                  profileBadgeCard(
-                    "SAP Explorer - Nível A",
-                    "10",
-                    "03/02/2025",
-                  ),
-                  profileBadgeCard(
-                    "Module Navigator - Nível B",
-                    "13",
-                    "12/02/2025",
-                  ),
-                  profileBadgeCard(
-                    "Business Process Master - Nível C",
-                    "16",
-                    "28/03/2025",
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ],
@@ -176,88 +311,219 @@ class Perfil extends StatelessWidget {
     );
   }
 
-  // Widget para os botões arredondados de Progresso/Histórico
-  Widget actionButton(IconData icon, String label) {
-    return Container(
-      padding: EdgeInsets.symmetric(vertical: 12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(25),
-        border: Border.all(color: Colors.black87),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(icon, size: 18),
-          SizedBox(width: 8),
-          Text(
-            label,
-            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+  // ── CARD DE BADGE REATIVO ─────────────────────────────────────────────────
+  Widget _badgeCard(Map<String, dynamic> badge) {
+    final int pontos = int.tryParse(badge['pontos']?.toString() ?? '0') ?? 0;
+    final String? dataConquista = badge['data_atribuicao']?.toString();
+    final String dataFormatada = _formatarData(dataConquista) ?? '—';
+    final int badgeId = int.tryParse((badge['id'] ?? badge['id_badge_modelo'] ?? '0').toString()) ?? 0;
+
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => BadgeDetalhe(
+              userId: int.parse(widget.userData['id_utilizador'].toString()),
+              badgeId: badgeId,
+            ),
           ),
+        );
+      },
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: const Color(0xFF2E7D32).withOpacity(0.3)),
+          boxShadow: [
+            BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 6, offset: const Offset(0, 2)),
+          ],
+        ),
+        child: Column(
+          children: [
+            Row(
+              children: [
+                Stack(
+                  children: [
+                    BadgeImage(
+                      imageUrl: badge['imagem']?.toString(),
+                      size: 60,
+                    ),
+                    Positioned(
+                      right: 0,
+                      bottom: 0,
+                      child: Container(
+                        padding: const EdgeInsets.all(2),
+                        decoration: const BoxDecoration(color: Color(0xFF2E7D32), shape: BoxShape.circle),
+                        child: const Icon(Icons.check, color: Colors.white, size: 12),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        badge['nome'] ?? '',
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        badge['descricao'] ?? '',
+                        style: const TextStyle(fontSize: 11, color: Colors.grey),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      if (badge['id_nivel'] != null) ...[
+                        const SizedBox(height: 4),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          decoration: BoxDecoration(color: const Color(0xFFEAF0FA), borderRadius: BorderRadius.circular(20)),
+                          child: Text(
+                            "Nível ${obterNivel(badge['id_nivel'])}",
+                            style: const TextStyle(fontSize: 10, color: Color(0xFF4470AF)),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                  decoration: BoxDecoration(border: Border.all(color: const Color(0xFF4470AF)), borderRadius: BorderRadius.circular(12)),
+                  child: Column(
+                    children: [
+                      const Text("Pontos", style: TextStyle(fontSize: 9, color: Color(0xFF4470AF))),
+                      const SizedBox(height: 2),
+                      Text(
+                        "$pontos",
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Color(0xFF4470AF)),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Divider(height: 1, color: Colors.grey.shade100),
+            const SizedBox(height: 6),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                "Conquistado a $dataFormatada",
+                style: const TextStyle(fontSize: 11, color: Color(0xFF2E7D32), fontWeight: FontWeight.w500),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _outlineButton({required IconData icon, required String label, required VoidCallback onTap}) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(30),
+          border: Border.all(color: Colors.black87, width: 1.5),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, size: 16),
+            const SizedBox(width: 6),
+            Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _estadoVazio() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 40),
+      child: Column(
+        children: [
+          Icon(Icons.emoji_events_outlined, size: 52, color: Colors.grey.shade400),
+          const SizedBox(height: 12),
+          const Text(
+            "Ainda sem badges",
+            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: Color(0xFF555555)),
+          ),
+          const SizedBox(height: 4),
+          Text("Completa desafios para conquistar badges.", style: TextStyle(fontSize: 12, color: Colors.grey.shade500)),
         ],
       ),
     );
   }
 
-  // Widget para o Card de Badge específico do Perfil
-  Widget profileBadgeCard(String title, String points, String date) {
+  String? _formatarData(String? raw) {
+    if (raw == null || raw.isEmpty) return null;
+    try {
+      final dt = DateTime.parse(raw);
+      return "${dt.day.toString().padLeft(2, '0')}/${dt.month.toString().padLeft(2, '0')}/${dt.year}";
+    } catch (_) {
+      return raw;
+    }
+  }
+}
+
+class BadgeImage extends StatelessWidget {
+  final String? imageUrl;
+  final double size;
+
+  const BadgeImage({
+    super.key,
+    required this.imageUrl,
+    this.size = 60,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final hasImage = imageUrl != null && imageUrl!.trim().isNotEmpty;
+
+    if (!hasImage) {
+      return CircleAvatar(
+        radius: size / 2,
+        backgroundColor: const Color(0xFFEFF6FF),
+        child: Icon(
+          Icons.workspace_premium,
+          size: size * 0.45,
+          color: Colors.amber,
+        ),
+      );
+    }
+
     return Container(
-      margin: EdgeInsets.only(bottom: 12),
-      padding: EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(15),
-        boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 4)],
+      width: size,
+      height: size,
+      decoration: const BoxDecoration(
+        color: Color(0xFFEFF6FF),
+        shape: BoxShape.circle,
       ),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              CircleAvatar(
-                radius: 25,
-                backgroundColor: Color(0xFFF0F7FF),
-                child: Text("🏅", style: TextStyle(fontSize: 20)),
-              ),
-              SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 14,
-                      ),
-                    ),
-                    Text(
-                      "Introdução ao SAP: estrutura, módulos principais...",
-                      style: TextStyle(fontSize: 11, color: Colors.grey),
-                    ),
-                  ],
-                ),
-              ),
-              Container(
-                padding: EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  border: Border.all(color: Color(0xFF39639C)),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Column(
-                  children: [
-                    Text("Pontos", style: TextStyle(fontSize: 10)),
-                    Text(points, style: TextStyle(fontWeight: FontWeight.bold)),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          Divider(height: 20),
-          Text(
-            "Conquistado a $date",
-            style: TextStyle(fontSize: 11, color: Colors.grey),
-          ),
-        ],
+      clipBehavior: Clip.antiAlias,
+      child: Transform.scale(
+        scale: 8,
+        child: Image.network(
+          imageUrl!,
+          fit: BoxFit.contain,
+          alignment: Alignment.center,
+          errorBuilder: (context, error, stackTrace) {
+            return Icon(
+              Icons.workspace_premium,
+              size: size * 0.45,
+              color: Colors.amber,
+            );
+          },
+        ),
       ),
     );
   }

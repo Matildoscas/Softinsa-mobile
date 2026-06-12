@@ -16,10 +16,10 @@ class Utilizador {
     required this.dataCriacao,
     required this.estadoConta,
     required this.password, 
-    this.aceitarTermos = false, // Valor padrão para evitar nulos
+    this.aceitarTermos = false,
   });
 
-  // Converter JSON → Objeto
+  // Converter JSON → Objeto (Suporta API e SQFlite simultaneamente)
   factory Utilizador.fromJson(Map<String, dynamic> json) {
     return Utilizador(
       id: json['id_utilizador'] as int,
@@ -27,16 +27,17 @@ class Utilizador {
       email: json['email'] ?? '',
       contacto: json['contacto'] ?? '',
       estadoConta: json['estado_conta'] ?? '',
-      password: json['password'],
-      // Converte String do JSON para DateTime
+      password: json['password'] ?? '',
       dataCriacao: json['data_criacao'] != null 
           ? DateTime.tryParse(json['data_criacao'].toString()) 
           : null,
-      aceitarTermos: json['aceitar_termos'] == true || json['aceitar_termos'] == 1,
+      aceitarTermos: json['aceitar_termos'] == true || 
+                     json['aceitar_termos'] == 1 || 
+                     json['aceitou_termos'] == 1, // Mapeamento defensivo para a tabela do SQLite
     );
   }
 
-  // Converter Objeto → JSON
+  // Converter Objeto → JSON (Normalizado para os tipos atómicos do SQFlite)
   Map<String, dynamic> toJson() {
     return {
       'id_utilizador': id,
@@ -46,7 +47,7 @@ class Utilizador {
       'estado_conta': estadoConta,
       'password': password,
       'data_criacao': dataCriacao?.toIso8601String(),
-      'aceitar_termos': aceitarTermos,
+      'aceitou_termos': aceitarTermos ? 1 : 0, // CORREÇÃO CRÍTICA: Salva como Integer para bater certo com a tabela local
     };
   }
 }

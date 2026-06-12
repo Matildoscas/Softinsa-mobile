@@ -1,5 +1,8 @@
 plugins {
     id("com.android.application")
+    // START: FlutterFire Configuration
+    id("com.google.gms.google-services")
+    // END: FlutterFire Configuration
     id("kotlin-android")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
@@ -49,5 +52,7 @@ flutter {
 
 dependencies {
         // This allows the build tool to use Java 8+ features on older devices
-        coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.4")
+        coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
+        implementation(platform("com.google.firebase:firebase-bom:34.14.0"))
+        implementation("com.google.firebase:firebase-analytics")
     }
