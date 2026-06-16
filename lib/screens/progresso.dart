@@ -44,7 +44,7 @@ class Progresso extends StatelessWidget {
                       onTap: () {
                         Navigator.push(
                           context,
-                          MaterialPageRoute(builder: (context) => Perfil()),
+                          MaterialPageRoute(builder: (context) =>  PerfilPage()),
                         );
                       },
                       child: const CircleAvatar(
