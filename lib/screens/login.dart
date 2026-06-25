@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:provider/provider.dart'; // Adicionado para controlo do estado local
+// Adicionado para controlo do estado local
 import '../services/api_service.dart';
 import '../database/basededados.dart'; // Import central do SQFlite para login offline
 import 'register.dart';

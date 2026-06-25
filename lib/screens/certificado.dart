@@ -117,7 +117,7 @@ class _CertificadoPageState extends State<CertificadoPage> {
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: const [
                             Icon(Icons.info_outline, size: 60, color: Colors.grey),
-                            const SizedBox(height: 16),
+                            SizedBox(height: 16),
                             Text(
                               "Certificado não disponível localmente ou ainda não foi aprovado pela equipa Softinsa.",
                               textAlign: TextAlign.center,

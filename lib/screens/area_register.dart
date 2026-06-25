@@ -142,7 +142,7 @@ class _AreaRegPageState extends State<AreaRegisterPage> {
                                   // Dropdown reativo com chaves corrigidas para o teu SQLite
                                   DropdownButtonFormField<int>(
                                     isExpanded: true,
-                                    value: _selectedAreaId,
+                                    initialValue: _selectedAreaId,
                                     decoration: const InputDecoration(
                                       labelText: 'Área',
                                       border: OutlineInputBorder(),

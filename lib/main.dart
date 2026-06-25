@@ -2,15 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
-import 'package:provider/provider.dart'; // Import do Provider adicionado
+// Import do Provider adicionado
 
 // Imports exatos do teu ecossistema de ficheiros
-import 'database/basededados.dart';
 import 'providers/utilizador_provider.dart';
 import 'screens/login.dart';
 import 'screens/pagina_principal.dart';
 import 'screens/Perfil.dart';
-import 'providers/utilizador_provider.dart'; // Import do teu provider estrutural
+// Import do teu provider estrutural
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
