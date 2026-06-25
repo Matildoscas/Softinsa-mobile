@@ -41,7 +41,10 @@ class _LogPageState extends State<LogPage> {
   }
 
   Future<void> _fazerLogin() async {
-    final String emailInput = _emailController.text.trim();
+    final String emailInput = _emailController.text
+      .trim()
+      .replaceAll(' ', '')
+      .toLowerCase();
     final String passwordInput = _passController.text;
 
     if (emailInput.isEmpty || passwordInput.isEmpty) {
@@ -61,8 +64,22 @@ class _LogPageState extends State<LogPage> {
 
       // LOGIN COM SUCESSO NA REDE
       if (response['success'] == true) {
-        final user = response['user'];
-        final token = response['token'];
+        final Map<String, dynamic> user =
+        Map<String, dynamic>.from(response['user']);
+
+        final String tokenRecebido =
+            response['token']?.toString() ?? '';
+
+        final int? idUtilizador = int.tryParse(
+          user['id_utilizador']?.toString() ?? '',
+        );
+
+        if (idUtilizador == null) {
+          throw Exception('ID do utilizador inválido.');
+        }
+
+        // Passa a guardar o ID como int no resto da aplicação
+        user['id_utilizador'] = idUtilizador;
         
         // Inicialização de serviços em background de notificações push
         final tokenFcm = await NotificationService().iniciarNotificacoes();
@@ -80,7 +97,7 @@ class _LogPageState extends State<LogPage> {
 
         if (tokenFcm != null) {
           await _apiService.atualizarFcmToken(
-            idUtilizador: user['id_utilizador'],
+            idUtilizador: idUtilizador,
             fcmToken: tokenFcm,
           );
         }
@@ -95,7 +112,7 @@ class _LogPageState extends State<LogPage> {
         });
 
         final prefs = await SharedPreferences.getInstance();
-        await prefs.setString('token', token);
+        await prefs.setString('token', tokenRecebido);
         await prefs.setString('user', jsonEncode(user));
 
         setState(() => _isLoading = false);
