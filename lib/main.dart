@@ -2,22 +2,57 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
+import 'package:provider/provider.dart'; // Import do Provider adicionado
 
 // Imports exatos do teu ecossistema de ficheiros
 import 'database/basededados.dart';
 import 'providers/utilizador_provider.dart';
 import 'screens/login.dart';
-import 'screens/pagina_principal.dart'; // Importa o teu ficheiro onde está o HomePage
+import 'screens/pagina_principal.dart';
+import 'screens/Perfil.dart';
+import 'providers/utilizador_provider.dart'; // Import do teu provider estrutural
+import 'package:firebase_core/firebase_core.dart';
+import 'firebase_options.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
+
+import 'package:firebase_analytics/firebase_analytics.dart';
+
+Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  if (Firebase.apps.isEmpty) {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+  }
+  print("Notificação em background: ${message.notification?.title}");
+}
 
 void main() async {
-  // 1. Garante a inicialização das amarrações nativas do Flutter antes de ler dados assíncronos
   WidgetsFlutterBinding.ensureInitialized();
 
-  // 2. Inicializa a base de dados local SQFlite e gera as 21 tabelas espelhadas do pgAdmin
-  await Basededados().database;
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
+
+  await FirebaseAnalytics.instance.setConsent(
+    analyticsStorageConsentGranted: true,
+    adStorageConsentGranted: true,
+  );
+
+  await FirebaseAnalytics.instance.setAnalyticsCollectionEnabled(true);
+
+  await FirebaseAnalytics.instance.logEvent(
+    name: 'app_iniciada_teste',
+    parameters: {
+      'origem': 'main',
+    },
+  );
+
+  print("✅ Analytics ativo e evento app_iniciada_teste enviado");
+
+  FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
 
   runApp(
-    // 3. Injeta o Provider no topo do projeto para que todos os sub-ecrãs consigam ler o SQLite
+    // CORREÇÃO CRÍTICA: Injeta o provider no topo de toda a árvore de widgets da App
     ChangeNotifierProvider(
       create: (_) => UtilizadorProvider(),
       child: const MyApp(),
@@ -28,14 +63,21 @@ void main() async {
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
-  // Verifica se o Token e os dados do Consultor já existem no disco persistente (Shared Preferences)
+  static FirebaseAnalytics analytics = FirebaseAnalytics.instance;
+  static FirebaseAnalyticsObserver observer =
+      FirebaseAnalyticsObserver(analytics: analytics);
+
   Future<Map<String, dynamic>?> _checkLogin() async {
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('token');
     final userString = prefs.getString('user');
 
     if (token != null && userString != null) {
-      return jsonDecode(userString);
+      try {
+        return jsonDecode(userString) as Map<String, dynamic>;
+      } catch (_) {
+        return null;
+      }
     }
     return null;
   }
@@ -44,37 +86,30 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'Softinsa Gamification',
+      navigatorObservers: [observer],
+      routes: {
+        '/login': (context) => const LoginPage(),
+        '/home': (context) => HomePage(userData: const {}),
+        '/perfil': (context) => const PerfilPage(userData: {}),
+      },
       home: FutureBuilder<Map<String, dynamic>?>(
         future: _checkLogin(),
         builder: (context, snapshot) {
-          // Enquanto valida o estado da sessão no arranque da aplicação
+          // Estado de Carregamento inicial do SharedPreferences
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Scaffold(
               body: Center(
-                child: CircularProgressIndicator(
-                  color: Colors.blueAccent,
-                ),
+                child: CircularProgressIndicator(color: Color(0xFF4470AF)),
               ),
             );
           }
 
-          // Se o utilizador já tiver uma sessão válida guardada localmente
+          // CORREÇÃO LÓGICA: Se já tem sessão iniciada na cache, entra direto no Dashboard
           if (snapshot.hasData && snapshot.data != null) {
-            final userData = snapshot.data!;
-            final int userId = userData['id_utilizador'] ?? 0;
-
-            // Alimenta e acorda o Provider para ler o SQFlite e disparar o Sync assíncrono da API
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              Provider.of<UtilizadorProvider>(context, listen: false)
-                  .inicializarDados(userId);
-            });
-
-            // CORREÇÃO: Abre o teu widget real passando o mapa de dados estruturado do utilizador
-            return HomePage(userData: userData);
+            return HomePage(userData: snapshot.data!);
           }
 
-          // Caso contrário (primeira abertura ou pós-logout) -> Redireciona para o Login
+          // Senão tiver dados de sessão salvos -> Encaminha para o Login
           return const LoginPage();
         },
       ),

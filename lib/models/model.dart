@@ -16,10 +16,10 @@ class Utilizador {
     required this.dataCriacao,
     required this.estadoConta,
     required this.password, 
-    this.aceitarTermos = false, 
+    this.aceitarTermos = false,
   });
 
-  // Converter JSON ou Linha do SQFlite → Objeto Utilizador (Parsing Seguro)
+  // Converter JSON → Objeto (Suporta API e SQFlite simultaneamente)
   factory Utilizador.fromJson(Map<String, dynamic> json) {
     return Utilizador(
       id: json['id_utilizador'] as int,
@@ -28,23 +28,16 @@ class Utilizador {
       contacto: json['contacto'] ?? '',
       estadoConta: json['estado_conta'] ?? '',
       password: json['password'] ?? '',
-      
-      // Tratamento robusto para datas vindas como String do pgAdmin ou SQLite
-      dataCriacao: json['data_criacao_conta'] != null 
-          ? DateTime.tryParse(json['data_criacao_conta'].toString()) 
-          : (json['data_criacao'] != null 
-              ? DateTime.tryParse(json['data_criacao'].toString()) 
-              : null),
-              
-      // REESCRITA OFFLINE-FIRST: Suporta true/false da API e 1/0 (INTEGER) do SQFlite
-      aceitarTermos: json['aceitou_termos'] == true || 
-                     json['aceitou_termos'] == 1 || 
-                     json['aceitar_termos'] == true || 
-                     json['aceitar_termos'] == 1,
+      dataCriacao: json['data_criacao'] != null 
+          ? DateTime.tryParse(json['data_criacao'].toString()) 
+          : null,
+      aceitarTermos: json['aceitar_termos'] == true || 
+                     json['aceitar_termos'] == 1 || 
+                     json['aceitou_termos'] == 1, // Mapeamento defensivo para a tabela do SQLite
     );
   }
 
-  // Converter Objeto Utilizador → Mapa/JSON (Pronto para o SQFlite ou para enviar via API)
+  // Converter Objeto → JSON (Normalizado para os tipos atómicos do SQFlite)
   Map<String, dynamic> toJson() {
     return {
       'id_utilizador': id,
@@ -53,9 +46,8 @@ class Utilizador {
       'contacto': contacto,
       'estado_conta': estadoConta,
       'password': password,
-      'data_criacao_conta': dataCriacao?.toIso8601String(),
-      // Armazena como numérico no SQLite (Padrão 1 para verdadeiro, 0 para falso)
-      'aceitou_termos': aceitarTermos ? 1 : 0,
+      'data_criacao': dataCriacao?.toIso8601String(),
+      'aceitou_termos': aceitarTermos ? 1 : 0, // CORREÇÃO CRÍTICA: Salva como Integer para bater certo com a tabela local
     };
   }
 }
