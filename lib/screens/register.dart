@@ -294,14 +294,6 @@ class _RegisterPageState extends State<RegisterPage> {
                               minimumSize: Size.zero,
                               tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                             ),
-                            onPressed: () {
-                              Navigator.pushReplacement(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => const LoginPage(),
-                                ),
-                              );
-                            },
                             child: const Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
