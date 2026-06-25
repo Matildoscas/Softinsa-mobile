@@ -29,14 +29,16 @@ class _AreaRegPageState extends State<AreaRegisterPage> {
   bool _aGravar = false;
 
   @override
-  void initState() {
-    super.initState();
-    // Força o Provider a carregar e sincronizar as áreas logo no arranque do ecrã
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      // Passamos um ID 0 ou fictício apenas para inicializar as áreas na cache offline
-      Provider.of<UtilizadorProvider>(context, listen: false).inicializarDados(0);
-    });
-  }
+    void initState() {
+      super.initState();
+
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        Provider.of<UtilizadorProvider>(
+          context,
+          listen: false,
+        ).carregarAreas();
+      });
+    }
 
   Future<void> _finalizarRegisto() async {
     if (_selectedAreaId == null) {
@@ -132,21 +134,35 @@ class _AreaRegPageState extends State<AreaRegisterPage> {
 
                                   // Dropdown reativo com chaves corrigidas para o teu SQLite
                                   DropdownButtonFormField<int>(
-                                    isExpanded: true, // 1. Garante que o dropdown ocupa a largura correta do ecrã
-                                    items: provider.areas.map((area) {
+                                    isExpanded: true,
+                                    value: _selectedAreaId,
+                                    decoration: const InputDecoration(
+                                      labelText: 'Área',
+                                      border: OutlineInputBorder(),
+                                    ),
+                                    items: listaAreas.map((area) {
+                                      final int? idArea = int.tryParse(
+                                        area['id_areas']?.toString() ?? '',
+                                      );
+
+                                      if (idArea == null) {
+                                        return null;
+                                      }
+
                                       return DropdownMenuItem<int>(
-                                        value: area['id_areas'],
-                                        child: SizedBox(
-                                          width: 200, // Ajusta ou remove se necessário
-                                          child: Text(
-                                            area['nome_area'] ?? 'Sem Nome',
-                                            overflow: TextOverflow.ellipsis, // 2. Se for muito grande, mete os "..." no fim!
-                                            maxLines: 1, // Mantém tudo numa linha limpa
-                                          ),
+                                        value: idArea,
+                                        child: Text(
+                                          area['nome_area']?.toString() ?? 'Sem nome',
+                                          overflow: TextOverflow.ellipsis,
+                                          maxLines: 1,
                                         ),
                                       );
-                                    }).toList(),
-                                    onChanged: (value) => setState(() => _selectedAreaId = value),
+                                    }).whereType<DropdownMenuItem<int>>().toList(),
+                                    onChanged: (value) {
+                                      setState(() {
+                                        _selectedAreaId = value;
+                                      });
+                                    },
                                   ),
 
                                   const SizedBox(height: 30),

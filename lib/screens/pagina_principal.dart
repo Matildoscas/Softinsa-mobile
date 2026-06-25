@@ -1,78 +1,167 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart'; 
+import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
 import '../pop/notificacoes.dart';
 import '../pop/definicoes.dart';
+import '../providers/utilizador_provider.dart';
+
 import 'catalogo_badges.dart';
 import 'Perfil.dart';
 import 'lembretes_page.dart';
 import 'informacoes_badge.dart';
 import 'definicoes_page.dart';
-import '../providers/utilizador_provider.dart'; // Import do teu provider estruturado
 
 class HomePage extends StatefulWidget {
   final Map<String, dynamic> userData;
 
-  const HomePage({super.key, required this.userData});
+  const HomePage({
+    super.key,
+    required this.userData,
+  });
 
   @override
-  State<HomePage> createState() => _HomePageState();
+  State<HomePage> createState() =>
+      _HomePageState();
 }
 
 class _HomePageState extends State<HomePage> {
-  // Mantemos o filtro de duplicados que a tua colega programou muito bem
-  List<Map<String, dynamic>> removerBadgesDuplicados(List<Map<String, dynamic>> lista) {
-    final Map<int, Map<String, dynamic>> unicos = {};
+  List<Map<String, dynamic>>
+      removerBadgesDuplicados(
+    List<Map<String, dynamic>> lista,
+  ) {
+    final Map<int, Map<String, dynamic>>
+        unicos = {};
 
     for (final badge in lista) {
       final id = int.tryParse(
-        (badge['id'] ?? badge['id_badge_modelo'] ?? badge['badge_id'] ?? '').toString(),
+        (
+          badge['id'] ??
+          badge['id_badge_modelo'] ??
+          badge['badge_id'] ??
+          badge['idBadgeModelo'] ??
+          badge['id_badge_atribuido'] ??
+          ''
+        ).toString(),
       );
 
-      if (id != null && !unicos.containsKey(id)) {
+      if (
+        id != null &&
+        !unicos.containsKey(id)
+      ) {
         unicos[id] = badge;
       }
     }
+
     return unicos.values.toList();
   }
 
   @override
   Widget build(BuildContext context) {
-    String nomeCompleto = widget.userData['nome_completo'] ?? 'Utilizador';
-    String primeiroNome = nomeCompleto.split(' ')[0];
+    final String nomeCompleto =
+        widget.userData['nome_completo']
+            ?.toString()
+            .trim() ??
+        'Utilizador';
+
+    final String primeiroNome =
+        nomeCompleto.isNotEmpty
+        ? nomeCompleto.split(' ').first
+        : 'Utilizador';
+
+    final int userId = int.tryParse(
+          widget.userData['id_utilizador']
+                  ?.toString() ??
+              '',
+        ) ??
+        0;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF7F7F7),
-      // Injeção do Consumer no topo do Scaffold para atualizar todo o ecrã dinamicamente
+      backgroundColor:
+          const Color(0xFFF7F7F7),
       body: SafeArea(
         child: Consumer<UtilizadorProvider>(
-          builder: (context, provider, child) {
-            // Se o provider estiver a carregar os dados do SQLite/API pela primeira vez
-            if (provider.estaA_Carregar && provider.dashboard.isEmpty) {
+          builder: (
+            context,
+            provider,
+            child,
+          ) {
+            if (
+              provider.estaA_Carregar &&
+              provider.dashboard.isEmpty
+            ) {
               return const Center(
-                child: CircularProgressIndicator(color: Color(0xFF4470AF)),
+                child:
+                    CircularProgressIndicator(
+                  color: Color(0xFF4470AF),
+                ),
               );
             }
 
-            // Extração segura dos dados calculados pelo Provider (Online ou da Cache)
-            final int pontosAtuais = int.tryParse((provider.dashboard['total_pontos'] ?? provider.dashboard['pontos_atuais'] ?? '0').toString()) ?? 0;
-            final int totalBadgesObtidos = int.tryParse((provider.dashboard['total_badges'] ?? provider.dashboard['badges_conquistas_total'] ?? '0').toString()) ?? 0;
-            
-            // Filtramos as listas dinâmicas reativas que vieram do SQLite/API via Provider
-            final listaProgresso = removerBadgesDuplicados(provider.badgesProgresso);
-            
-            // Nota: Como as recomendações e o badge especial não pertencem ao fluxo reativo do consultor,
-            // podes mantê-los vazios na cache ou deixá-los falhar graciosamente se estiver offline.
-            final listaRecomendados = removerBadgesDuplicados(provider.areas.isNotEmpty ? provider.areas : []); 
+            final listaConquistados =
+                removerBadgesDuplicados(
+              provider.badgesConquistados,
+            );
+
+            final listaProgresso =
+                removerBadgesDuplicados(
+              provider.badgesProgresso,
+            );
+
+            final listaRecomendados =
+                removerBadgesDuplicados(
+              provider.badgesRecomendados,
+            );
+
+            final int pontosAtuais =
+                int.tryParse(
+                  (
+                    provider.dashboard[
+                          'total_pontos'
+                        ] ??
+                    provider.dashboard[
+                          'pontos_atuais'
+                        ] ??
+                    0
+                  ).toString(),
+                ) ??
+                0;
+
+            final int totalDashboard =
+                int.tryParse(
+                  (
+                    provider.dashboard[
+                          'total_badges'
+                        ] ??
+                    provider.dashboard[
+                          'badges_conquistas_total'
+                        ] ??
+                    0
+                  ).toString(),
+                ) ??
+                0;
+
+            // Se o dashboard não devolver o contador,
+            // utiliza o tamanho da lista conquistada.
+            final int totalBadgesObtidos =
+                totalDashboard > 0
+                ? totalDashboard
+                : listaConquistados.length;
 
             return Column(
               children: [
                 // ================= HEADER =================
                 Container(
                   color: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  padding:
+                      const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 10,
+                  ),
                   child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    mainAxisAlignment:
+                        MainAxisAlignment
+                            .spaceBetween,
                     children: [
                       Image.asset(
                         'lib/img/logo.png',
@@ -81,14 +170,23 @@ class _HomePageState extends State<HomePage> {
                       ),
                       Row(
                         children: [
-                          NotificationBell(userId: widget.userData['id_utilizador']),
-                          const SizedBox(width: 10),
+                          NotificationBell(
+                            userId: userId,
+                          ),
+                          const SizedBox(
+                            width: 10,
+                          ),
                           ProfileButton(
                             onProfile: () {
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(
-                                  builder: (_) => PerfilPage(userData: widget.userData),
+                                  builder: (_) =>
+                                      PerfilPage(
+                                    userData:
+                                        widget
+                                            .userData,
+                                  ),
                                 ),
                               );
                             },
@@ -96,152 +194,288 @@ class _HomePageState extends State<HomePage> {
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(
-                                  builder: (_) => DefinicoesPage(userData: widget.userData),
+                                  builder: (_) =>
+                                      DefinicoesPage(
+                                    userData:
+                                        widget
+                                            .userData,
+                                  ),
                                 ),
                               );
                             },
                             onLogout: () async {
-                              // 1. Fecha o menu lateral para não ficar aberto visualmente em background
-                              Navigator.pop(context); 
+                              final prefs =
+                                  await SharedPreferences
+                                      .getInstance();
 
-                              // 2. Destrói os tokens de autenticação locais para esquecer o utilizador
-                              final prefs = await SharedPreferences.getInstance();
-                              await prefs.remove('token');
-                              await prefs.remove('user');
+                              await prefs.remove(
+                                'token',
+                              );
+                              await prefs.remove(
+                                'user',
+                              );
 
-                              // 3. Expulsa o consultor para a página de login limpando o histórico de ecrãs
-                              if (context.mounted) {
-                                Navigator.pushNamedAndRemoveUntil(
+                              if (
+                                context.mounted
+                              ) {
+                                Navigator
+                                    .pushNamedAndRemoveUntil(
                                   context,
                                   '/login',
                                   (_) => false,
                                 );
                               }
-                            }
+                            },
                           ),
                         ],
-                      )
+                      ),
                     ],
                   ),
                 ),
 
-                // ================= CONTEÚDO COM REFRESH SEGURO =================
+                // ================= CONTEÚDO =================
                 Expanded(
                   child: RefreshIndicator(
-                    color: const Color(0xFF4470AF),
-                    onRefresh: () => provider.atualizarDashboard(
-                      int.parse(widget.userData['id_utilizador'].toString()),
+                    color:
+                        const Color(
+                      0xFF4470AF,
                     ),
-                    child: SingleChildScrollView(
-                      physics: const AlwaysScrollableScrollPhysics(),
+                    onRefresh: () =>
+                        provider
+                            .atualizarDashboard(
+                      userId,
+                    ),
+                    child:
+                        SingleChildScrollView(
+                      physics:
+                          const AlwaysScrollableScrollPhysics(),
                       child: Column(
                         children: [
-                          // ================= WELCOME CARD =================
+                          // ============= BEM-VINDO =============
                           Container(
-                            margin: const EdgeInsets.all(16),
-                            padding: const EdgeInsets.all(16),
-                            decoration: BoxDecoration(
-                              gradient: const LinearGradient(
-                                colors: [Color(0xFF4470AF), Color(0xFF3A5C94)],
+                            margin:
+                                const EdgeInsets
+                                    .all(16),
+                            padding:
+                                const EdgeInsets
+                                    .all(16),
+                            decoration:
+                                BoxDecoration(
+                              gradient:
+                                  const LinearGradient(
+                                colors: [
+                                  Color(
+                                    0xFF4470AF,
+                                  ),
+                                  Color(
+                                    0xFF3A5C94,
+                                  ),
+                                ],
                               ),
-                              borderRadius: BorderRadius.circular(20),
+                              borderRadius:
+                                  BorderRadius
+                                      .circular(
+                                20,
+                              ),
                             ),
                             child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
+                              crossAxisAlignment:
+                                  CrossAxisAlignment
+                                      .start,
                               children: [
                                 Text(
-                                  "Bom dia, $primeiroNome!${provider.dashboard['offline'] == true ? " (Modo Offline)" : ""}",
-                                  style: const TextStyle(
-                                    color: Colors.white,
+                                  'Bom dia, '
+                                  '$primeiroNome!'
+                                  '${provider.dashboard['offline'] == true ? ' (Modo Offline)' : ''}',
+                                  style:
+                                      const TextStyle(
+                                    color:
+                                        Colors.white,
                                     fontSize: 18,
-                                    fontWeight: FontWeight.bold,
+                                    fontWeight:
+                                        FontWeight
+                                            .bold,
                                   ),
                                 ),
-                                const SizedBox(height: 20),
+                                const SizedBox(
+                                  height: 20,
+                                ),
                                 Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                   children: [
                                     buildInfoButton(
-                                      icon: Icons.emoji_events,
-                                      title: "Badges",
-                                      subtitle: "$totalBadgesObtidos obtidos",
+                                      icon: Icons
+                                          .emoji_events,
+                                      title:
+                                          'Badges',
+                                      subtitle:
+                                          '$totalBadgesObtidos obtidos',
                                       onTap: () {},
                                     ),
                                     buildInfoButton(
-                                      icon: Icons.star,
-                                      title: "Pontos totais",
-                                      subtitle: "$pontosAtuais pontos",
+                                      icon:
+                                          Icons.star,
+                                      title:
+                                          'Pontos totais',
+                                      subtitle:
+                                          '$pontosAtuais pontos',
                                       onTap: () {},
                                     ),
                                     buildInfoButton(
-                                      icon: Icons.note,
-                                      title: "Lembretes",
-                                      subtitle: "Ver lembretes",
+                                      icon:
+                                          Icons.note,
+                                      title:
+                                          'Lembretes',
+                                      subtitle:
+                                          'Ver lembretes',
                                       onTap: () {
-                                        final userId = widget.userData['id_utilizador'];
-                                        if (userId == null) {
-                                          debugPrint("Erro: userId está null");
+                                        if (
+                                          userId ==
+                                              0
+                                        ) {
+                                          debugPrint(
+                                            'ID do utilizador inválido',
+                                          );
                                           return;
                                         }
-                                        Navigator.push(
+
+                                        Navigator
+                                            .push(
                                           context,
                                           MaterialPageRoute(
-                                            builder: (_) => LembretesPage(
-                                              userId: userId is int ? userId : int.parse(userId.toString()),
+                                            builder:
+                                                (_) =>
+                                                    LembretesPage(
+                                              userId:
+                                                  userId,
                                             ),
                                           ),
                                         );
                                       },
                                     ),
                                   ],
-                                )
+                                ),
                               ],
                             ),
                           ),
 
-                          // ================= BOTÃO CATÁLOGO =================
+                          // ============= CATÁLOGO =============
                           ElevatedButton.icon(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.white,
-                              foregroundColor: Colors.black,
-                              shape: const StadiumBorder(),
+                            style:
+                                ElevatedButton
+                                    .styleFrom(
+                              backgroundColor:
+                                  Colors.white,
+                              foregroundColor:
+                                  Colors.black,
+                              shape:
+                                  const StadiumBorder(),
                               elevation: 4,
                             ),
                             onPressed: () {
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(
-                                  builder: (_) => CatalogoBadgesPage(userData: widget.userData),
+                                  builder: (_) =>
+                                      CatalogoBadgesPage(
+                                    userData:
+                                        widget
+                                            .userData,
+                                  ),
                                 ),
                               );
                             },
-                            icon: const Icon(Icons.grid_view),
-                            label: const Text("Catálogo de Badges"),
+                            icon: const Icon(
+                              Icons.grid_view,
+                            ),
+                            label: const Text(
+                              'Catálogo de Badges',
+                            ),
                           ),
 
-                          const SizedBox(height: 20),
+                          const SizedBox(
+                            height: 20,
+                          ),
 
-                          // ================= PROGRESSO REATIVO =================
-                          sectionHeader("Badges com progresso", "Em desenvolvimento"),
-                          if (listaProgresso.isEmpty)
-                            const Padding(
-                              padding: EdgeInsets.all(16),
-                              child: Text("Sem progresso de momento", style: TextStyle(color: Colors.grey)),
+                          // ============= CONQUISTADOS =============
+                          sectionHeader(
+                            'Badges conquistados',
+                            '${listaConquistados.length} obtidos',
+                          ),
+
+                          if (
+                            listaConquistados
+                                .isEmpty
+                          )
+                            const EmptyMessage(
+                              mensagem:
+                                  'Ainda não conquistou badges',
                             )
                           else
-                            ...listaProgresso.map((b) => badgeCard(badge: b)),
+                            ...listaConquistados
+                                .take(3)
+                                .map(
+                                  (badge) =>
+                                      badgeCard(
+                                    badge:
+                                        badge,
+                                    highlight:
+                                        false,
+                                  ),
+                                ),
 
-                          // ================= RECOMENDAÇÃO =================
-                          sectionHeader("Recomendação de Badge", "Sugestão baseada na sua área"),
-                          if (listaRecomendados.isEmpty)
-                            const Padding(
-                              padding: EdgeInsets.all(16),
-                              child: Text("Sem recomendações disponíveis de momento", style: TextStyle(color: Colors.grey)),
+                          // ============= PROGRESSO =============
+                          sectionHeader(
+                            'Badges com progresso',
+                            'Em desenvolvimento',
+                          ),
+
+                          if (
+                            listaProgresso
+                                .isEmpty
+                          )
+                            const EmptyMessage(
+                              mensagem:
+                                  'Sem progresso de momento',
                             )
                           else
-                            ...listaRecomendados.map((b) => badgeCard(badge: b)),
+                            ...listaProgresso
+                                .take(3)
+                                .map(
+                                  (badge) =>
+                                      badgeCard(
+                                    badge:
+                                        badge,
+                                  ),
+                                ),
 
-                          const SizedBox(height: 20),
+                          // ============= RECOMENDADOS =============
+                          sectionHeader(
+                            'Recomendação de Badge',
+                            'Sugestão baseada na sua área',
+                          ),
+
+                          if (
+                            listaRecomendados
+                                .isEmpty
+                          )
+                            const EmptyMessage(
+                              mensagem:
+                                  'Sem recomendações disponíveis',
+                            )
+                          else
+                            ...listaRecomendados
+                                .take(3)
+                                .map(
+                                  (badge) =>
+                                      badgeCard(
+                                    badge:
+                                        badge,
+                                  ),
+                                ),
+
+                          const SizedBox(
+                            height: 30,
+                          ),
                         ],
                       ),
                     ),
@@ -255,7 +489,9 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  // ================= BOTÃO INFO (Visual original preservado) =================
+  // =====================================================
+  // BOTÃO INFORMATIVO
+  // =====================================================
   Widget buildInfoButton({
     required IconData icon,
     required String title,
@@ -267,41 +503,69 @@ class _HomePageState extends State<HomePage> {
         onTap: onTap,
         child: Container(
           height: 100,
-          margin: const EdgeInsets.symmetric(horizontal: 4),
-          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
+          margin:
+              const EdgeInsets.symmetric(
+            horizontal: 4,
+          ),
+          padding:
+              const EdgeInsets.symmetric(
+            vertical: 12,
+            horizontal: 4,
+          ),
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.15),
-            borderRadius: BorderRadius.circular(12),
+            color:
+                Colors.white.withOpacity(
+              0.15,
+            ),
+            borderRadius:
+                BorderRadius.circular(12),
           ),
           child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisAlignment:
+                MainAxisAlignment.center,
             children: [
               Container(
-                padding: const EdgeInsets.all(6),
+                padding:
+                    const EdgeInsets.all(6),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(8),
+                  color: Colors.white
+                      .withOpacity(0.2),
+                  borderRadius:
+                      BorderRadius.circular(
+                    8,
+                  ),
                 ),
-                child: Icon(icon, color: Colors.white, size: 20),
+                child: Icon(
+                  icon,
+                  color: Colors.white,
+                  size: 20,
+                ),
               ),
               const SizedBox(height: 8),
               Text(
                 title,
-                textAlign: TextAlign.center,
+                textAlign:
+                    TextAlign.center,
                 maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
+                overflow:
+                    TextOverflow.ellipsis,
+                style:
+                    const TextStyle(
                   color: Colors.white,
                   fontSize: 11,
-                  fontWeight: FontWeight.bold,
+                  fontWeight:
+                      FontWeight.bold,
                 ),
               ),
               Text(
-                subtitle ?? "",
-                textAlign: TextAlign.center,
+                subtitle ?? '',
+                textAlign:
+                    TextAlign.center,
                 maxLines: 1,
-                style: TextStyle(
-                  color: subtitle != null ? Colors.white70 : Colors.transparent,
+                overflow:
+                    TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: Colors.white70,
                   fontSize: 9,
                 ),
               ),
@@ -312,66 +576,152 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  // ================= HEADER SECÇÃO =================
-  Widget sectionHeader(String title, String subtitle) {
+  // =====================================================
+  // CABEÇALHO DE SECÇÃO
+  // =====================================================
+  Widget sectionHeader(
+    String title,
+    String subtitle,
+  ) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding:
+          const EdgeInsets.symmetric(
+        horizontal: 16,
+        vertical: 8,
+      ),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        mainAxisAlignment:
+            MainAxisAlignment
+                .spaceBetween,
         children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-              Text(subtitle, style: const TextStyle(fontSize: 11, color: Colors.grey)),
-            ],
+          Expanded(
+            child: Column(
+              crossAxisAlignment:
+                  CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style:
+                      const TextStyle(
+                    fontWeight:
+                        FontWeight.bold,
+                    fontSize: 13,
+                  ),
+                ),
+                Text(
+                  subtitle,
+                  style:
+                      const TextStyle(
+                    fontSize: 11,
+                    color: Colors.grey,
+                  ),
+                ),
+              ],
+            ),
           ),
           TextButton(
             onPressed: () {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (_) => CatalogoBadgesPage(
-                    userData: widget.userData,
+                  builder: (_) =>
+                      CatalogoBadgesPage(
+                    userData:
+                        widget.userData,
                   ),
                 ),
               );
             },
-            child: const Text("Ver Todos", style: TextStyle(fontSize: 12, color: Color(0xFF4470AF))),
-          )
+            child: const Text(
+              'Ver Todos',
+              style: TextStyle(
+                fontSize: 12,
+                color:
+                    Color(0xFF4470AF),
+              ),
+            ),
+          ),
         ],
       ),
     );
   }
 
-  // ================= CARD BADGE =================
+  // =====================================================
+  // CARD DO BADGE
+  // =====================================================
   Widget badgeCard({
     required Map<String, dynamic> badge,
     double? progress,
     bool highlight = false,
   }) {
-    final String title = badge['nome'] ?? badge['nome_badge'] ?? '';
-    final String description = badge['descricao'] ?? badge['descricao_badge_modelo'] ?? '';
-    final int points = int.tryParse(badge['pontos']?.toString() ?? '0') ?? 0;
+    final String title =
+        badge['nome']?.toString() ??
+        badge['nome_badge']?.toString() ??
+        'Badge';
+
+    final String description =
+        badge['descricao']?.toString() ??
+        badge['descricao_badge_modelo']
+            ?.toString() ??
+        '';
+
+    final int points = int.tryParse(
+          badge['pontos']?.toString() ??
+              '0',
+        ) ??
+        0;
+
+    final String? imagemUrl =
+        badge['imagem_url']?.toString() ??
+        badge['imagem']?.toString() ??
+        badge['url_imagem']?.toString();
 
     return GestureDetector(
       onTap: () {
-        final int? badgeId = int.tryParse((badge['id'] ?? badge['id_badge_modelo'] ?? badge['badge_id'] ?? badge['idBadgeModelo'] ?? '').toString());
+        final int? badgeId =
+            int.tryParse(
+          (
+            badge['id'] ??
+            badge['id_badge_modelo'] ??
+            badge['badge_id'] ??
+            badge['idBadgeModelo'] ??
+            ''
+          ).toString(),
+        );
 
         if (badgeId == null) {
-          debugPrint("ERRO: badge sem ID -> $badge");
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text("Não foi possível abrir este badge. Falta o ID.")),
+          debugPrint(
+            'ERRO: badge sem ID -> $badge',
           );
+
+          ScaffoldMessenger.of(context)
+              .showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Não foi possível abrir '
+                'este badge. Falta o ID.',
+              ),
+            ),
+          );
+
           return;
         }
 
-        final int userId = int.parse(widget.userData['id_utilizador'].toString());
+        final int userId =
+            int.tryParse(
+              widget.userData[
+                    'id_utilizador'
+                  ]
+                  ?.toString() ??
+                  '',
+            ) ??
+            0;
 
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (_) => BadgeDetalhe(
+            builder: (_) =>
+                BadgeDetalhe(
               userId: userId,
               badgeId: badgeId,
             ),
@@ -379,55 +729,120 @@ class _HomePageState extends State<HomePage> {
         );
       },
       child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        padding: const EdgeInsets.all(12),
+        margin:
+            const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 8,
+        ),
+        padding:
+            const EdgeInsets.all(12),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: highlight ? Colors.amber.shade600 : Colors.grey.shade300, width: highlight ? 1.5 : 1),
+          borderRadius:
+              BorderRadius.circular(12),
+          border: Border.all(
+            color: highlight
+                ? Colors.amber.shade600
+                : Colors.grey.shade300,
+            width: highlight
+                ? 1.5
+                : 1,
+          ),
         ),
         child: Row(
           children: [
             BadgeImage(
-              imageUrl: badge['imagem_url'] ?? badge['imagem'] ?? badge['url_imagem'],
+              imageUrl: imagemUrl,
               size: 60,
             ),
             const SizedBox(width: 10),
             Expanded(
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+                crossAxisAlignment:
+                    CrossAxisAlignment
+                        .start,
                 children: [
-                  Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
                   Text(
-                    description,
-                    style: const TextStyle(fontSize: 12, color: Colors.grey),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
+                    title,
+                    style:
+                        const TextStyle(
+                      fontWeight:
+                          FontWeight.bold,
+                      fontSize: 13,
+                    ),
                   ),
+                  if (
+                    description.isNotEmpty
+                  )
+                    Text(
+                      description,
+                      style:
+                          const TextStyle(
+                        fontSize: 12,
+                        color:
+                            Colors.grey,
+                      ),
+                      maxLines: 2,
+                      overflow:
+                          TextOverflow
+                              .ellipsis,
+                    ),
                   if (progress != null)
-                    Column(
-                      children: [
-                        const SizedBox(height: 6),
-                        LinearProgressIndicator(value: progress, color: const Color(0xFF4470AF)),
-                      ],
+                    Padding(
+                      padding:
+                          const EdgeInsets
+                              .only(
+                        top: 8,
+                      ),
+                      child:
+                          LinearProgressIndicator(
+                        value: progress,
+                        color:
+                            const Color(
+                          0xFF4470AF,
+                        ),
+                      ),
                     ),
                 ],
               ),
             ),
+            const SizedBox(width: 8),
             Container(
-              padding: const EdgeInsets.all(8),
+              padding:
+                  const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                border: Border.all(color: const Color(0xFF4470AF)),
-                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color:
+                      const Color(
+                    0xFF4470AF,
+                  ),
+                ),
+                borderRadius:
+                    BorderRadius.circular(
+                  12,
+                ),
               ),
               child: Column(
                 children: [
-                  const Text("Pontos", style: TextStyle(fontSize: 10, color: Color(0xFF4470AF))),
-                  Text(
-                    "$points",
+                  const Text(
+                    'Pontos',
                     style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: highlight ? Colors.amber.shade800 : Colors.black,
+                      fontSize: 10,
+                      color:
+                          Color(
+                        0xFF4470AF,
+                      ),
+                    ),
+                  ),
+                  Text(
+                    '$points',
+                    style: TextStyle(
+                      fontWeight:
+                          FontWeight.bold,
+                      color: highlight
+                          ? Colors.amber
+                              .shade800
+                          : Colors.black,
                     ),
                   ),
                 ],
@@ -440,30 +855,47 @@ class _HomePageState extends State<HomePage> {
   }
 }
 
+class EmptyMessage extends StatelessWidget {
+  final String mensagem;
+
+  const EmptyMessage({
+    super.key,
+    required this.mensagem,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding:
+          const EdgeInsets.all(16),
+      child: Text(
+        mensagem,
+        style: const TextStyle(
+          color: Colors.grey,
+        ),
+      ),
+    );
+  }
+}
+
 class BadgeImage extends StatelessWidget {
   final String? imageUrl;
   final double size;
+  final double zoom;
 
   const BadgeImage({
     super.key,
     required this.imageUrl,
     this.size = 60,
+    this.zoom = 8,
   });
 
   @override
   Widget build(BuildContext context) {
-    final hasImage = imageUrl != null && imageUrl!.trim().isNotEmpty;
+    final String url = imageUrl?.trim() ?? '';
 
-    if (!hasImage) {
-      return CircleAvatar(
-        radius: size / 2,
-        backgroundColor: const Color(0xFFEFF6FF),
-        child: Icon(
-          Icons.workspace_premium,
-          size: size * 0.45,
-          color: Colors.amber,
-        ),
-      );
+    if (url.isEmpty) {
+      return _fallback();
     }
 
     return Container(
@@ -475,19 +907,54 @@ class BadgeImage extends StatelessWidget {
       ),
       clipBehavior: Clip.antiAlias,
       child: Transform.scale(
-        scale: 8,
+        scale: zoom,
         child: Image.network(
-          imageUrl!,
+          url,
           fit: BoxFit.contain,
           alignment: Alignment.center,
-          errorBuilder: (context, error, stackTrace) {
-            return Icon(
-              Icons.workspace_premium,
-              size: size * 0.45,
-              color: Colors.amber,
+          filterQuality: FilterQuality.high,
+          loadingBuilder: (
+            context,
+            child,
+            loadingProgress,
+          ) {
+            if (loadingProgress == null) {
+              return child;
+            }
+
+            return const Center(
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+              ),
             );
           },
+          errorBuilder: (
+            context,
+            error,
+            stackTrace,
+          ) {
+            debugPrint(
+              'Erro ao carregar imagem: $error',
+            );
+            debugPrint(
+              'URL da imagem: $url',
+            );
+
+            return _fallback();
+          },
         ),
+      ),
+    );
+  }
+
+  Widget _fallback() {
+    return CircleAvatar(
+      radius: size / 2,
+      backgroundColor: const Color(0xFFEFF6FF),
+      child: Icon(
+        Icons.workspace_premium,
+        size: size * 0.45,
+        color: Colors.amber,
       ),
     );
   }
