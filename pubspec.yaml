@@ -10,7 +10,6 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  # Removido o assets daqui
   postgres: ^3.0.7
   mailer: ^6.0.1
   cupertino_icons: ^1.0.8
@@ -18,7 +17,6 @@ dependencies:
   sqflite: ^2.4.2
   path: ^1.9.1
   http: ^1.6.0
-  provider: ^6.1.1
   shared_preferences: ^2.5.5
   file_picker: ^8.0.0
   pdf: ^3.11.1
