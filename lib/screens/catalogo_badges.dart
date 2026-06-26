@@ -561,27 +561,21 @@ class _CatalogoBadgesPageState extends State<CatalogoBadgesPage> {
 class BadgeImage extends StatelessWidget {
   final String? imageUrl;
   final double size;
+  final double zoom;
 
   const BadgeImage({
     super.key,
     required this.imageUrl,
     this.size = 60,
+    this.zoom = 1.6,
   });
 
   @override
   Widget build(BuildContext context) {
-    final hasImage = imageUrl != null && imageUrl!.trim().isNotEmpty;
+    final String url = imageUrl?.trim() ?? '';
 
-    if (!hasImage) {
-      return CircleAvatar(
-        radius: size / 2,
-        backgroundColor: const Color(0xFFEFF6FF),
-        child: Icon(
-          Icons.workspace_premium,
-          size: size * 0.45,
-          color: Colors.amber,
-        ),
-      );
+    if (url.isEmpty) {
+      return _fallback();
     }
 
     return Container(
@@ -593,19 +587,54 @@ class BadgeImage extends StatelessWidget {
       ),
       clipBehavior: Clip.antiAlias,
       child: Transform.scale(
-        scale: 8,
+        scale: zoom,
         child: Image.network(
-          imageUrl!,
+          url,
           fit: BoxFit.contain,
           alignment: Alignment.center,
-          errorBuilder: (context, error, stackTrace) {
-            return Icon(
-              Icons.workspace_premium,
-              size: size * 0.45,
-              color: Colors.amber,
+          filterQuality: FilterQuality.high,
+          loadingBuilder: (
+            context,
+            child,
+            loadingProgress,
+          ) {
+            if (loadingProgress == null) {
+              return child;
+            }
+
+            return const Center(
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+              ),
             );
           },
+          errorBuilder: (
+            context,
+            error,
+            stackTrace,
+          ) {
+            debugPrint(
+              'Erro ao carregar imagem: $error',
+            );
+            debugPrint(
+              'URL da imagem: $url',
+            );
+
+            return _fallback();
+          },
         ),
+      ),
+    );
+  }
+
+  Widget _fallback() {
+    return CircleAvatar(
+      radius: size / 2,
+      backgroundColor: const Color(0xFFEFF6FF),
+      child: Icon(
+        Icons.workspace_premium,
+        size: size * 0.45,
+        color: Colors.amber,
       ),
     );
   }

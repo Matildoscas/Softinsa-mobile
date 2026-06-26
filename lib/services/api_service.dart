@@ -8,7 +8,7 @@ String? token;
 class ApiService {
   //static const String baseUrl = 'https://softinsa-api.onrender.com/api';
   static const String baseUrl =
-    'http://10.56.153.119:3000/api';
+    'http://192.168.1.76:3000/api';
 
 
   // Getter centralizado de cabeçalhos com Token JWT

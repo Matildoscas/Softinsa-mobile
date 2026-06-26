@@ -887,7 +887,7 @@ class BadgeImage extends StatelessWidget {
     super.key,
     required this.imageUrl,
     this.size = 60,
-    this.zoom = 8,
+    this.zoom = 1.6,
   });
 
   @override
