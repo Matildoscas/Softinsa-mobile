@@ -55,10 +55,18 @@ class _SubmeterBadgeState extends State<SubmeterBadge> {
       final localModelos = await _dbLocal.listarTabela('badge_modelo');
       todos = localModelos.map((e) => {
         'id': e['id_badge_modelo'],
+        'id_badge_modelo': e['id_badge_modelo'],
         'nome': e['nome_badge'],
+        'nome_badge': e['nome_badge'],
         'descricao': e['descricao_badge_modelo'],
+        'descricao_badge_modelo': e['descricao_badge_modelo'],
         'pontos': e['pontos'],
-        'id_nivel': e['id_nivel']
+        'id_nivel': e['id_nivel'],
+
+        // Imagem guardada localmente, caso exista.
+        'imagem': e['imagem'],
+        'imagem_url': e['imagem_url'] ?? e['imagem'],
+        'url_imagem': e['url_imagem'],
       }).toList();
     }
 
@@ -214,7 +222,19 @@ class _SubmeterBadgeState extends State<SubmeterBadge> {
       );
     }
 
-    final String nome = badge!['nome'] ?? badge!['nome_badge'] ?? '';
+    final String nome =
+    badge!['nome']?.toString() ??
+    badge!['nome_badge']?.toString() ??
+    '';
+
+    final String? imagemUrl =
+        badge!['imagem_url']?.toString() ??
+        badge!['imagem']?.toString() ??
+        badge!['url_imagem']?.toString();
+
+    debugPrint(
+      '[SUBMETER BADGE] Imagem recebida: $imagemUrl',
+    );
 
     return Scaffold(
       backgroundColor: const Color(0xFFF7F7F7),
@@ -261,11 +281,10 @@ class _SubmeterBadgeState extends State<SubmeterBadge> {
                               decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: _azul.withOpacity(0.3))),
                               child: Column(
                                 children: [
-                                  Container(
-                                    width: 80,
-                                    height: 80,
-                                    decoration: const BoxDecoration(color: Color(0xFFEEEEEE), shape: BoxShape.circle),
-                                    child: const Center(child: Text("🏅", style: TextStyle(fontSize: 42))),
+                                  BadgeImagemSubmissao(
+                                    imageUrl: imagemUrl,
+                                    size: 80,
+                                    zoom: 1.6,
                                   ),
                                   const SizedBox(height: 10),
                                   Text(nome, textAlign: TextAlign.center, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
@@ -474,6 +493,89 @@ class _SubmeterBadgeState extends State<SubmeterBadge> {
           letra,
           style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: isAtual ? Colors.white : Colors.grey.shade600),
         ),
+      ),
+    );
+  }
+}
+
+class BadgeImagemSubmissao extends StatelessWidget {
+  final String? imageUrl;
+  final double size;
+  final double zoom;
+
+  const BadgeImagemSubmissao({
+    super.key,
+    required this.imageUrl,
+    this.size = 80,
+    this.zoom = 1.6,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final String url = imageUrl?.trim() ?? '';
+
+    if (url.isEmpty) {
+      return _fallback();
+    }
+
+    return Container(
+      width: size,
+      height: size,
+      decoration: const BoxDecoration(
+        color: Color(0xFFEFF6FF),
+        shape: BoxShape.circle,
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Transform.scale(
+        scale: zoom,
+        child: Image.network(
+          url,
+          fit: BoxFit.contain,
+          alignment: Alignment.center,
+          filterQuality: FilterQuality.high,
+          loadingBuilder: (
+            context,
+            child,
+            loadingProgress,
+          ) {
+            if (loadingProgress == null) {
+              return child;
+            }
+
+            return const Center(
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: Color(0xFF4470AF),
+              ),
+            );
+          },
+          errorBuilder: (
+            context,
+            error,
+            stackTrace,
+          ) {
+            debugPrint(
+              '[SUBMETER BADGE] Erro ao carregar imagem: $error',
+            );
+            debugPrint(
+              '[SUBMETER BADGE] URL: $url',
+            );
+
+            return _fallback();
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _fallback() {
+    return CircleAvatar(
+      radius: size / 2,
+      backgroundColor: const Color(0xFFEFF6FF),
+      child: Icon(
+        Icons.workspace_premium,
+        size: size * 0.45,
+        color: Colors.amber,
       ),
     );
   }
