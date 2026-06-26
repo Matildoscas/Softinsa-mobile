@@ -395,7 +395,9 @@ class ApiService {
           return [];
         }
       }
-      throw Exception('Erro ao carregar candidaturas pendentes');
+      print('Erro na API. Status Code: ${response.statusCode}');
+      print('Corpo do erro enviado pelo servidor: ${response.body}');
+      throw Exception('Erro ao carregar candidaturas pendentes: Status ${response.statusCode}');
     } on SocketException {
       throw const SocketException('offline');
     }
