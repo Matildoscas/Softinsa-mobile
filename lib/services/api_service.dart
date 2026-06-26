@@ -371,8 +371,29 @@ class ApiService {
     try {
       final response = await http.get(Uri.parse('$baseUrl/certificados/pendentes/$userId'), headers: _headers);
       if (response.statusCode == 200) {
-        final List data = jsonDecode(response.body);
-        return data.map((e) => e as Map<String, dynamic>).toList();
+        final decoded = jsonDecode(response.body);
+
+        // 1. IMPRIME O QUE ESTÁ A CHEGAR (Vê a consola do Flutter!)
+        print('[API DEBUG] O que chegou da API: $decoded');
+
+        // 2. Se for a lista esperada (o teu result.rows), processa normalmente
+        if (decoded is List) {
+          return decoded.map((e) => e as Map<String, dynamic>).toList();
+        }
+
+        // 3. Se for um Map (o tal erro), evita o crash e descobre o que é
+        if (decoded is Map<String, dynamic>) {
+          print('[API AVISO] A rota devolveu um objeto em vez de lista. Conteúdo: $decoded');
+          
+          // Se por acaso a lista veio envelopada numa chave 'rows' ou 'dados'
+          if (decoded.containsKey('rows') && decoded['rows'] is List) {
+            final List rows = decoded['rows'];
+            return rows.map((e) => e as Map<String, dynamic>).toList();
+          }
+          
+          // Se for um objeto de erro ou vazio, retorna lista vazia para a app não crashar
+          return [];
+        }
       }
       throw Exception('Erro ao carregar candidaturas pendentes');
     } on SocketException {
