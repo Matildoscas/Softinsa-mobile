@@ -6,7 +6,10 @@ import 'package:http/http.dart' as http;
 String? token;
 
 class ApiService {
+  //Trabalhar por render
   //static const String baseUrl = 'https://softinsa-api.onrender.com/api';
+
+  //Trabalhar por localhost
   static const String baseUrl =
     'http://192.168.1.76:3000/api';
 
