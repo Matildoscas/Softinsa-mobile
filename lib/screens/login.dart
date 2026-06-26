@@ -57,8 +57,6 @@ class _LogPageState extends State<LogPage> {
 
     setState(() => _isLoading = true);
 
-    setState(() => _isLoading = true);
-
     try {
       // 1. TENTA AUTENTICAÇÃO ONLINE MESTRA (Via API HTTP)
       final response = await _apiService.login(emailInput, passwordInput);
@@ -70,8 +68,7 @@ class _LogPageState extends State<LogPage> {
         final Map<String, dynamic> user =
         Map<String, dynamic>.from(response['user']);
 
-        final String tokenRecebido =
-            response['token']?.toString() ?? '';
+        final String tokenRecebido = response['token']?.toString() ?? '';
 
         final int? idUtilizador = int.tryParse(
           user['id_utilizador']?.toString() ?? '',
@@ -81,37 +78,38 @@ class _LogPageState extends State<LogPage> {
           throw Exception('ID do utilizador inválido.');
         }
 
-        // Passa a guardar o ID como int no resto da aplicação
         user['id_utilizador'] = idUtilizador;
         
-        // Inicialização de serviços em background de notificações push
-        final tokenFcm = await NotificationService().iniciarNotificacoes();
-
-        await FirebaseAnalytics.instance.logLogin(loginMethod: 'email_password');
+        // 🛡️ CORREÇÃO: Bloco isolado para serviços adicionais (Firebase / Notificações)
+        String? tokenFcm;
         try {
+          tokenFcm = await NotificationService().iniciarNotificacoes();
+          
+          await FirebaseAnalytics.instance.logLogin(loginMethod: 'email_password');
           await FirebaseAnalytics.instance.logEvent(
             name: 'teste_debugview_login',
             parameters: {'origem': 'login_page'},
           );
-          print("✅ Evento Analytics enviado: teste_debugview_login");
-        } catch (e) {
-          print("❌ Erro Analytics: $e");
-        }
+          print("✅ Evento Analytics enviado com sucesso");
 
-        if (tokenFcm != null) {
-          await _apiService.atualizarFcmToken(
-            idUtilizador: idUtilizador,
-            fcmToken: tokenFcm,
-          );
+          if (tokenFcm != null) {
+            await _apiService.atualizarFcmToken(
+              idUtilizador: idUtilizador,
+              fcmToken: tokenFcm,
+            );
+          }
+        } catch (firebaseError) {
+          // Se o Firebase falhar, apenas avisamos na consola e deixamos o login avançar!
+          debugPrint("⚠️ Erro secundário ignorado (Firebase/Notificações): $firebaseError");
         }
 
         // MIRRORING: Guarda e atualiza a cache na tabela local do SQLite para acessos offline futuros
         await _dbLocal.salvarRegisto('utilizador', {
-          'id_utilizador': int.tryParse(user['id_utilizador'].toString()) ?? 0,
+          'id_utilizador': idUtilizador,
           'nome_completo': user['nome_completo'] ?? '',
           'email': user['email'] ?? emailInput,
           'contacto': user['contacto']?.toString() ?? '',
-          'password': passwordInput, // Guardada localmente de forma defensiva para match offline
+          'password': passwordInput,
         });
 
         final prefs = await SharedPreferences.getInstance();
@@ -146,12 +144,12 @@ class _LogPageState extends State<LogPage> {
       );
 
     } catch (e) {
-      debugPrint("API Indisponível. Iniciando verificação de credenciais em cache local... ($e)");
+      // Este catch agora SÓ vai ser chamado se a API HTTP falhar mesmo (falta de net, erro 500, etc)
+      debugPrint("API Indisponível de facto. A tentar cache local... ($e)");
 
       // 2. FALLBACK OFFLINE-FIRST: Procura a conta localmente nas tabelas do SQLite
       final localUsers = await _dbLocal.listarTabela('utilizador');
       
-      // Procura se existe algum registo na BD local com o mesmo email introduzido
       final contaLocalEncontrada = localUsers.firstWhere(
         (u) => u['email']?.toString().toLowerCase() == emailInput.toLowerCase(),
         orElse: () => <String, dynamic>{},
@@ -161,7 +159,6 @@ class _LogPageState extends State<LogPage> {
       setState(() => _isLoading = false);
 
       if (contaLocalEncontrada.isNotEmpty) {
-        // Validação estrita da última password em cache local
         if (contaLocalEncontrada['password'] == passwordInput) {
           
           final Map<String, dynamic> userOffline = {
@@ -169,7 +166,7 @@ class _LogPageState extends State<LogPage> {
             'nome_completo': contaLocalEncontrada['nome_completo'],
             'email': contaLocalEncontrada['email'],
             'contacto': contaLocalEncontrada['contacto'],
-            'offline_mode': true // Adicionado sinalizador útil para as restantes UIs
+            'offline_mode': true
           };
 
           final prefs = await SharedPreferences.getInstance();
@@ -188,7 +185,6 @@ class _LogPageState extends State<LogPage> {
           );
           return;
         } else {
-          // Utilizador existe localmente mas errou a password guardada em cache
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               backgroundColor: Colors.red,
@@ -199,7 +195,6 @@ class _LogPageState extends State<LogPage> {
         }
       }
 
-      // Nenhuma conta encontrada em cache e sem internet para verificar junto da API
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           backgroundColor: Colors.red,
