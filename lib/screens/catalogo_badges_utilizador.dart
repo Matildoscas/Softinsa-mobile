@@ -1,8 +1,28 @@
+// ============================================================================
+// catalogo_badges_utilizador.dart
+//
+// Catálogo pessoal do utilizador.
+// Apresenta apenas os badges já conquistados e permite pesquisar,
+// filtrar por nível e ordenar por nome ou pontuação.
+// Utiliza a API e guarda atribuições no SQLite para consulta offline.
+//
+// A lógica original foi mantida.
+// Os comentários explicam:
+// - Responsabilidade de cada classe e função;
+// - Fluxo entre API, SQLite e interface;
+// - Pesquisa, filtros, navegação e estados;
+// - Tratamento de imagens, ficheiros e modo offline.
+// ============================================================================
+
+// Componentes visuais e navegação do Flutter.
 import 'package:flutter/material.dart';
+// Serviço utilizado para obter os badges conquistados.
 import '../services/api_service.dart';
+// Base de dados SQLite utilizada como cache offline.
 import '../database/basededados.dart';
 import 'informacoes_badge.dart';
 
+// Converte o ID do nível para A, B, C, D ou E.
 String obterNivel(dynamic idNivel) {
   final int? nivel = int.tryParse(idNivel.toString());
   switch (nivel) {
@@ -15,6 +35,17 @@ String obterNivel(dynamic idNivel) {
   }
 }
 
+class _BadgeBonusInfo {
+  final bool ganhouBonus;
+  final int pontosExtra;
+
+  const _BadgeBonusInfo({
+    required this.ganhouBonus,
+    required this.pontosExtra,
+  });
+}
+
+// Página dos badges conquistados pelo utilizador.
 class MeusBadgesPage extends StatefulWidget {
   final Map<String, dynamic> userData;
 
@@ -24,6 +55,7 @@ class MeusBadgesPage extends StatefulWidget {
   State<MeusBadgesPage> createState() => _MeusBadgesPageState();
 }
 
+// Estado da página: listas, carregamento, pesquisa, filtro e ordenação.
 class _MeusBadgesPageState extends State<MeusBadgesPage> {
   final ApiService _apiService = ApiService();
   final Basededados _dbLocal = Basededados();
@@ -40,11 +72,85 @@ class _MeusBadgesPageState extends State<MeusBadgesPage> {
   List<String> niveis = [];
 
   @override
+  // Inicia o carregamento assim que a página é criada.
   void initState() {
     super.initState();
     _carregarMeusBadges();
   }
 
+  int _converterInteiro(
+    dynamic valor,
+  ) {
+    if (valor == null) {
+      return 0;
+    }
+
+    if (valor is int) {
+      return valor;
+    }
+
+    if (valor is double) {
+      return valor.round();
+    }
+
+    return int.tryParse(
+          valor.toString(),
+        ) ??
+        double.tryParse(
+          valor.toString(),
+        )?.round() ??
+        0;
+  }
+
+  bool _converterBooleano(
+    dynamic valor,
+  ) {
+    if (valor is bool) {
+      return valor;
+    }
+
+    if (valor is num) {
+      return valor == 1;
+    }
+
+    final texto = valor
+        ?.toString()
+        .trim()
+        .toLowerCase();
+
+    return [
+      'true',
+      't',
+      '1',
+      'sim',
+      'yes',
+    ].contains(texto);
+  }
+
+  _BadgeBonusInfo _obterBonusBadge(
+    Map<String, dynamic> badge,
+  ) {
+    final int pontosExtra =
+        _converterInteiro(
+      badge['pontos_extra'] ??
+          badge['pontos_bonus'],
+    );
+
+    final bool ganhouBonus =
+        _converterBooleano(
+          badge['ganhou_bonus'] ??
+              badge['premio_atribuido'],
+        ) ||
+        pontosExtra > 0;
+
+    return _BadgeBonusInfo(
+      ganhouBonus: ganhouBonus,
+      pontosExtra: pontosExtra,
+    );
+  }
+
+  // Extrai os níveis existentes nos badges conquistados.
+  // Remove níveis repetidos e ordena a lista.
   void _extrairNiveis() {
     niveis = meusBadges
         .map((b) => obterNivel(b['id_nivel']))
@@ -54,6 +160,15 @@ class _MeusBadgesPageState extends State<MeusBadgesPage> {
       ..sort();
   }
 
+  // =========================================================================
+  // APLICAR FILTROS
+  //
+  // Pesquisa no nome e descrição, filtra por nível e permite ordenar:
+  // - Nome A-Z;
+  // - Nome Z-A;
+  // - Mais pontos;
+  // - Menos pontos.
+  // =========================================================================
   void _aplicarFiltros() {
     var lista = meusBadges.where((b) {
       final nome = (b['nome'] ?? b['nome_badge'] ?? '').toString().toLowerCase();
@@ -81,25 +196,65 @@ class _MeusBadgesPageState extends State<MeusBadgesPage> {
             .toString()
             .compareTo((a['nome'] ?? a['nome_badge'] ?? '').toString()),
       );
-    } else if (ordenacao == 'pontos_desc') {
-      lista.sort((a, b) {
-        final pontosA = int.tryParse(a['pontos']?.toString() ?? '0') ?? 0;
-        final pontosB = int.tryParse(b['pontos']?.toString() ?? '0') ?? 0;
-        return pontosB.compareTo(pontosA);
-      });
-    } else if (ordenacao == 'pontos_asc') {
-      lista.sort((a, b) {
-        final pontosA = int.tryParse(a['pontos']?.toString() ?? '0') ?? 0;
-        final pontosB = int.tryParse(b['pontos']?.toString() ?? '0') ?? 0;
-        return pontosA.compareTo(pontosB);
-      });
-    }
+    } else if (
+      ordenacao == 'pontos_desc'
+      ) {
+        lista.sort((a, b) {
+          final pontosA =
+              _converterInteiro(
+                a['pontos'],
+              ) +
+              _obterBonusBadge(a)
+                  .pontosExtra;
+
+          final pontosB =
+              _converterInteiro(
+                b['pontos'],
+              ) +
+              _obterBonusBadge(b)
+                  .pontosExtra;
+
+          return pontosB.compareTo(
+            pontosA,
+          );
+        });
+      } else if (
+        ordenacao == 'pontos_asc'
+      ) {
+        lista.sort((a, b) {
+          final pontosA =
+              _converterInteiro(
+                a['pontos'],
+              ) +
+              _obterBonusBadge(a)
+                  .pontosExtra;
+
+          final pontosB =
+              _converterInteiro(
+                b['pontos'],
+              ) +
+              _obterBonusBadge(b)
+                  .pontosExtra;
+
+          return pontosA.compareTo(
+            pontosB,
+          );
+        });
+      }
 
     setState(() {
       meusBadgesFiltrados = lista;
     });
   }
 
+  // =========================================================================
+  // CARREGAR OS MEUS BADGES
+  //
+  // 1. Obtém os badges conquistados através da API;
+  // 2. Atualiza as listas e os níveis da interface;
+  // 3. Guarda cada atribuição no SQLite;
+  // 4. Se a API falhar, adapta os dados locais de badge_atribuido.
+  // =========================================================================
   Future<void> _carregarMeusBadges() async {
     final int userId = int.parse(widget.userData['id_utilizador'].toString());
 
@@ -132,15 +287,58 @@ class _MeusBadgesPageState extends State<MeusBadgesPage> {
       final dadosLocais = await _dbLocal.listarTabela('badge_atribuido');
       
       if (mounted) {
+        final badgesLocais =
+            dadosLocais.map(
+          (e) => <String, dynamic>{
+            'id':
+                e['id_badge_modelo'],
+
+            'nome':
+                e['nome'] ??
+                'Badge Conquistado',
+
+            'descricao':
+                e['descricao'] ??
+                'Disponível em cache offline.',
+
+            'pontos':
+                e['pontos'] ??
+                0,
+
+            'data_atribuicao':
+                e['data_atribuicao'],
+
+            'id_nivel':
+                e['id_nivel'],
+
+            'imagem':
+                e['imagem'],
+
+            'imagem_url':
+                e['imagem_url'],
+
+            'ganhou_bonus':
+                e['ganhou_bonus'] ??
+                false,
+
+            'pontos_extra':
+                e['pontos_extra'] ??
+                0,
+          },
+        ).toList();
+
         setState(() {
-          meusBadges = dadosLocais.map((e) => {
-            'id': e['id_badge_modelo'],
-            'nome': e['nome'] ?? 'Badge Conquistado',
-            'descricao': e['descricao'] ?? 'Disponível em cache offline.',
-            'pontos': e['pontos'] ?? 0,
-            'data_atribuicao': e['data_atribuicao'],
-            'id_nivel': e['id_nivel']
-          }).toList();
+          meusBadges =
+              badgesLocais;
+
+          meusBadgesFiltrados =
+              List<Map<String, dynamic>>
+                  .from(
+            badgesLocais,
+          );
+
+          _extrairNiveis();
+
           isLoading = false;
         });
       }
@@ -148,6 +346,12 @@ class _MeusBadgesPageState extends State<MeusBadgesPage> {
   }
 
   @override
+// =========================================================================
+// BUILD
+//
+// Constrói a pesquisa, filtros, lista pessoal e cabeçalho fixo.
+// Distingue carregamento, lista vazia e pesquisa sem resultados.
+// =========================================================================
 Widget build(BuildContext context) {
   const double headerHeight = 65.0;
 
@@ -357,6 +561,7 @@ Widget build(BuildContext context) {
                   );
                 }
 
+  // Componente genérico utilizado pelos dois dropdowns.
   Widget _buildDropdownFiltro<T>({
     required IconData icon,
     required String label,
@@ -424,120 +629,563 @@ Widget build(BuildContext context) {
     );
   }
 
-  Widget _badgeCard(Map<String, dynamic> badge) {
-    final int pontos = int.tryParse(badge['pontos']?.toString() ?? '0') ?? 0;
-    final int badgeId = int.tryParse((badge['id'] ?? badge['id_badge_modelo'] ?? '0').toString()) ?? 0;
-    
-    // Formata a data de conquista de forma amigável
+  // Cria o cartão de um badge conquistado.
+  // Formata a data e abre o detalhe quando o utilizador toca no cartão.
+  Widget _badgeCard(
+    Map<String, dynamic> badge,
+  ) {
+    final int pontos =
+        _converterInteiro(
+      badge['pontos'],
+    );
+
+    final int badgeId =
+        int.tryParse(
+          (
+            badge['id'] ??
+            badge['id_badge_modelo'] ??
+            0
+          ).toString(),
+        ) ??
+        0;
+
+    final String nome =
+        badge['nome']?.toString() ??
+        badge['nome_badge']
+            ?.toString() ??
+        'Badge';
+
+    final String descricao =
+        badge['descricao']
+            ?.toString() ??
+        badge[
+          'descricao_badge_modelo'
+        ]?.toString() ??
+        '';
+
+    final String? imagemUrl =
+        badge['imagem_url']
+            ?.toString() ??
+        badge['imagem']
+            ?.toString() ??
+        badge['url_imagem']
+            ?.toString();
+
+    final _BadgeBonusInfo bonus =
+        _obterBonusBadge(
+      badge,
+    );
+
+    final bool ganhouBonus =
+        bonus.ganhouBonus;
+
+    final int pontosExtra =
+        bonus.pontosExtra;
+
+    final int totalObtido =
+        pontos + pontosExtra;
+
+    const Color dourado =
+        Color(0xFFD4A017);
+
+    const Color douradoEscuro =
+        Color(0xFF9A6B00);
+
+    const Color douradoClaro =
+        Color(0xFFFFF7D6);
+
+    const Color fundoDourado =
+        Color(0xFFFFFDF4);
+
     String dataFormatada = '—';
-    if (badge['data_atribuicao'] != null) {
+
+    if (
+      badge['data_atribuicao'] !=
+      null
+    ) {
       try {
-        final dt = DateTime.parse(badge['data_atribuicao'].toString());
-        dataFormatada = "${dt.day.toString().padLeft(2, '0')}/${dt.month.toString().padLeft(2, '0')}/${dt.year}";
+        final dt = DateTime.parse(
+          badge['data_atribuicao']
+              .toString(),
+        );
+
+        dataFormatada =
+            '${dt.day.toString().padLeft(2, '0')}/'
+            '${dt.month.toString().padLeft(2, '0')}/'
+            '${dt.year}';
       } catch (_) {
-        dataFormatada = badge['data_atribuicao'].toString();
+        dataFormatada =
+            badge['data_atribuicao']
+                .toString();
       }
     }
 
     return GestureDetector(
       onTap: () {
+        if (badgeId == 0) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Não foi possível abrir este badge.',
+              ),
+            ),
+          );
+
+          return;
+        }
+
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (_) => BadgeDetalhe(
-              userId: int.parse(widget.userData['id_utilizador'].toString()),
+            builder: (_) =>
+                BadgeDetalhe(
+              userId: int.parse(
+                widget.userData[
+                  'id_utilizador'
+                ].toString(),
+              ),
               badgeId: badgeId,
             ),
           ),
         );
       },
       child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-        padding: const EdgeInsets.all(14),
+        margin:
+            const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 6,
+        ),
         decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: const Color(0xFF2E7D32).withOpacity(0.3)),
+          color: ganhouBonus
+              ? fundoDourado
+              : Colors.white,
+
+          borderRadius:
+              BorderRadius.circular(
+            14,
+          ),
+
+          border: Border.all(
+            color: ganhouBonus
+                ? dourado
+                : const Color(
+                    0xFF2E7D32,
+                  ).withOpacity(
+                    0.3,
+                  ),
+
+            width: ganhouBonus
+                ? 2
+                : 1,
+          ),
+
           boxShadow: [
-            BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 6, offset: const Offset(0, 2)),
+            BoxShadow(
+              color: ganhouBonus
+                  ? dourado.withOpacity(
+                      0.16,
+                    )
+                  : Colors.black.withOpacity(
+                      0.04,
+                    ),
+
+              blurRadius: ganhouBonus
+                  ? 9
+                  : 6,
+
+              spreadRadius: ganhouBonus
+                  ? 1
+                  : 0,
+
+              offset:
+                  const Offset(
+                0,
+                2,
+              ),
+            ),
           ],
         ),
         child: Column(
           children: [
-            Row(
-              children: [
-                Stack(
-                  children: [
-                    BadgeImage(
-                      imageUrl: badge['imagem']?.toString(),
-                      size: 60,
-                    ),
-                    Positioned(
-                      right: 0,
-                      bottom: 0,
-                      child: Container(
-                        padding: const EdgeInsets.all(2),
-                        decoration: const BoxDecoration(color: Color(0xFF2E7D32), shape: BoxShape.circle),
-                        child: const Icon(Icons.check, color: Colors.white, size: 12),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+            Padding(
+              padding:
+                  const EdgeInsets.all(
+                14,
+              ),
+              child: Row(
+                children: [
+                  Stack(
                     children: [
-                      Text(
-                        badge['nome'] ?? '',
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        badge['descricao'] ?? '',
-                        style: const TextStyle(fontSize: 11, color: Colors.grey),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      if (badge['id_nivel'] != null) ...[
-                        const SizedBox(height: 4),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                          decoration: BoxDecoration(color: const Color(0xFFEAF0FA), borderRadius: BorderRadius.circular(20)),
-                          child: Text(
-                            "Nível ${obterNivel(badge['id_nivel'])}",
-                            style: const TextStyle(fontSize: 10, color: Color(0xFF4470AF)),
+                      Container(
+                        padding:
+                            const EdgeInsets
+                                .all(
+                          3,
+                        ),
+                        decoration:
+                            BoxDecoration(
+                          shape:
+                              BoxShape.circle,
+
+                          color: ganhouBonus
+                              ? douradoClaro
+                              : const Color(
+                                  0xFFEFF6FF,
+                                ),
+
+                          border:
+                              Border.all(
+                            color: ganhouBonus
+                                ? dourado
+                                : const Color(
+                                    0xFFDBEAFE,
+                                  ),
+
+                            width: ganhouBonus
+                                ? 1.5
+                                : 1,
                           ),
                         ),
-                      ],
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                  decoration: BoxDecoration(border: Border.all(color: const Color(0xFF4470AF)), borderRadius: BorderRadius.circular(12)),
-                  child: Column(
-                    children: [
-                      const Text("Pontos", style: TextStyle(fontSize: 9, color: Color(0xFF4470AF))),
-                      const SizedBox(height: 2),
-                      Text(
-                        "$pontos",
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Color(0xFF4470AF)),
+                        child: BadgeImage(
+                          imageUrl:
+                              imagemUrl,
+                          size: 58,
+                        ),
+                      ),
+
+                      Positioned(
+                        right: 0,
+                        bottom: 0,
+                        child: Container(
+                          padding:
+                              const EdgeInsets
+                                  .all(
+                            3,
+                          ),
+                          decoration:
+                              BoxDecoration(
+                            color: ganhouBonus
+                                ? dourado
+                                : const Color(
+                                    0xFF2E7D32,
+                                  ),
+
+                            shape:
+                                BoxShape.circle,
+                          ),
+                          child:
+                              const Icon(
+                            Icons.check,
+                            color:
+                                Colors.white,
+                            size: 12,
+                          ),
+                        ),
                       ),
                     ],
                   ),
-                ),
-              ],
+
+                  const SizedBox(
+                    width: 12,
+                  ),
+
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment:
+                          CrossAxisAlignment
+                              .start,
+                      children: [
+                        Wrap(
+                          spacing: 7,
+                          runSpacing: 5,
+                          crossAxisAlignment:
+                              WrapCrossAlignment
+                                  .center,
+                          children: [
+                            Text(
+                              nome,
+                              style:
+                                  const TextStyle(
+                                fontWeight:
+                                    FontWeight
+                                        .bold,
+                                fontSize:
+                                    13,
+                              ),
+                            ),
+
+                            if (
+                              ganhouBonus
+                            )
+                              Container(
+                                padding:
+                                    const EdgeInsets
+                                        .symmetric(
+                                  horizontal:
+                                      8,
+                                  vertical:
+                                      3,
+                                ),
+                                decoration:
+                                    BoxDecoration(
+                                  color:
+                                      douradoClaro,
+
+                                  borderRadius:
+                                      BorderRadius
+                                          .circular(
+                                    20,
+                                  ),
+
+                                  border:
+                                      Border.all(
+                                    color:
+                                        const Color(
+                                      0xFFF0D36B,
+                                    ),
+                                  ),
+                                ),
+                                child:
+                                    const Text(
+                                  'Desafio concluído',
+                                  style:
+                                      TextStyle(
+                                    fontSize:
+                                        9,
+                                    fontWeight:
+                                        FontWeight
+                                            .bold,
+                                    color:
+                                        douradoEscuro,
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+
+                        if (
+                          descricao.isNotEmpty
+                        ) ...[
+                          const SizedBox(
+                            height: 3,
+                          ),
+
+                          Text(
+                            descricao,
+                            style:
+                                const TextStyle(
+                              fontSize: 11,
+                              color:
+                                  Colors.grey,
+                            ),
+                            maxLines: 2,
+                            overflow:
+                                TextOverflow
+                                    .ellipsis,
+                          ),
+                        ],
+
+                        if (
+                          badge[
+                            'id_nivel'
+                          ] !=
+                          null
+                        ) ...[
+                          const SizedBox(
+                            height: 5,
+                          ),
+
+                          Container(
+                            padding:
+                                const EdgeInsets
+                                    .symmetric(
+                              horizontal:
+                                  8,
+                              vertical:
+                                  2,
+                            ),
+                            decoration:
+                                BoxDecoration(
+                              color: ganhouBonus
+                                  ? douradoClaro
+                                  : const Color(
+                                      0xFFEAF0FA,
+                                    ),
+
+                              borderRadius:
+                                  BorderRadius
+                                      .circular(
+                                20,
+                              ),
+                            ),
+                            child: Text(
+                              'Nível '
+                              '${obterNivel(badge['id_nivel'])}',
+                              style:
+                                  TextStyle(
+                                fontSize:
+                                    10,
+
+                                color: ganhouBonus
+                                    ? douradoEscuro
+                                    : const Color(
+                                        0xFF4470AF,
+                                      ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(
+                    width: 8,
+                  ),
+
+                  Container(
+                    padding:
+                        const EdgeInsets
+                            .symmetric(
+                      horizontal: 10,
+                      vertical: 8,
+                    ),
+                    decoration:
+                        BoxDecoration(
+                      color: ganhouBonus
+                          ? fundoDourado
+                          : Colors.white,
+
+                      border:
+                          Border.all(
+                        color: ganhouBonus
+                            ? dourado
+                            : const Color(
+                                0xFF4470AF,
+                              ),
+
+                        width: ganhouBonus
+                            ? 1.5
+                            : 1,
+                      ),
+
+                      borderRadius:
+                          BorderRadius
+                              .circular(
+                        12,
+                      ),
+                    ),
+                    child: Column(
+                      children: [
+                        Text(
+                          'Pontos',
+                          style:
+                              TextStyle(
+                            fontSize: 9,
+
+                            color: ganhouBonus
+                                ? douradoEscuro
+                                : const Color(
+                                    0xFF4470AF,
+                                  ),
+                          ),
+                        ),
+
+                        const SizedBox(
+                          height: 2,
+                        ),
+
+                        Text(
+                          '$pontos',
+                          style:
+                              const TextStyle(
+                            fontWeight:
+                                FontWeight
+                                    .bold,
+                            fontSize: 15,
+                          ),
+                        ),
+
+                        if (
+                          ganhouBonus &&
+                          pontosExtra > 0
+                        )
+                          Text(
+                            '+$pontosExtra extra',
+                            style:
+                                const TextStyle(
+                              fontSize: 9,
+                              fontWeight:
+                                  FontWeight
+                                      .bold,
+                              color:
+                                  dourado,
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
-            const SizedBox(height: 6),
-            Divider(height: 1, color: Colors.grey.shade100),
-            const SizedBox(height: 6),
-            Align(
-              alignment: Alignment.centerLeft,
+
+            Container(
+              width: double.infinity,
+              padding:
+                  const EdgeInsets
+                      .symmetric(
+                horizontal: 14,
+                vertical: 8,
+              ),
+              decoration:
+                  BoxDecoration(
+                color: ganhouBonus
+                    ? fundoDourado
+                    : const Color(
+                        0xFFFBFDFF,
+                      ),
+
+                border:
+                    const Border(
+                  top: BorderSide(
+                    color:
+                        Color(
+                      0xFFE5E7EB,
+                    ),
+                  ),
+                ),
+              ),
               child: Text(
-                "Conquistado a $dataFormatada",
-                style: const TextStyle(fontSize: 11, color: Color(0xFF2E7D32), fontWeight: FontWeight.w500),
+                ganhouBonus &&
+                        pontosExtra > 0
+                    ? 'Conquistado a '
+                        '$dataFormatada • '
+                        'Recebeste '
+                        '+$pontosExtra pontos extra • '
+                        'Total obtido: '
+                        '$totalObtido pontos'
+                    : 'Conquistado a '
+                        '$dataFormatada',
+
+                textAlign:
+                    TextAlign.center,
+
+                style: TextStyle(
+                  fontSize: 10,
+
+                  color: ganhouBonus
+                      ? douradoEscuro
+                      : const Color(
+                          0xFF2E7D32,
+                        ),
+
+                  fontWeight:
+                      ganhouBonus
+                          ? FontWeight.w600
+                          : FontWeight.w500,
+                ),
               ),
             ),
           ],
@@ -546,6 +1194,7 @@ Widget build(BuildContext context) {
     );
   }
 
+  // Estado apresentado quando o utilizador ainda não conquistou badges.
   Widget _estadoVazio() {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 20),
@@ -572,6 +1221,7 @@ Widget build(BuildContext context) {
   }
 }
 
+// Componente reutilizável para carregar a imagem do badge.
 class BadgeImage extends StatelessWidget {
   final String? imageUrl;
   final double size;
@@ -641,6 +1291,7 @@ class BadgeImage extends StatelessWidget {
     );
   }
 
+  // Ícone apresentado quando a imagem não está disponível.
   Widget _fallback() {
     return CircleAvatar(
       radius: size / 2,

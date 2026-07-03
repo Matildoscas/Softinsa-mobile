@@ -1,29 +1,72 @@
+// ============================================================================
+// utilizador_provider.dart
+//
+// Este ficheiro representa a camada de ESTADO GLOBAL da aplicação.
+//
+// O UtilizadorProvider:
+// - Guarda dados que são utilizados por vários ecrãs;
+// - Comunica com a API através de ApiService;
+// - Guarda cópias locais no SQLite através de Basededados;
+// - Usa a API como fonte principal;
+// - Usa o SQLite como fallback quando não existe ligação;
+// - Avisa os widgets quando os dados mudam através de notifyListeners().
+//
+// O Provider estende ChangeNotifier. Por isso, qualquer widget que esteja a
+// observar este Provider pode ser reconstruído quando notifyListeners() é
+// chamado.
+//
+// Fluxo geral:
+// API disponível  -> recebe dados -> atualiza o estado -> guarda no SQLite.
+// API indisponível -> tenta recuperar os dados anteriormente guardados no SQLite.
+// ============================================================================
+
+// Contém ChangeNotifier, usado para avisar a interface quando o estado muda.
 import 'package:flutter/material.dart';
 
+// Serviço responsável por fazer os pedidos HTTP ao backend.
 import '../services/api_service.dart';
+// Serviço responsável pela base de dados SQLite local.
 import '../database/basededados.dart';
 
+// ChangeNotifier permite que esta classe notifique os widgets
+// sempre que alguma variável de estado for alterada.
 class UtilizadorProvider with ChangeNotifier {
+  // Instância privada utilizada para comunicar com a API REST.
   final ApiService _apiService = ApiService();
+  // Instância privada utilizada para ler e escrever dados no SQLite.
   final Basededados _dbLocal = Basededados();
 
   // =====================================================
   // ESTADOS
   // =====================================================
 
+  // Lista privada com os utilizadores carregados da API ou do SQLite.
   List<Map<String, dynamic>> _utilizadores = [];
+
+  // Lista privada com as áreas disponíveis para registo e perfil.
   List<Map<String, dynamic>> _areas = [];
 
+  // Objeto privado com os totais e dados apresentados no dashboard.
   Map<String, dynamic> _dashboard = {};
 
+  // Badges que o utilizador ainda está a desenvolver.
   List<Map<String, dynamic>> _badgesProgresso = [];
+
+  // Badges que já foram conquistados pelo utilizador.
   List<Map<String, dynamic>> _badgesConquistados = [];
+
+  // Badges sugeridos pela aplicação para o utilizador.
   List<Map<String, dynamic>> _badgesRecomendados = [];
 
+  // Controla a apresentação de indicadores de carregamento na interface.
   bool _estaA_Carregar = false;
 
   // =====================================================
   // GETTERS
+  //
+  // Os estados são privados, por isso começam por "_".
+  // Estes getters permitem que os ecrãs consultem os dados,
+  // mas impedem que os alterem diretamente.
   // =====================================================
 
   List<Map<String, dynamic>> get utilizadores =>
@@ -51,8 +94,20 @@ class UtilizadorProvider with ChangeNotifier {
   // CARREGAR ÁREAS ANTES DO REGISTO
   // =====================================================
 
+  // =========================================================================
+  // CARREGAR ÁREAS
+  //
+  // Utilizado antes do registo, quando ainda não existe utilizador autenticado.
+  // Ativa o estado de carregamento, tenta sincronizar as áreas e, no fim,
+  // desativa o carregamento mesmo que ocorra um erro.
+  //
+  // O bloco finally é sempre executado.
+  // =========================================================================
   Future<void> carregarAreas() async {
+    // Informa a interface de que começou uma operação demorada.
     _estaA_Carregar = true;
+
+    // Reconstrói os widgets que estão a observar este Provider.
     notifyListeners();
 
     print(
@@ -62,6 +117,8 @@ class UtilizadorProvider with ChangeNotifier {
     try {
       await _sincronizarAreas();
     } finally {
+      // Este bloco é executado com sucesso ou com erro.
+      // Garante que o indicador de carregamento é sempre desligado.
       _estaA_Carregar = false;
       notifyListeners();
 
@@ -78,6 +135,20 @@ class UtilizadorProvider with ChangeNotifier {
   // INICIALIZAR TODOS OS DADOS DEPOIS DO LOGIN
   // =====================================================
 
+  // =========================================================================
+  // INICIALIZAR TODOS OS DADOS
+  //
+  // Executado normalmente depois de um login bem-sucedido.
+  // Carrega, por esta ordem:
+  // 1. Áreas;
+  // 2. Dashboard;
+  // 3. Badges em progresso;
+  // 4. Badges conquistados;
+  // 5. Badges recomendados;
+  // 6. Utilizadores.
+  //
+  // userId identifica o utilizador cujos dados devem ser carregados.
+  // =========================================================================
   Future<void> inicializarDados(int userId) async {
     _estaA_Carregar = true;
     notifyListeners();
@@ -90,6 +161,8 @@ class UtilizadorProvider with ChangeNotifier {
     );
 
     try {
+      // As operações são aguardadas sequencialmente para manter
+      // uma ordem previsível de carregamento.
       await _sincronizarAreas();
 
       await _carregarDashboard(userId);
@@ -142,8 +215,21 @@ class UtilizadorProvider with ChangeNotifier {
   // ÁREAS
   // =====================================================
 
+  // =========================================================================
+  // SINCRONIZAR ÁREAS
+  //
+  // Método privado, indicado pelo "_".
+  //
+  // Estratégia:
+  // - Primeiro tenta obter as áreas através da API;
+  // - Normaliza os nomes e tipos dos campos;
+  // - Atualiza a lista _areas;
+  // - Guarda cada área no SQLite;
+  // - Se a API falhar, tenta recuperar as áreas do SQLite.
+  // =========================================================================
   Future<void> _sincronizarAreas() async {
     try {
+      // Fonte principal: backend REST.
       final dadosAreasRaw =
           await _apiService.getAreas();
 
@@ -152,6 +238,7 @@ class UtilizadorProvider with ChangeNotifier {
         '${dadosAreasRaw.length}',
       );
 
+      // Normaliza todas as áreas e elimina registos com ID inválido.
       _areas = dadosAreasRaw
           .map(_normalizarArea)
           .where(
@@ -175,6 +262,8 @@ class UtilizadorProvider with ChangeNotifier {
         try {
           // Guardamos apenas colunas que existem
           // atualmente na tabela SQLite "areas".
+          // Cria um Map contendo apenas as colunas que existem
+          // efetivamente na tabela local "areas".
           final areaLocal =
               <String, dynamic>{
             'id_areas':
@@ -191,6 +280,7 @@ class UtilizadorProvider with ChangeNotifier {
                 area['numero_consultores'],
           };
 
+          // salvarRegisto realiza o insert/update do registo local.
           await _dbLocal.salvarRegisto(
             'areas',
             areaLocal,
@@ -218,6 +308,7 @@ class UtilizadorProvider with ChangeNotifier {
       );
 
       try {
+        // Fallback offline: SELECT * da tabela local "areas".
         final dadosLocais =
             await _dbLocal.listarTabela(
           'areas',
@@ -248,10 +339,28 @@ class UtilizadorProvider with ChangeNotifier {
     }
   }
 
+  // =========================================================================
+  // NORMALIZAR ÁREA
+  //
+  // A API e o SQLite podem utilizar nomes ou tipos ligeiramente diferentes.
+  // Esta função converte qualquer área recebida para uma estrutura uniforme.
+  //
+  // Exemplos:
+  // - "id" ou "id_areas" passam a ser sempre "id_areas";
+  // - "nome" ou "nome_area" passam a ser sempre "nome_area";
+  // - números recebidos como String são convertidos para int;
+  // - campos ausentes recebem valores por defeito.
+  //
+  // Esta função não faz pedidos nem altera o estado global.
+  // Apenas recebe um Map e devolve outro Map normalizado.
+  // =========================================================================
   Map<String, dynamic> _normalizarArea(
     Map<String, dynamic> area,
   ) {
+    // É devolvido um novo Map para não alterar diretamente o Map original.
     return <String, dynamic>{
+      // Tenta primeiro "id_areas"; se não existir, tenta "id".
+      // tryParse evita uma exceção caso o valor não seja numérico.
       'id_areas': int.tryParse(
             (
               area['id_areas'] ??
@@ -261,6 +370,7 @@ class UtilizadorProvider with ChangeNotifier {
           ) ??
           0,
 
+      // Mantém null quando não existe service line.
       'id_serviceline':
           area['id_serviceline'] == null
           ? null
@@ -269,6 +379,7 @@ class UtilizadorProvider with ChangeNotifier {
                   .toString(),
             ),
 
+      // Aceita os nomes "nome_area" e "nome".
       'nome_area':
           area['nome_area']?.toString() ??
           area['nome']?.toString() ??
@@ -294,6 +405,7 @@ class UtilizadorProvider with ChangeNotifier {
               ) ??
               0,
 
+      // Quando a API não devolve estado, assume "ATIVO".
       'estado_area':
           area['estado_area']
                   ?.toString() ??
@@ -305,6 +417,19 @@ class UtilizadorProvider with ChangeNotifier {
   // DASHBOARD
   // =====================================================
 
+  // =========================================================================
+  // CARREGAR DASHBOARD
+  //
+  // Tenta obter o dashboard através da API.
+  // Quando tem sucesso:
+  // - atualiza _dashboard;
+  // - guarda os principais valores na tabela "consultor" do SQLite.
+  //
+  // Quando a API falha:
+  // - procura o consultor no SQLite;
+  // - reconstrói um dashboard simplificado;
+  // - acrescenta "offline": true para indicar que os dados são locais.
+  // =========================================================================
   Future<void> _carregarDashboard(
     int userId,
   ) async {
@@ -316,11 +441,13 @@ class UtilizadorProvider with ChangeNotifier {
         '[DASHBOARD] Utilizador: $userId',
       );
 
+      // Obtém os dados online do utilizador.
       final dados =
           await _apiService.getDashboard(
         userId,
       );
 
+      // Cria uma cópia tipada dos dados recebidos.
       _dashboard =
           Map<String, dynamic>.from(
         dados,
@@ -331,6 +458,8 @@ class UtilizadorProvider with ChangeNotifier {
       );
 
       try {
+        // Guarda no SQLite apenas os campos necessários para
+        // reconstruir o dashboard em modo offline.
         await _dbLocal.salvarRegisto(
           'consultor',
           {
@@ -339,6 +468,7 @@ class UtilizadorProvider with ChangeNotifier {
             'id_areas':
                 _dashboard['id_areas'],
 
+            // A API pode chamar ao campo "total_pontos" ou "pontos_atuais".
             'pontos_atuais':
                 int.tryParse(
                       (
@@ -353,6 +483,8 @@ class UtilizadorProvider with ChangeNotifier {
                     ) ??
                     0,
 
+            // A API pode chamar ao campo "total_badges"
+            // ou "badges_conquistas_total".
             'badges_conquistas_total':
                 int.tryParse(
                       (
@@ -394,12 +526,15 @@ class UtilizadorProvider with ChangeNotifier {
       print(stackTrace);
 
       try {
+        // Quando a API falha, procura os dados na tabela "consultor".
         final dadosLocais =
             await _dbLocal.listarTabela(
           'consultor',
         );
 
         if (dadosLocais.isNotEmpty) {
+          // Procura o registo correspondente ao utilizador atual.
+          // Se não encontrar, utiliza o primeiro registo disponível.
           final meuConsultor =
               dadosLocais.firstWhere(
             (consultor) =>
@@ -411,6 +546,7 @@ class UtilizadorProvider with ChangeNotifier {
                 dadosLocais.first,
           );
 
+          // Reconstrói a estrutura que os widgets esperam receber.
           _dashboard = {
             'total_pontos':
                 meuConsultor[
@@ -454,6 +590,15 @@ class UtilizadorProvider with ChangeNotifier {
   // BADGES EM PROGRESSO
   // =====================================================
 
+  // =========================================================================
+  // CARREGAR BADGES EM PROGRESSO
+  //
+  // Obtém os badges em progresso através da API.
+  // Depois guarda uma versão resumida de cada badge na tabela
+  // "badge_atribuido" do SQLite.
+  //
+  // Se a API falhar, tenta utilizar os registos locais dessa tabela.
+  // =========================================================================
   Future<void> _carregarBadgesProgresso(
     int userId,
   ) async {
@@ -462,12 +607,14 @@ class UtilizadorProvider with ChangeNotifier {
         '========== BADGES EM PROGRESSO ==========',
       );
 
+      // Pedido online dos badges que estão em desenvolvimento.
       final resultado =
           await _apiService
               .getBadgesProgresso(
         userId,
       );
 
+      // Cria uma lista tipada e atualiza o estado global.
       _badgesProgresso =
           List<Map<String, dynamic>>.from(
         resultado,
@@ -482,6 +629,7 @@ class UtilizadorProvider with ChangeNotifier {
         final badge in _badgesProgresso
       ) {
         try {
+          // Guarda uma versão resumida do badge na cache local.
           await _dbLocal.salvarRegisto(
             'badge_atribuido',
             {
@@ -545,6 +693,7 @@ class UtilizadorProvider with ChangeNotifier {
       print(stackTrace);
 
       try {
+        // Fallback: utiliza os badges atribuídos existentes no SQLite.
         final dadosLocais =
             await _dbLocal.listarTabela(
           'badge_atribuido',
@@ -570,6 +719,15 @@ class UtilizadorProvider with ChangeNotifier {
   // BADGES CONQUISTADOS
   // =====================================================
 
+  // =========================================================================
+  // CARREGAR BADGES CONQUISTADOS
+  //
+  // Obtém através da API os badges já conquistados pelo utilizador.
+  //
+  // Neste momento não existe um fallback SQLite completo porque a tabela local
+  // ainda não guarda todos os dados necessários, como nome, descrição e imagem.
+  // Por isso, se a API falhar, a lista fica vazia.
+  // =========================================================================
   Future<void> _carregarBadgesConquistados(
     int userId,
   ) async {
@@ -582,12 +740,14 @@ class UtilizadorProvider with ChangeNotifier {
         'Utilizador: $userId',
       );
 
+      // Pedido online dos badges já obtidos.
       final resultado =
           await _apiService
               .getBadgesConquistados(
         userId,
       );
 
+      // Atualiza a lista observada pelos ecrãs.
       _badgesConquistados =
           List<Map<String, dynamic>>.from(
         resultado,
@@ -631,6 +791,13 @@ class UtilizadorProvider with ChangeNotifier {
   // BADGES RECOMENDADOS
   // =====================================================
 
+  // =========================================================================
+  // CARREGAR BADGES RECOMENDADOS
+  //
+  // Obtém sugestões de badges através da API.
+  // Como ainda não existe cache local específica para estas recomendações,
+  // a lista fica vazia quando o pedido falha.
+  // =========================================================================
   Future<void> _carregarBadgesRecomendados(
     int userId,
   ) async {
@@ -639,12 +806,14 @@ class UtilizadorProvider with ChangeNotifier {
         '========== BADGES RECOMENDADOS ==========',
       );
 
+      // Pedido online das recomendações.
       final resultado =
           await _apiService
               .getBadgesRecomendados(
         userId,
       );
 
+      // Atualiza o estado global com uma lista tipada.
       _badgesRecomendados =
           List<Map<String, dynamic>>.from(
         resultado,
@@ -669,8 +838,20 @@ class UtilizadorProvider with ChangeNotifier {
   // UTILIZADORES
   // =====================================================
 
+  // =========================================================================
+  // CARREGAR UTILIZADORES
+  //
+  // Obtém a lista de utilizadores através da API.
+  // Para cada utilizador:
+  // - normaliza o ID e os restantes campos;
+  // - converte a aceitação dos termos para 0 ou 1;
+  // - guarda o registo na tabela "utilizador" do SQLite.
+  //
+  // Se a API falhar, lê diretamente a lista guardada no SQLite.
+  // =========================================================================
   Future<void> _carregarUtilizadores() async {
     try {
+      // Obtém todos os utilizadores através da API.
       final dadosRaw =
           await _apiService
               .getUtilizadores();
@@ -683,6 +864,7 @@ class UtilizadorProvider with ChangeNotifier {
       for (
         final user in _utilizadores
       ) {
+        // Adapta os nomes e os tipos dos campos ao esquema SQLite.
         final userLocal =
             <String, dynamic>{
           'id_utilizador':
@@ -715,6 +897,8 @@ class UtilizadorProvider with ChangeNotifier {
           'password':
               user['password'] ?? '',
 
+          // SQLite não possui um tipo booleano próprio.
+          // Por isso, true é guardado como 1 e false como 0.
           'aceitou_termos':
               (
                 user['aceitou_termos'] ==
@@ -731,6 +915,7 @@ class UtilizadorProvider with ChangeNotifier {
         };
 
         try {
+          // Cria ou atualiza o utilizador na base de dados local.
           await _dbLocal.salvarRegisto(
             'utilizador',
             userLocal,
@@ -751,6 +936,7 @@ class UtilizadorProvider with ChangeNotifier {
       print(stackTrace);
 
       try {
+        // Fallback offline: lê os utilizadores anteriormente guardados.
         _utilizadores =
             await _dbLocal.listarTabela(
           'utilizador',
@@ -771,6 +957,19 @@ class UtilizadorProvider with ChangeNotifier {
   // ATUALIZAR DASHBOARD POR SWIPE
   // =====================================================
 
+  // =========================================================================
+  // ATUALIZAR DASHBOARD POR SWIPE
+  //
+  // Utilizado no pull-to-refresh da página principal.
+  // Volta a carregar:
+  // - dashboard;
+  // - badges em progresso;
+  // - badges conquistados;
+  // - badges recomendados.
+  //
+  // No fim chama notifyListeners() para reconstruir os widgets que observam
+  // este Provider.
+  // =========================================================================
   Future<void> atualizarDashboard(
     int userId,
   ) async {
@@ -795,6 +994,8 @@ class UtilizadorProvider with ChangeNotifier {
         userId,
       );
 
+      // Apenas depois de todos os carregamentos estarem concluídos
+      // é que os widgets são avisados.
       notifyListeners();
 
       print(

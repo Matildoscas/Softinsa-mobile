@@ -1,76 +1,67 @@
+// ============================================================================
+// notificacoes_page.dart
+//
+// Página completa das notificações.
+// Permite filtrar, marcar individualmente como lida e marcar todas como lidas.
+// ============================================================================
+
 import 'package:flutter/material.dart';
+
+import '../database/basededados.dart';
+import '../models/notificacao_item.dart';
 import '../services/api_service.dart';
-import '../database/basededados.dart'; // Import da base de dados local SQFlite
 
-// ── MODELO ────────────────────────────────────────────────────────────────────
-class NotificationItem {
-  final String title;
-  final String description;
-  final String sender;
-  final String timeAgo;
-  final NotificationAvatarType avatarType;
-  final String? imageUrl;
-
-  NotificationItem({
-    required this.title,
-    required this.description,
-    required this.sender,
-    required this.timeAgo,
-    required this.avatarType,
-    this.imageUrl,
-  });
-
-  factory NotificationItem.fromJson(Map<String, dynamic> json) {
-    String dataFormatada = '—';
-    if (json['data_envio'] != null) {
-      try {
-        final data = DateTime.parse(json['data_envio'].toString());
-        dataFormatada = "${data.day.toString().padLeft(2, '0')}/${data.month.toString().padLeft(2, '0')}/${data.year}";
-      } catch (_) {
-        dataFormatada = json['data_envio'].toString();
-      }
-    }
-
-    NotificationAvatarType avatarType;
-    switch (json['tipo_notificacao']?.toString()) {
-      case 'Alerta':
-        avatarType = NotificationAvatarType.error;
-        break;
-      case 'Sistema':
-        avatarType = NotificationAvatarType.system;
-        break;
-      default:
-        avatarType = NotificationAvatarType.system;
-    }
-
-    return NotificationItem(
-      title: json['tipo_notificacao'] ?? 'Notificação',
-      description: json['conteudo'] ?? '',
-      sender: 'System',
-      timeAgo: dataFormatada,
-      avatarType: avatarType,
-    );
-  }
-}
-
-enum NotificationAvatarType { user, system, error }
-
-// ── PÁGINA ────────────────────────────────────────────────────────────────────
-class NotificacoesPage extends StatefulWidget {
+class NotificacoesPage
+    extends StatefulWidget {
   final int userId;
 
-  const NotificacoesPage({super.key, required this.userId});
+  const NotificacoesPage({
+    super.key,
+    required this.userId,
+  });
 
   @override
-  State<NotificacoesPage> createState() => _NotificacoesPageState();
+  State<NotificacoesPage> createState() =>
+      _NotificacoesPageState();
 }
 
-class _NotificacoesPageState extends State<NotificacoesPage> {
-  final ApiService _apiService = ApiService();
-  final Basededados _dbLocal = Basededados(); // Conexão local SQLite
+class _NotificacoesPageState
+    extends State<NotificacoesPage> {
+  static const Color _azul =
+      Color(0xFF4470AF);
 
-  List<NotificationItem> notifications = [];
-  bool isLoading = true;
+  final ApiService _apiService =
+      ApiService();
+
+  final Basededados _dbLocal =
+      Basededados();
+
+  List<AppNotificationItem>
+      _notifications = [];
+
+  bool _isLoading = true;
+  bool _aMarcarTodas = false;
+  String _filtro = 'TODAS';
+
+  List<AppNotificationItem>
+      get _filtradas {
+    if (_filtro == 'NAO_LIDAS') {
+      return _notifications
+          .where(
+            (item) => !item.lida,
+          )
+          .toList();
+    }
+
+    return _notifications;
+  }
+
+  int get _totalNaoLidas =>
+      _notifications
+          .where(
+            (item) => !item.lida,
+          )
+          .length;
 
   @override
   void initState() {
@@ -78,262 +69,705 @@ class _NotificacoesPageState extends State<NotificacoesPage> {
     _loadNotifications();
   }
 
-  Future<void> _loadNotifications() async {
-    List<Map<String, dynamic>> dataRaw = [];
-
-    try {
-      // 1. Tenta carregar as notificações frescas a partir do servidor
-      dataRaw = await _apiService.getNotifications(widget.userId);
-
-      // 2. MIRRORING: Atualiza a cache local gravando os dados no SQFlite (Upsert)
-      for (var n in dataRaw) {
-        await _dbLocal.salvarRegisto('notificacoes', {
-          'id_notificacoes': n['id_notificacoes'] ?? n['id'] ?? DateTime.now().millisecondsSinceEpoch,
-          'tipo_notificacao': n['tipo_notificacao'] ?? 'Notificação',
-          'conteudo': n['conteudo'] ?? '',
-          'data_envio': n['data_envio']?.toString(),
-          'estado_notificacao': n['estado_notificacao'] ?? 'Lido',
-        });
-      }
-    } catch (e) {
-      debugPrint("Modo Offline Ativo nas Notificações: Lendo do SQFlite... ($e)");
-      
-      // 3. FALLBACK: Em caso de erro de rede, consome as notificações guardadas localmente
-      dataRaw = await _dbLocal.listarTabela('notificacoes');
-    }
+  Future<void>
+      _loadNotifications() async {
+    List<Map<String, dynamic>>
+        dataRaw = [];
 
     if (mounted) {
       setState(() {
-        notifications = dataRaw.map((e) => NotificationItem.fromJson(e)).toList();
-        isLoading = false;
+        _isLoading = true;
       });
     }
+
+    try {
+      dataRaw =
+          await _apiService
+              .getNotifications(
+        widget.userId,
+      );
+
+      for (final n in dataRaw) {
+        await _guardarNaCache(n);
+      }
+    } catch (e) {
+      debugPrint(
+        'Modo offline nas notificações: $e',
+      );
+
+      dataRaw =
+          await _dbLocal.listarTabela(
+        'notificacoes',
+      );
+    }
+
+    if (!mounted) return;
+
+    setState(() {
+      _notifications = dataRaw
+          .map(
+            AppNotificationItem.fromJson,
+          )
+          .toList();
+
+      _isLoading = false;
+    });
+  }
+
+  Future<void> _guardarNaCache(
+    Map<String, dynamic> n,
+  ) async {
+    await _dbLocal.salvarRegisto(
+      'notificacoes',
+      {
+        'id_notificacoes':
+            n['id_notificacoes'] ??
+            n['id_notificacao'] ??
+            n['id'] ??
+            DateTime.now()
+                .millisecondsSinceEpoch,
+
+        'tipo_notificacao':
+            n['tipo_notificacao'] ??
+            n['tipo'] ??
+            'SISTEMA',
+
+        'conteudo':
+            n['conteudo'] ??
+            n['descricao'] ??
+            '',
+
+        'data_envio':
+            n['data_envio']
+                ?.toString(),
+
+        'estado_notificacao':
+            n['estado_notificacao'] ??
+            n['estado'] ??
+            'NÃO LIDA',
+      },
+    );
+  }
+
+  Future<void> _marcarLida(
+    AppNotificationItem item,
+  ) async {
+    if (item.lida || item.id <= 0) {
+      return;
+    }
+
+    try {
+      await _apiService
+          .marcarNotificacaoComoLida(
+        userId: widget.userId,
+        notificationId: item.id,
+      );
+
+      final atualizado =
+          item.copiarComoLida();
+
+      await _guardarNaCache(
+        atualizado.raw,
+      );
+
+      if (!mounted) return;
+
+      setState(() {
+        _notifications =
+            _notifications.map(
+          (atual) {
+            return atual.id == item.id
+                ? atualizado
+                : atual;
+          },
+        ).toList();
+      });
+    } catch (e) {
+      _mostrarErro(
+        e.toString().replaceFirst(
+          'Exception: ',
+          '',
+        ),
+      );
+    }
+  }
+
+  Future<void>
+      _marcarTodasLidas() async {
+    if (
+      _totalNaoLidas == 0 ||
+      _aMarcarTodas
+    ) {
+      return;
+    }
+
+    setState(() {
+      _aMarcarTodas = true;
+    });
+
+    try {
+      await _apiService
+          .marcarTodasNotificacoesComoLidas(
+        widget.userId,
+      );
+
+      final atualizadas =
+          _notifications
+              .map(
+                (item) =>
+                    item
+                        .copiarComoLida(),
+              )
+              .toList();
+
+      for (final item in atualizadas) {
+        await _guardarNaCache(
+          item.raw,
+        );
+      }
+
+      if (!mounted) return;
+
+      setState(() {
+        _notifications =
+            atualizadas;
+      });
+    } catch (e) {
+      _mostrarErro(
+        e.toString().replaceFirst(
+          'Exception: ',
+          '',
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _aMarcarTodas = false;
+        });
+      }
+    }
+  }
+
+  void _mostrarErro(String mensagem) {
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context)
+        .showSnackBar(
+      SnackBar(
+        content: Text(mensagem),
+        backgroundColor:
+            Colors.red.shade700,
+        behavior:
+            SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  IconData _icone(String tipo) {
+    if (tipo.contains('DESAFIO')) {
+      return Icons.track_changes;
+    }
+
+    if (
+      tipo.contains('REJEIT') ||
+      tipo.contains('ATRAS') ||
+      tipo == 'ALERTA'
+    ) {
+      return Icons.warning_amber_rounded;
+    }
+
+    if (
+      tipo.contains('APROV') ||
+      tipo.contains('ATRIBUIDO') ||
+      tipo.contains('CERTIFICADO')
+    ) {
+      return Icons.check_circle_outline;
+    }
+
+    if (
+      tipo.contains('LEMBRETE') ||
+      tipo.contains('AVISO')
+    ) {
+      return Icons.schedule;
+    }
+
+    return Icons.notifications_none;
+  }
+
+  Color _cor(String tipo) {
+    if (
+      tipo.contains('REJEIT') ||
+      tipo.contains('ATRAS') ||
+      tipo == 'ALERTA'
+    ) {
+      return const Color(0xFFB91C1C);
+    }
+
+    if (
+      tipo.contains('APROV') ||
+      tipo.contains('ATRIBUIDO') ||
+      tipo.contains('CERTIFICADO')
+    ) {
+      return const Color(0xFF15803D);
+    }
+
+    if (tipo.contains('DESAFIO')) {
+      return const Color(0xFFD4A017);
+    }
+
+    return _azul;
   }
 
   @override
   Widget build(BuildContext context) {
-    const double headerHeight = 65.0;
-
     return Scaffold(
-      backgroundColor: const Color(0xFFF7F7F7),
-      body: SafeArea(
-        child: Stack(
-          children: [
-            // ── CONTEÚDO SCROLLÁVEL ─────────────────────────────────
-            Positioned.fill(
-              child: Column(
+      backgroundColor:
+          const Color(0xFFF3F4F6),
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        surfaceTintColor:
+            Colors.white,
+        elevation: 0,
+        leading: IconButton(
+          onPressed: () =>
+              Navigator.pop(context),
+          icon: const Icon(
+            Icons.arrow_back,
+            color: _azul,
+          ),
+        ),
+        title: Image.asset(
+          'lib/img/logo.png',
+          height: 34,
+          fit: BoxFit.contain,
+        ),
+      ),
+      body: _isLoading
+          ? const Center(
+              child:
+                  CircularProgressIndicator(
+                color: _azul,
+              ),
+            )
+          : RefreshIndicator(
+              color: _azul,
+              onRefresh:
+                  _loadNotifications,
+              child: ListView(
+                physics:
+                    const AlwaysScrollableScrollPhysics(),
+                padding:
+                    const EdgeInsets.fromLTRB(
+                  16,
+                  18,
+                  16,
+                  28,
+                ),
                 children: [
-                  SizedBox(height: headerHeight),
-
-                  // Botão Voltar
-                  Container(
-                    color: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                    child: Row(
-                      children: [
-                        GestureDetector(
-                          onTap: () => Navigator.pop(context),
-                          child: const Row(
-                            children: [
-                              Icon(Icons.arrow_back, size: 20, color: Color(0xFF4470AF)),
-                              SizedBox(width: 8),
-                              Text(
-                                "Voltar",
-                                style: TextStyle(
-                                  fontSize: 15,
-                                  color: Color(0xFF4470AF),
-                                  fontWeight: FontWeight.w500,
-                                ),
+                  Row(
+                    crossAxisAlignment:
+                        CrossAxisAlignment
+                            .start,
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment:
+                              CrossAxisAlignment
+                                  .start,
+                          children: [
+                            const Text(
+                              'Notificações',
+                              style:
+                                  TextStyle(
+                                fontSize: 21,
+                                fontWeight:
+                                    FontWeight.bold,
                               ),
-                            ],
+                            ),
+                            const SizedBox(
+                              height: 4,
+                            ),
+                            Text(
+                              _totalNaoLidas == 0
+                                  ? 'Não tens notificações por ler.'
+                                  : 'Tens $_totalNaoLidas '
+                                      '${_totalNaoLidas == 1 ? 'notificação' : 'notificações'} '
+                                      'por ler.',
+                              style:
+                                  TextStyle(
+                                fontSize: 12,
+                                color: Colors
+                                    .grey
+                                    .shade600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      if (_totalNaoLidas > 0)
+                        TextButton.icon(
+                          onPressed:
+                              _aMarcarTodas
+                                  ? null
+                                  : _marcarTodasLidas,
+                          icon: _aMarcarTodas
+                              ? const SizedBox(
+                                  width: 15,
+                                  height: 15,
+                                  child:
+                                      CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : const Icon(
+                                  Icons
+                                      .done_all,
+                                  size: 17,
+                                ),
+                          label: const Text(
+                            'Marcar todas',
+                            style:
+                                TextStyle(
+                              fontSize: 11,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+
+                  Row(
+                    children: [
+                      ChoiceChip(
+                        label:
+                            const Text(
+                          'Todas',
+                        ),
+                        selected:
+                            _filtro ==
+                                'TODAS',
+                        selectedColor:
+                            _azul,
+                        labelStyle:
+                            TextStyle(
+                          color: _filtro ==
+                                  'TODAS'
+                              ? Colors.white
+                              : Colors
+                                  .black87,
+                        ),
+                        onSelected: (_) {
+                          setState(() {
+                            _filtro =
+                                'TODAS';
+                          });
+                        },
+                      ),
+                      const SizedBox(
+                        width: 8,
+                      ),
+                      ChoiceChip(
+                        label: Text(
+                          'Não lidas '
+                          '($_totalNaoLidas)',
+                        ),
+                        selected:
+                            _filtro ==
+                                'NAO_LIDAS',
+                        selectedColor:
+                            _azul,
+                        labelStyle:
+                            TextStyle(
+                          color: _filtro ==
+                                  'NAO_LIDAS'
+                              ? Colors.white
+                              : Colors
+                                  .black87,
+                        ),
+                        onSelected: (_) {
+                          setState(() {
+                            _filtro =
+                                'NAO_LIDAS';
+                          });
+                        },
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+
+                  if (_filtradas.isEmpty)
+                    _estadoVazio()
+                  else
+                    ..._filtradas.map(
+                      _notificationCard,
+                    ),
+                ],
+              ),
+            ),
+    );
+  }
+
+  Widget _notificationCard(
+    AppNotificationItem item,
+  ) {
+    final cor = _cor(item.tipo);
+
+    return Container(
+      margin:
+          const EdgeInsets.only(
+        bottom: 10,
+      ),
+      decoration: BoxDecoration(
+        color: item.lida
+            ? Colors.white
+            : const Color(
+                0xFFF3F7FD,
+              ),
+        borderRadius:
+            BorderRadius.circular(14),
+        border: Border.all(
+          color: item.lida
+              ? Colors.grey.shade200
+              : const Color(
+                  0xFFBFD4F4,
+                ),
+          width: item.lida ? 1 : 1.4,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black
+                .withOpacity(0.03),
+            blurRadius: 5,
+            offset:
+                const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: InkWell(
+        onTap: item.lida
+            ? null
+            : () => _marcarLida(
+                  item,
+                ),
+        borderRadius:
+            BorderRadius.circular(14),
+        child: Padding(
+          padding:
+              const EdgeInsets.all(
+            14,
+          ),
+          child: Row(
+            crossAxisAlignment:
+                CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 46,
+                height: 46,
+                decoration:
+                    BoxDecoration(
+                  color: cor
+                      .withOpacity(0.12),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  _icone(item.tipo),
+                  color: cor,
+                  size: 23,
+                ),
+              ),
+              const SizedBox(
+                width: 12,
+              ),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment:
+                      CrossAxisAlignment
+                          .start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            item.titulo,
+                            style:
+                                TextStyle(
+                              fontSize: 14,
+                              fontWeight:
+                                  item.lida
+                                      ? FontWeight.w600
+                                      : FontWeight.bold,
+                              color:
+                                  const Color(
+                                0xFF111827,
+                              ),
+                            ),
+                          ),
+                        ),
+                        if (!item.lida)
+                          Container(
+                            margin:
+                                const EdgeInsets
+                                    .only(
+                              left: 8,
+                            ),
+                            width: 8,
+                            height: 8,
+                            decoration:
+                                const BoxDecoration(
+                              color:
+                                  Color(
+                                0xFF2563EB,
+                              ),
+                              shape:
+                                  BoxShape.circle,
+                            ),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(
+                      height: 5,
+                    ),
+                    Text(
+                      item.descricao,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors
+                            .grey.shade700,
+                        height: 1.45,
+                      ),
+                    ),
+                    const SizedBox(
+                      height: 9,
+                    ),
+                    Row(
+                      children: [
+                        Icon(
+                          Icons
+                              .account_circle_outlined,
+                          size: 13,
+                          color: Colors
+                              .grey.shade500,
+                        ),
+                        const SizedBox(
+                          width: 4,
+                        ),
+                        Text(
+                          item.emissor,
+                          style:
+                              TextStyle(
+                            fontSize: 10,
+                            color: Colors
+                                .grey.shade600,
+                          ),
+                        ),
+                        const SizedBox(
+                          width: 8,
+                        ),
+                        Container(
+                          width: 3,
+                          height: 3,
+                          decoration:
+                              BoxDecoration(
+                            color: Colors
+                                .grey.shade400,
+                            shape:
+                                BoxShape.circle,
+                          ),
+                        ),
+                        const SizedBox(
+                          width: 8,
+                        ),
+                        Text(
+                          item.tempo,
+                          style:
+                              TextStyle(
+                            fontSize: 10,
+                            color: Colors
+                                .grey.shade600,
                           ),
                         ),
                       ],
                     ),
-                  ),
-
-                  Divider(height: 1, color: Colors.grey.shade200),
-
-                  // Listagem Dinâmica
-                  Expanded(
-                    child: isLoading
-                        ? const Center(
-                            child: CircularProgressIndicator(color: Color(0xFF4470AF)),
-                          )
-                        : notifications.isEmpty
-                            ? _estadoVazio()
-                            : ListView.separated(
-                                padding: EdgeInsets.zero,
-                                itemCount: notifications.length,
-                                separatorBuilder: (_, _) => Divider(
-                                  height: 1,
-                                  color: Colors.grey.shade200,
-                                ),
-                                itemBuilder: (context, index) =>
-                                    _notificationRow(notifications[index]),
-                              ),
-                  ),
-                ],
-              ),
-            ),
-
-            // ── FIXED HEADER LOGO ────────────────────────────────────
-            Positioned(
-              top: 0,
-              left: 0,
-              right: 0,
-              height: headerHeight,
-              child: Container(
-                color: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                child: Row(
-                  children: [
-                    Image.asset(
-                      'lib/img/logo.png',
-                      height: 35,
-                      fit: BoxFit.contain,
-                    ),
+                    if (!item.lida) ...[
+                      const SizedBox(
+                        height: 8,
+                      ),
+                      const Text(
+                        'Toca para marcar como lida',
+                        style:
+                            TextStyle(
+                          fontSize: 10,
+                          color: _azul,
+                          fontWeight:
+                              FontWeight.w600,
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
   }
 
-  Widget _notificationRow(NotificationItem item) {
-    return Container(
-      color: Colors.white,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Bloco Lateral de Metadados (Avatar + Emissor + Tempo)
-          SizedBox(
-            width: 80,
-            child: Column(
-              children: [
-                _buildAvatar(item),
-                const SizedBox(height: 6),
-                Text(
-                  item.sender,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                    color: Color(0xFF222222),
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  item.timeAgo,
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: Colors.grey.shade500,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-              ],
-            ),
-          ),
-
-          const SizedBox(width: 16),
-
-          // Bloco Central Informativo (Conteúdo)
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  item.title,
-                  style: const TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF111111),
-                    height: 1.3,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  item.description,
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: Colors.grey.shade600,
-                    height: 1.5,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildAvatar(NotificationItem item) {
-    switch (item.avatarType) {
-      case NotificationAvatarType.system:
-        return Container(
-          width: 64,
-          height: 64,
-          decoration: const BoxDecoration(
-            shape: BoxShape.circle,
-            color: Color(0xFF4CAF50),
-          ),
-          child: const Icon(Icons.check, color: Colors.white, size: 34),
-        );
-
-      case NotificationAvatarType.error:
-        return Container(
-          width: 64,
-          height: 64,
-          decoration: const BoxDecoration(
-            shape: BoxShape.circle,
-            color: Color(0xFFEF5350),
-          ),
-          child: const Icon(Icons.priority_high, color: Colors.white, size: 34),
-        );
-
-      case NotificationAvatarType.user:
-        if (item.imageUrl != null) {
-          return CircleAvatar(
-            radius: 32,
-            backgroundImage: NetworkImage(item.imageUrl!),
-          );
-        }
-        return Container(
-          width: 64,
-          height: 64,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: Colors.grey.shade200,
-          ),
-          child: Icon(Icons.person, color: Colors.grey.shade400, size: 34),
-        );
-    }
-  }
-
   Widget _estadoVazio() {
-    return Center(
+    return Container(
+      width: double.infinity,
+      padding:
+          const EdgeInsets.symmetric(
+        vertical: 42,
+        horizontal: 20,
+      ),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius:
+            BorderRadius.circular(14),
+        border: Border.all(
+          color: Colors.grey.shade200,
+        ),
+      ),
       child: Column(
-        mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.notifications_off_outlined, size: 52, color: Colors.grey.shade400),
-          const SizedBox(height: 12),
-          const Text(
-            "Sem notificações",
-            style: TextStyle(
+          Icon(
+            _filtro == 'NAO_LIDAS'
+                ? Icons.done_all
+                : Icons
+                    .notifications_off_outlined,
+            size: 48,
+            color:
+                Colors.grey.shade400,
+          ),
+          const SizedBox(
+            height: 11,
+          ),
+          Text(
+            _filtro == 'NAO_LIDAS'
+                ? 'Tudo em dia'
+                : 'Sem notificações',
+            style:
+                const TextStyle(
               fontSize: 15,
-              fontWeight: FontWeight.w600,
-              color: Color(0xFF555555),
+              fontWeight:
+                  FontWeight.w600,
             ),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(
+            height: 4,
+          ),
           Text(
-            "Não tens notificações de momento.",
-            style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
+            _filtro == 'NAO_LIDAS'
+                ? 'Não tens notificações por ler.'
+                : 'Não tens notificações de momento.',
+            textAlign:
+                TextAlign.center,
+            style: TextStyle(
+              fontSize: 12,
+              color:
+                  Colors.grey.shade600,
+            ),
           ),
         ],
       ),

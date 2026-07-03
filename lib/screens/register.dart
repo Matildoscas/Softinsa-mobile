@@ -1,9 +1,27 @@
+// ============================================================================
+// register.dart
+//
+// Primeiro passo do processo de registo.
+//
+// Responsabilidades principais:
+// - Recolher nome, email e password;
+// - Confirmar a password;
+// - Exigir a aceitação dos Termos de Serviço;
+// - Validar todos os campos;
+// - Abrir o texto dos Termos num AlertDialog;
+// - Passar os dados válidos para AreaRegisterPage.
+//
+// Este ecrã ainda não cria a conta. O POST final ocorre em area_register.dart.
+// ============================================================================
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart'; // Import adicionado
 import '../providers/utilizador_provider.dart'; // Import adicionado
 import 'login.dart';
 import 'area_register.dart';
 
+// StatefulWidget porque o formulário altera a visibilidade da password,
+// o valor da checkbox e o conteúdo dos campos.
 class RegisterPage extends StatefulWidget {
   const RegisterPage({super.key});
 
@@ -11,25 +29,42 @@ class RegisterPage extends StatefulWidget {
   _RegisterPageState createState() => _RegisterPageState();
 }
 
+// Estado mutável do primeiro passo do registo.
 class _RegisterPageState extends State<RegisterPage> {
+  // Controla se as passwords ficam escondidas.
   bool _obscureText = true;
+
+  // Guarda o estado da checkbox dos Termos de Serviço.
   bool _aceitouTermos = false;
 
+  // Controllers usados para ler os quatro campos do formulário.
   final TextEditingController _nomeController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passController = TextEditingController();
   final TextEditingController _confirmPassController = TextEditingController();
 
+  // =========================================================================
+  // INITSTATE
+  // Executado uma única vez quando o ecrã é criado.
+  // =========================================================================
   @override
   void initState() {
     super.initState();
     // CORREÇÃO CRÍTICA: Manda carregar as áreas da API imediatamente em background
     // enquanto o utilizador digita os dados de registo!
+    // Agenda a chamada para depois do primeiro frame, quando o context
+    // já pode consultar o Provider de forma segura.
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      // listen: false porque apenas executa uma ação e este ecrã
+      // não precisa reconstruir quando o Provider mudar.
       Provider.of<UtilizadorProvider>(context, listen: false).inicializarDados(0);
     });
   }
 
+  // =========================================================================
+  // DISPOSE
+  // Liberta os controllers quando o formulário deixa de existir.
+  // =========================================================================
   @override
   void dispose() {
     _nomeController.dispose();
@@ -39,12 +74,21 @@ class _RegisterPageState extends State<RegisterPage> {
     super.dispose();
   }
 
+  // =========================================================================
+  // AVANÇAR PARA A ÁREA
+  //
+  // Valida campos obrigatórios, formato do email, tamanho da password,
+  // confirmação da password e aceitação dos termos. Só depois navega
+  // para o segundo passo do registo.
+  // =========================================================================
   void _avancarParaArea() {
+    // Lê os valores atuais dos TextFields.
     final nome = _nomeController.text.trim();
     final email = _emailController.text.trim();
     final password = _passController.text;
     final confirmPassword = _confirmPassController.text;
 
+    // Validação dos campos obrigatórios.
     if (nome.isEmpty || email.isEmpty || password.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Preencha todos os campos obrigatórios!")),
@@ -52,6 +96,7 @@ class _RegisterPageState extends State<RegisterPage> {
       return;
     }
 
+    // Expressão regular simples para verificar a estrutura do email.
     final emailRegex = RegExp(r'^[^@]+@[^@]+\.[^@]+');
     if (!emailRegex.hasMatch(email)) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -60,6 +105,7 @@ class _RegisterPageState extends State<RegisterPage> {
       return;
     }
 
+    // Regra mínima de segurança definida para a password.
     if (password.length < 6) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("A password deve ter pelo menos 6 caracteres!")),
@@ -67,6 +113,7 @@ class _RegisterPageState extends State<RegisterPage> {
       return;
     }
 
+    // Impede avançar quando as duas passwords são diferentes.
     if (password != confirmPassword) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("As passwords não coincidem!")),
@@ -74,6 +121,7 @@ class _RegisterPageState extends State<RegisterPage> {
       return;
     }
 
+    // O consentimento é obrigatório para continuar o registo.
     if (!_aceitouTermos) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Deve aceitar os Termos de Serviço!")),
@@ -81,6 +129,7 @@ class _RegisterPageState extends State<RegisterPage> {
       return;
     }
 
+    // Envia os dados já validados para o segundo passo.
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -94,7 +143,12 @@ class _RegisterPageState extends State<RegisterPage> {
     );
   }
 
+  // =========================================================================
+  // ABRIR TERMOS DE SERVIÇO
+  // Mostra uma janela modal sem apagar o conteúdo do formulário.
+  // =========================================================================
   void _abrirTermosServico() {
+    // showDialog coloca um AlertDialog por cima do ecrã atual.
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
@@ -120,6 +174,10 @@ class _RegisterPageState extends State<RegisterPage> {
     );
   }
 
+  // =========================================================================
+  // BUILD
+  // Constrói o formulário e é repetido quando setState altera o estado.
+  // =========================================================================
   @override
   Widget build(BuildContext context) {
     const Color azulSoftinsa = Color(0xFF4470AF);
@@ -264,6 +322,7 @@ class _RegisterPageState extends State<RegisterPage> {
                           ),
                           const SizedBox(height: 20),
                           ElevatedButton(
+                            // Executa as validações antes de avançar.
                             onPressed: _avancarParaArea,
                             style: ElevatedButton.styleFrom(
                               backgroundColor: azulSoftinsa,

@@ -1,8 +1,29 @@
-import 'package:flutter/material.dart';
-import '../services/api_service.dart';
-import '../database/basededados.dart'; // Import central para o espelhamento do SQLite
+// ============================================================================
+// definicoes_page.dart
+//
+// Página principal de definições da conta do utilizador.
+//
+// Responsabilidades:
+// - Mostrar e editar nome e contacto;
+// - Enviar alterações do perfil para a API;
+// - Espelhar as alterações no SQLite;
+// - Alterar a password;
+// - Mostrar os Termos e Serviços;
+// - Terminar a sessão;
+// - Pedir confirmação e desativar a conta;
+// - Reutilizar componentes privados para secções, campos e opções.
+// ============================================================================
 
+// Widgets, navegação, formulários e diálogos.
+import 'package:flutter/material.dart';
+// Serviço utilizado para atualizar perfil, password e estado da conta.
+import '../services/api_service.dart';
+// Base de dados local usada para espelhar os dados atualizados do perfil.
+import '../database/basededados.dart';
+
+// StatefulWidget porque os campos, carregamento e dados do perfil mudam.
 class DefinicoesPage extends StatefulWidget {
+  // Dados do utilizador recebidos do ecrã anterior.
   final Map<String, dynamic> userData;
 
   const DefinicoesPage({
@@ -15,18 +36,23 @@ class DefinicoesPage extends StatefulWidget {
 }
 
 class _DefinicoesPageState extends State<DefinicoesPage> {
+  // Serviços utilizados para comunicação online e cache local.
   final ApiService api = ApiService();
-  final Basededados _dbLocal = Basededados(); // Instância local para sincronização de perfil
+  final Basededados _dbLocal = Basededados();
 
+  // São late porque dependem dos dados recebidos pelo widget.
   late TextEditingController nomeController;
   late TextEditingController contactoController;
 
+  // Controllers da secção de segurança.
   final passwordAtualController = TextEditingController();
   final novaPasswordController = TextEditingController();
   final confirmarPasswordController = TextEditingController();
 
+  // Controla o botão e o texto durante a atualização do perfil.
   bool isSaving = false;
 
+  // Inicializa os campos com os dados atuais do utilizador.
   @override
   void initState() {
     super.initState();
@@ -40,6 +66,7 @@ class _DefinicoesPageState extends State<DefinicoesPage> {
     );
   }
 
+  // Liberta todos os TextEditingController quando a página fecha.
   @override
   void dispose() {
     nomeController.dispose();
@@ -50,15 +77,22 @@ class _DefinicoesPageState extends State<DefinicoesPage> {
     super.dispose();
   }
 
+  // Getter que converte o ID recebido para int.
   int get userId {
     return int.parse(widget.userData['id_utilizador'].toString());
   }
 
-  // Sincronização Inteligente: Atualiza a API e espelha em cache no SQLite
+  // ==========================================================================
+  // ATUALIZAR PERFIL
+  //
+  // Valida o nome, envia os dados para a API, atualiza o Map em memória
+  // e guarda uma cópia no SQLite para utilização offline.
+  // ==========================================================================
   Future<void> atualizarPerfil() async {
     final String nomeTrim = nomeController.text.trim();
     final String contactoTrim = contactoController.text.trim();
 
+    // O nome é obrigatório.
     if (nomeTrim.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("O nome não pode ficar vazio.")),
@@ -66,10 +100,12 @@ class _DefinicoesPageState extends State<DefinicoesPage> {
       return;
     }
 
+    // Desativa o botão e apresenta "A guardar...".
     setState(() => isSaving = true);
 
     try {
       // 1. Envia os dados atualizados para a API
+      // Fonte principal: atualiza o registo no backend.
       final utilizadorAtualizado = await api.atualizarPerfilUtilizador(
         idUtilizador: userId,
         nomeCompleto: nomeTrim,
@@ -77,10 +113,12 @@ class _DefinicoesPageState extends State<DefinicoesPage> {
       );
 
       // 2. Atualiza a referência em memória local da App
+      // Mantém os dados da sessão atual coerentes com a resposta.
       widget.userData['nome_completo'] = utilizadorAtualizado['nome_completo'] ?? nomeTrim;
       widget.userData['contacto'] = utilizadorAtualizado['contacto'] ?? contactoTrim;
 
       // 3. MIRRORING: Salva na tabela local do SQFlite para que a Home e Perfil tenham acesso offline
+      // Espelha as alterações na cache SQLite.
       await _dbLocal.salvarRegisto('utilizador', {
         'id_utilizador': userId,
         'nome_completo': widget.userData['nome_completo'],
@@ -98,11 +136,19 @@ class _DefinicoesPageState extends State<DefinicoesPage> {
         SnackBar(content: Text("Não foi possível atualizar no servidor. Verifique a sua ligação.")),
       );
     } finally {
+      // É executado com sucesso ou erro, garantindo que o botão é reativado.
       if (mounted) setState(() => isSaving = false);
     }
   }
 
+  // ==========================================================================
+  // ALTERAR PASSWORD
+  //
+  // Confirma se as passwords coincidem e cumprem o tamanho mínimo.
+  // Depois envia a password atual e a nova password para a API.
+  // ==========================================================================
   Future<void> alterarPassword() async {
+    // Evita submeter duas passwords diferentes.
     if (novaPasswordController.text != confirmarPasswordController.text) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("As passwords não coincidem.")),
@@ -110,6 +156,7 @@ class _DefinicoesPageState extends State<DefinicoesPage> {
       return;
     }
 
+    // Regra mínima definida para a nova password.
     if (novaPasswordController.text.length < 6) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("A nova password deve ter pelo menos 6 caracteres.")),
@@ -118,12 +165,14 @@ class _DefinicoesPageState extends State<DefinicoesPage> {
     }
 
     try {
+      // A alteração de password exige ligação ao backend.
       await api.alterarPassword(
         idUtilizador: userId,
         passwordAtual: passwordAtualController.text,
         novaPassword: novaPasswordController.text,
       );
 
+      // Limpa dados sensíveis após uma alteração bem-sucedida.
       passwordAtualController.clear();
       novaPasswordController.clear();
       confirmarPasswordController.clear();
@@ -140,7 +189,14 @@ class _DefinicoesPageState extends State<DefinicoesPage> {
     }
   }
 
+  // ==========================================================================
+  // CONFIRMAR E DESATIVAR CONTA
+  //
+  // Apresenta um diálogo e só chama a API se o utilizador confirmar.
+  // A operação marca a conta como inativa; não a elimina fisicamente.
+  // ==========================================================================
   Future<void> confirmarExcluirConta() async {
+    // O diálogo devolve true, false ou null.
     final confirmar = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -163,9 +219,11 @@ class _DefinicoesPageState extends State<DefinicoesPage> {
       ),
     );
 
+    // Cancela tanto para false como para null.
     if (confirmar != true) return;
 
     try {
+      // Envia o pedido de desativação ao backend.
       await api.desativarConta(userId);
 
       if (!mounted) return;
@@ -182,6 +240,8 @@ class _DefinicoesPageState extends State<DefinicoesPage> {
     }
   }
 
+  // Abre o Login e remove toda a pilha de navegação anterior.
+  // Nota: este método não remove diretamente token/user do SharedPreferences.
   void terminarSessao() {
     Navigator.pushNamedAndRemoveUntil(
       context,
@@ -190,6 +250,7 @@ class _DefinicoesPageState extends State<DefinicoesPage> {
     );
   }
 
+  // Mostra os Termos e Serviços num AlertDialog.
   void abrirTermos() {
     showDialog(
       context: context,
@@ -212,6 +273,7 @@ class _DefinicoesPageState extends State<DefinicoesPage> {
     );
   }
 
+  // Constrói as secções Dados pessoais, Segurança e Conta.
   @override
   Widget build(BuildContext context) {
     const azul = Color(0xFF4470AF);
@@ -383,6 +445,7 @@ class _DefinicoesPageState extends State<DefinicoesPage> {
     );
   }
 
+  // Componente privado reutilizável para os cartões de cada secção.
   Widget _secao({
     required String titulo,
     required List<Widget> children,
@@ -412,6 +475,7 @@ class _DefinicoesPageState extends State<DefinicoesPage> {
     );
   }
 
+  // Componente privado que uniformiza o aspeto dos TextFields.
   Widget _campoTexto({
     required TextEditingController controller,
     required String label,
@@ -440,6 +504,7 @@ class _DefinicoesPageState extends State<DefinicoesPage> {
     );
   }
 
+  // Linha reutilizável para Termos, Logout e Exclusão de conta.
   Widget _opcao({
     required IconData icon,
     required String titulo,
