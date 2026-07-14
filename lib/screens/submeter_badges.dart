@@ -22,6 +22,7 @@ import '../services/api_service.dart';
 // SQLite utilizado para guardar candidaturas e evidências offline.
 import '../database/basededados.dart'; // Import central para salvar evidências offline
 import 'informacoes_badge.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 // Página identificada pelo utilizador e pelo badge selecionado.
 class SubmeterBadge extends StatefulWidget {
@@ -43,6 +44,11 @@ class SubmeterBadge extends StatefulWidget {
 // Estado do formulário: badge, descrição, ficheiro e submissão.
 class _SubmeterBadgeState extends State<SubmeterBadge> {
   static const Color _azul = Color(0xFF4470AF);
+  bool _autorizaPublicacaoBadge = false;
+  bool _autorizaAnalytics = false;
+
+  final TextEditingController _linkedinController =
+      TextEditingController();
 
   final ApiService _apiService = ApiService();
   final Basededados _dbLocal = Basededados(); // Instância local SQLite
@@ -417,9 +423,9 @@ class _SubmeterBadgeState extends State<SubmeterBadge> {
   }
 
   @override
-  // Liberta o TextEditingController quando a página é removida.
   void dispose() {
     _descricaoController.dispose();
+    _linkedinController.dispose();
     super.dispose();
   }
 
@@ -1031,11 +1037,62 @@ class _SubmeterBadgeState extends State<SubmeterBadge> {
       return;
     }
 
+    if (!_autorizaPublicacaoBadge) {
+      final continuar = await showDialog<bool>(
+        context: context,
+        builder: (_) => AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: const Text(
+            'Publicação não autorizada',
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          content: const Text(
+            'Podes submeter a candidatura sem autorizar a publicação. '
+            'Nesse caso, o badge poderá ficar disponível apenas internamente '
+            'e não será apresentado no perfil público.',
+            style: TextStyle(
+              fontSize: 13,
+              height: 1.4,
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Voltar'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context, true),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: _azul,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Continuar'),
+            ),
+          ],
+        ),
+      );
+
+      if (continuar != true) {
+        return;
+      }
+    }
+
     setState(() {
       _submetido = true;
     });
 
     try {
+
+      final prefs = await SharedPreferences.getInstance();
+
+      await prefs.setBool(
+        'rgpd_analytics_aceite',
+        _autorizaAnalytics,
+      );
       await _apiService
           .submeterEvidenciasPorRequisito(
         userId:
@@ -1050,10 +1107,12 @@ class _SubmeterBadgeState extends State<SubmeterBadge> {
         evidencias:
             evidencias,
 
-        /*
-        * Permite associar a candidatura
-        * ao lembrete ou desafio.
-        */
+        autorizaPublicacaoBadge:
+            _autorizaPublicacaoBadge,
+
+        linkedinPublicacaoBadge:
+            _linkedinController.text.trim(),
+
         idLembrete:
             widget.idLembrete,
       )
@@ -1211,6 +1270,137 @@ class _SubmeterBadgeState extends State<SubmeterBadge> {
         });
       }
     }
+  }
+
+  Widget _rgpdConsentimentoCard() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: _azul.withOpacity(0.3),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(
+                Icons.privacy_tip_outlined,
+                size: 18,
+                color: _azul,
+              ),
+              SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  'Consentimento RGPD',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 15,
+                  ),
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 10),
+
+          Text(
+            'Define como os dados deste badge poderão ser usados '
+            'após aprovação.',
+            style: TextStyle(
+              fontSize: 12,
+              color: Colors.grey.shade600,
+              height: 1.4,
+            ),
+          ),
+
+          const SizedBox(height: 12),
+
+          CheckboxListTile(
+            value: _autorizaPublicacaoBadge,
+            dense: true,
+            contentPadding: EdgeInsets.zero,
+            activeColor: _azul,
+            title: const Text(
+              'Autorizo a publicação deste badge no meu perfil público '
+              'Softinsa e a disponibilização do respetivo certificado.',
+              style: TextStyle(
+                fontSize: 12,
+                height: 1.35,
+              ),
+            ),
+            subtitle: const Text(
+              'Podes retirar este consentimento mais tarde nas definições.',
+              style: TextStyle(
+                fontSize: 11,
+                color: Colors.grey,
+              ),
+            ),
+            onChanged: _submetido
+                ? null
+                : (value) {
+                    setState(() {
+                      _autorizaPublicacaoBadge = value ?? false;
+                    });
+                  },
+          ),
+
+          const SizedBox(height: 6),
+
+          TextField(
+            controller: _linkedinController,
+            enabled: !_submetido,
+            decoration: InputDecoration(
+              labelText: 'LinkedIn para associação ao badge (opcional)',
+              hintText: 'https://www.linkedin.com/in/...',
+              hintStyle: TextStyle(
+                fontSize: 12,
+                color: Colors.grey.shade400,
+              ),
+              filled: true,
+              fillColor: const Color(0xFFF7F7F7),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide.none,
+              ),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: 12,
+              ),
+            ),
+            style: const TextStyle(fontSize: 13),
+          ),
+
+          const SizedBox(height: 10),
+
+          CheckboxListTile(
+            value: _autorizaAnalytics,
+            dense: true,
+            contentPadding: EdgeInsets.zero,
+            activeColor: _azul,
+            title: const Text(
+              'Autorizo a recolha de dados analíticos anónimos '
+              'para melhorar a aplicação.',
+              style: TextStyle(
+                fontSize: 12,
+                height: 1.35,
+              ),
+            ),
+            onChanged: _submetido
+                ? null
+                : (value) {
+                    setState(() {
+                      _autorizaAnalytics = value ?? false;
+                    });
+                  },
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -1517,6 +1707,10 @@ class _SubmeterBadgeState extends State<SubmeterBadge> {
                               ],
                             ),
                           ),
+
+                          const SizedBox(height: 16),
+
+                          _rgpdConsentimentoCard(),
                         ],
                       ),
                     ),

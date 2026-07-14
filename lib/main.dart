@@ -63,22 +63,35 @@ void main() async {
   // Configura o consentimento de recolha de dados para o Analytics.
   // Necessário para conformidade com o GDPR — indica que o utilizador
   // aceitou a recolha de dados analíticos e de publicidade.
+  final prefsAnalytics =
+    await SharedPreferences.getInstance();
+
+  final analyticsAceite =
+      prefsAnalytics.getBool('rgpd_analytics_aceite') ??
+      false;
+
   await FirebaseAnalytics.instance.setConsent(
-    analyticsStorageConsentGranted: true,
-    adStorageConsentGranted: true,
+    analyticsStorageConsentGranted: analyticsAceite,
+    adStorageConsentGranted: false,
   );
 
-  // Ativa explicitamente a recolha de dados pelo Analytics.
-  // Útil para reativar após ter sido desligada manualmente.
-  await FirebaseAnalytics.instance.setAnalyticsCollectionEnabled(true);
+  await FirebaseAnalytics.instance.setAnalyticsCollectionEnabled(
+    analyticsAceite,
+  );
 
-  // Envia um evento de teste ao Analytics para confirmar que está funcional.
-  // Visível na consola Firebase em "DebugView" durante desenvolvimento.
-  await FirebaseAnalytics.instance.logEvent(
-    name: 'app_iniciada_teste',
-    parameters: {
-      'origem': 'main', // Parâmetro personalizado para rastrear a origem do evento
-    },
+  if (analyticsAceite) {
+    await FirebaseAnalytics.instance.logEvent(
+      name: 'app_iniciada',
+      parameters: {
+        'origem': 'main',
+      },
+    );
+  }
+
+  print(
+    analyticsAceite
+        ? "✅ Analytics ativo com consentimento do utilizador"
+        : "ℹ️ Analytics desativado sem consentimento",
   );
 
   print("✅ Analytics ativo e evento app_iniciada_teste enviado");

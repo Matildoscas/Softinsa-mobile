@@ -1178,6 +1178,8 @@ class ApiService {
     required String comentario,
     required List<Map<String, dynamic>> evidencias,
     int? idLembrete,
+    required bool autorizaPublicacaoBadge,
+    String? linkedinPublicacaoBadge,
   }) async {
     final uri = Uri.parse(
       '$baseUrl/candidaturas/submeter-evidencias',
@@ -1197,6 +1199,17 @@ class ApiService {
     request.fields['id_utilizador'] = userId.toString();
     request.fields['id_badge_modelo'] = badgeId.toString();
     request.fields['comentario'] = comentario.trim();
+
+    request.fields['autoriza_publicacao_badge'] =
+    autorizaPublicacaoBadge ? 'true' : 'false';
+
+    if (
+      linkedinPublicacaoBadge != null &&
+      linkedinPublicacaoBadge.trim().isNotEmpty
+    ) {
+      request.fields['linkedin_publicacao_badge'] =
+          linkedinPublicacaoBadge.trim();
+    }
 
     if (idLembrete != null) {
       request.fields['id_lembrete'] = idLembrete.toString();
