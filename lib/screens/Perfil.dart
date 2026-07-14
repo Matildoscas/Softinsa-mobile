@@ -310,6 +310,11 @@ class _PerfilPageState extends ConsumerState<PerfilPage> {
   _BadgeBonusInfo _obterBonusBadge(
     Map<String, dynamic> badge,
   ) {
+    final int pontosBase =
+        _converterInteiro(
+      badge['pontos'],
+    );
+
     final int pontosExtra1 =
         _converterInteiro(
       badge['pontos_extra'],
@@ -320,7 +325,7 @@ class _PerfilPageState extends ConsumerState<PerfilPage> {
       badge['pontos_bonus'],
     );
 
-    final int pontosExtra =
+    int pontosExtra =
         pontosExtra1 > pontosExtra2
             ? pontosExtra1
             : pontosExtra2;
@@ -333,6 +338,10 @@ class _PerfilPageState extends ConsumerState<PerfilPage> {
           badge['premio_atribuido'],
         ) ||
         pontosExtra > 0;
+
+    if (ganhouBonus && pontosExtra == 0 && pontosBase > 0) {
+      pontosExtra = pontosBase;
+    }
 
     return _BadgeBonusInfo(
       ganhouBonus: ganhouBonus,
@@ -551,6 +560,15 @@ class _PerfilPageState extends ConsumerState<PerfilPage> {
     await _ensureTabelaCacheBadgesUtilizador();
     final db = await _dbLocal.database;
 
+    final badgeModelo = await _dbLocal.listarTabela('badge_modelo');
+    final modelosPorId = <String, Map<String, dynamic>>{};
+    for (final m in badgeModelo) {
+      final id = (m['id_badge_modelo'] ?? '').toString();
+      if (id.isNotEmpty) {
+        modelosPorId[id] = m;
+      }
+    }
+
     final rows = await db.query(
       'cache_badges_utilizador',
       where: 'id_utilizador = ?',
@@ -559,22 +577,42 @@ class _PerfilPageState extends ConsumerState<PerfilPage> {
 
     if (rows.isNotEmpty) {
       return rows.map((row) {
+        final idModelo = (row['id_badge_modelo'] ?? '').toString();
+        final modelo = modelosPorId[idModelo] ?? const <String, dynamic>{};
+
+        final nome = (row['nome_badge']?.toString().trim().isNotEmpty ?? false)
+            ? row['nome_badge']
+            : (modelo['nome_badge'] ?? 'Badge');
+
+        final descricao = (row['descricao_badge']?.toString().trim().isNotEmpty ?? false)
+            ? row['descricao_badge']
+            : (modelo['descricao_badge_modelo'] ?? 'Disponivel em cache offline.');
+
+        final imagem = row['imagem_url'] ?? modelo['imagem_url'];
+
+        final pontosBase = _converterInteiro(row['pontos'] ?? modelo['pontos']);
+        int pontosExtra = _converterInteiro(row['pontos_extra']);
+        final bool ganhouBonus = (row['ganhou_bonus'] ?? 0) == 1 || (row['premio_atribuido'] ?? 0) == 1;
+        if (ganhouBonus && pontosExtra == 0 && pontosBase > 0) {
+          pontosExtra = pontosBase;
+        }
+
         return <String, dynamic>{
           'id_badge_atribuido': row['id_badge_atribuido'],
           'id_badge_modelo': row['id_badge_modelo'],
           'id': row['id_badge_modelo'],
-          'nome': row['nome_badge'] ?? 'Badge',
-          'nome_badge': row['nome_badge'] ?? 'Badge',
-          'descricao': row['descricao_badge'] ?? '',
-          'descricao_badge_modelo': row['descricao_badge'] ?? '',
-          'pontos': row['pontos'] ?? 0,
-          'id_nivel': row['id_nivel'],
-          'imagem_url': row['imagem_url'],
-          'imagem': row['imagem_url'],
-          'pontos_extra': row['pontos_extra'] ?? 0,
-          'pontos_bonus': row['pontos_extra'] ?? 0,
-          'ganhou_bonus': (row['ganhou_bonus'] ?? 0) == 1,
-          'premio_atribuido': (row['premio_atribuido'] ?? 0) == 1,
+          'nome': nome,
+          'nome_badge': nome,
+          'descricao': descricao,
+          'descricao_badge_modelo': descricao,
+          'pontos': pontosBase,
+          'id_nivel': row['id_nivel'] ?? modelo['id_nivel'],
+          'imagem_url': imagem,
+          'imagem': imagem,
+          'pontos_extra': pontosExtra,
+          'pontos_bonus': pontosExtra,
+          'ganhou_bonus': ganhouBonus,
+          'premio_atribuido': ganhouBonus,
           'estado_badge_atribuido': row['estado_badge_atribuido'],
           'data_atribuicao': row['data_atribuicao'],
           'offline': true,
@@ -583,21 +621,12 @@ class _PerfilPageState extends ConsumerState<PerfilPage> {
     }
 
     final badgeAtribuido = await _dbLocal.listarTabela('badge_atribuido');
-    final badgeModelo = await _dbLocal.listarTabela('badge_modelo');
     final obtem = await _dbLocal.listarTabela('obtem');
 
     final idsAtribuidos = obtem
         .where((row) => row['id_utilizador'].toString() == userId.toString())
         .map((row) => row['id_badge_atribuido'].toString())
         .toSet();
-
-    final modelosPorId = <String, Map<String, dynamic>>{};
-    for (final m in badgeModelo) {
-      final id = (m['id_badge_modelo'] ?? '').toString();
-      if (id.isNotEmpty) {
-        modelosPorId[id] = m;
-      }
-    }
 
     final resultado = <Map<String, dynamic>>[];
     for (final atribuido in badgeAtribuido) {

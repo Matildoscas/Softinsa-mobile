@@ -520,11 +520,18 @@ class UtilizadorNotifier extends StateNotifier<UtilizadorState> {
     await _ensureTabelaCacheBadgesUtilizador();
 
     final db = await _dbLocal.database;
-    final pontosExtra =
-        int.tryParse((badge['pontos_extra'] ?? badge['pontos_bonus'] ?? 0).toString()) ?? 0;
+    final int pontosBase = int.tryParse((badge['pontos'] ?? 0).toString()) ?? 0;
+    int pontosExtra =
+      int.tryParse((badge['pontos_extra'] ?? badge['pontos_bonus'] ?? 0).toString()) ?? 0;
 
-    final ganhouBonus =
-        ((badge['ganhou_bonus'] == true) || (badge['premio_atribuido'] == true) || pontosExtra > 0) ? 1 : 0;
+    final bool ganhouBonusBool =
+      ((badge['ganhou_bonus'] == true) || (badge['premio_atribuido'] == true) || pontosExtra > 0);
+
+    if (ganhouBonusBool && pontosExtra == 0 && pontosBase > 0) {
+      pontosExtra = pontosBase;
+    }
+
+    final ganhouBonus = ganhouBonusBool ? 1 : 0;
 
     await db.insert(
       'cache_badges_utilizador',
@@ -644,7 +651,13 @@ class UtilizadorNotifier extends StateNotifier<UtilizadorState> {
           0;
 
       final badgesConquistados = int.tryParse(
-            (lp['badges_conquistados'] ?? lp['badges_conquistas_total'] ?? lp['conquistados'] ?? 0).toString(),
+            (lp['badges_conquistados'] ??
+                    lp['badges_concluidos'] ??
+                    lp['badges_conquistas_total'] ??
+                    lp['total_conquistados'] ??
+                    lp['conquistados'] ??
+                    0)
+                .toString(),
           ) ??
           0;
 
@@ -690,6 +703,8 @@ class UtilizadorNotifier extends StateNotifier<UtilizadorState> {
                 'nome_learningpaths': row['nome_learningpaths'],
                 'total_badges': row['total_badges'] ?? 0,
                 'badges_conquistados': row['badges_conquistados'] ?? 0,
+                'badges_conquistas_total': row['badges_conquistados'] ?? 0,
+                'total_conquistados': row['badges_conquistados'] ?? 0,
                 'percentagem': row['percentagem'] ?? 0,
                 'offline': true,
               })

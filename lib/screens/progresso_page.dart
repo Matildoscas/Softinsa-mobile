@@ -126,6 +126,11 @@ class _ProgressoPageState extends State<ProgressoPage> {
   _BadgeBonusInfo _obterBonusBadge(
     Map<String, dynamic> badge,
   ) {
+    final int pontosBase =
+        _converterInteiro(
+      badge['pontos'],
+    );
+
     final int pontosExtra1 =
         _converterInteiro(
       badge['pontos_extra'],
@@ -136,7 +141,7 @@ class _ProgressoPageState extends State<ProgressoPage> {
       badge['pontos_bonus'],
     );
 
-    final int pontosExtra =
+    int pontosExtra =
         pontosExtra1 > pontosExtra2
             ? pontosExtra1
             : pontosExtra2;
@@ -149,6 +154,11 @@ class _ProgressoPageState extends State<ProgressoPage> {
           badge['premio_atribuido'],
         ) ||
         pontosExtra > 0;
+
+    if (ganhouBonus && pontosExtra == 0 && pontosBase > 0) {
+      // Desafio concluido sem bonus explicito: assume bonus igual aos pontos base.
+      pontosExtra = pontosBase;
+    }
 
     return _BadgeBonusInfo(
       ganhouBonus: ganhouBonus,
@@ -909,13 +919,14 @@ class _ProgressoPageState extends State<ProgressoPage> {
               )
             : dashboardRaw;
 
+    final int pontosDashboard =
+        _converterInteiro(
+      dadosDashboard['pontos_atuais'] ??
+          dadosDashboard['total_pontos'],
+    );
+
     final bool dashboardTemPontos =
-        dadosDashboard.containsKey(
-          'pontos_atuais',
-        ) ||
-        dadosDashboard.containsKey(
-          'total_pontos',
-        );
+        pontosDashboard > 0;
 
     final int pontosCalculados =
         obtidosRaw.fold<int>(
@@ -929,14 +940,7 @@ class _ProgressoPageState extends State<ProgressoPage> {
 
     final int pontosTotalCalc =
         dashboardTemPontos
-            ? _converterInteiro(
-                dadosDashboard[
-                      'pontos_atuais'
-                    ] ??
-                    dadosDashboard[
-                      'total_pontos'
-                    ],
-              )
+            ? pontosDashboard
             : pontosCalculados;
 
     int _idBadge(
@@ -1129,7 +1133,13 @@ class _ProgressoPageState extends State<ProgressoPage> {
           0;
 
       final badgesConquistados = int.tryParse(
-            (lp['badges_conquistados'] ?? lp['badges_conquistas_total'] ?? lp['conquistados'] ?? 0).toString(),
+            (lp['badges_conquistados'] ??
+                    lp['badges_concluidos'] ??
+                    lp['badges_conquistas_total'] ??
+                    lp['total_conquistados'] ??
+                    lp['conquistados'] ??
+                    0)
+                .toString(),
           ) ??
           0;
 
@@ -1173,6 +1183,8 @@ class _ProgressoPageState extends State<ProgressoPage> {
         'nome_learningpaths': row['nome_learningpaths'],
         'total_badges': row['total_badges'] ?? 0,
         'badges_conquistados': row['badges_conquistados'] ?? 0,
+        'badges_conquistas_total': row['badges_conquistados'] ?? 0,
+        'total_conquistados': row['badges_conquistados'] ?? 0,
         'percentagem': row['percentagem'] ?? 0,
         'offline': true,
       };
@@ -1532,6 +1544,7 @@ class _ProgressoPageState extends State<ProgressoPage> {
     final int conquistados =
         _converterInteiro(
       lp['badges_conquistados'] ??
+          lp['badges_concluidos'] ??
           lp[
             'badges_conquistas_total'
           ] ??

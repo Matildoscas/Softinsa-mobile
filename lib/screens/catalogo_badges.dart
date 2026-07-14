@@ -129,7 +129,12 @@ class _CatalogoBadgesPageState extends State<CatalogoBadgesPage>
   BadgeBonusInfo _obterBonusBadge(
     Map<String, dynamic> badge,
   ) {
-    final int pontosExtra =
+    final int pontosBase =
+        _converterInteiro(
+      badge['pontos'],
+    );
+
+    int pontosExtra =
         _converterInteiro(
       badge['pontos_extra'] ??
           badge['pontos_bonus'],
@@ -141,6 +146,10 @@ class _CatalogoBadgesPageState extends State<CatalogoBadgesPage>
               badge['premio_atribuido'],
         ) ||
         pontosExtra > 0;
+
+    if (ganhouBonus && pontosExtra == 0 && pontosBase > 0) {
+      pontosExtra = pontosBase;
+    }
 
     return BadgeBonusInfo(
       ganhouBonus: ganhouBonus,
@@ -258,6 +267,12 @@ class _CatalogoBadgesPageState extends State<CatalogoBadgesPage>
   // 6. Extrai os níveis, aplica os filtros e termina o carregamento.
   // =========================================================================
   Future<void> carregarDados() async {
+    if (mounted) {
+      setState(() {
+        isLoading = true;
+      });
+    }
+
     final int userId =
         int.tryParse(widget.userData['id_utilizador']?.toString() ?? '') ?? 0;
 
@@ -266,18 +281,19 @@ class _CatalogoBadgesPageState extends State<CatalogoBadgesPage>
     List<Map<String, dynamic>> pendentes = <Map<String, dynamic>>[];
 
     try {
-      todos = await _apiService.getTodosBadges();
-      obtidos = await _apiService.getBadgesConquistados(userId);
-      pendentes = await _apiService.getCandidaturasPendentes(userId);
+      try {
+        todos = await _apiService.getTodosBadges();
+        obtidos = await _apiService.getBadgesConquistados(userId);
+        pendentes = await _apiService.getCandidaturasPendentes(userId);
 
-      await _guardarCatalogoCache(todos);
-      await _guardarBadgesUtilizadorCache(userId, obtidos);
-    } catch (e) {
-      debugPrint('Modo offline no catálogo: $e');
-      todos = await _carregarCatalogoDoCache();
-      obtidos = await _carregarBadgesUtilizadorDoCache(userId);
-      pendentes = <Map<String, dynamic>>[];
-    }
+        await _guardarCatalogoCache(todos);
+        await _guardarBadgesUtilizadorCache(userId, obtidos);
+      } catch (e) {
+        debugPrint('Modo offline no catálogo: $e');
+        todos = await _carregarCatalogoDoCache();
+        obtidos = await _carregarBadgesUtilizadorDoCache(userId);
+        pendentes = <Map<String, dynamic>>[];
+      }
 
     // 3. Merge: para cada badge do catálogo, procuramos se o utilizador
     //    tem dados (progress, data_conquista, conquistado)
@@ -375,50 +391,64 @@ class _CatalogoBadgesPageState extends State<CatalogoBadgesPage>
       };
     }).toList();
 
-    if (mounted) {
-      setState(() {
-        todosBadges = merged;
-        _extrairNiveis();
+      if (mounted) {
+        setState(() {
+          todosBadges = merged;
+          _extrairNiveis();
 
-        var lista = todosBadges.where((b) {
-          final matchPesquisa = pesquisa.isEmpty ||
-              (b['nome'] ?? '')
+          var lista = todosBadges.where((b) {
+            final matchPesquisa = pesquisa.isEmpty ||
+                (b['nome'] ?? '')
+                    .toString()
+                    .toLowerCase()
+                    .contains(pesquisa.toLowerCase()) ||
+                (b['descricao'] ?? '')
+                    .toString()
+                    .toLowerCase()
+                    .contains(pesquisa.toLowerCase());
+
+            final matchNivel =
+                filtroNivel == null ||
+                obterNivel(b['id_nivel']) == filtroNivel;
+
+            return matchPesquisa && matchNivel;
+          }).toList();
+
+          if (ordenacao == 'az') {
+            lista.sort(
+              (a, b) => (a['nome'] ?? '')
                   .toString()
-                  .toLowerCase()
-                  .contains(pesquisa.toLowerCase()) ||
-              (b['descricao'] ?? '')
+                  .compareTo(
+                    (b['nome'] ?? '').toString(),
+                  ),
+            );
+          } else if (ordenacao == 'za') {
+            lista.sort(
+              (a, b) => (b['nome'] ?? '')
                   .toString()
-                  .toLowerCase()
-                  .contains(pesquisa.toLowerCase());
+                  .compareTo(
+                    (a['nome'] ?? '').toString(),
+                  ),
+            );
+          }
 
-          final matchNivel =
-              filtroNivel == null ||
-              obterNivel(b['id_nivel']) == filtroNivel;
-
-          return matchPesquisa && matchNivel;
-        }).toList();
-
-        if (ordenacao == 'az') {
-          lista.sort(
-            (a, b) => (a['nome'] ?? '')
-                .toString()
-                .compareTo(
-                  (b['nome'] ?? '').toString(),
-                ),
-          );
-        } else if (ordenacao == 'za') {
-          lista.sort(
-            (a, b) => (b['nome'] ?? '')
-                .toString()
-                .compareTo(
-                  (a['nome'] ?? '').toString(),
-                ),
-          );
-        }
-
-        badgesFiltrados = lista;
-        isLoading = false;
-      });
+          badgesFiltrados = lista;
+        });
+      }
+    } catch (e) {
+      debugPrint('Erro inesperado no catálogo: $e');
+      if (mounted) {
+        setState(() {
+          todosBadges = <Map<String, dynamic>>[];
+          badgesFiltrados = <Map<String, dynamic>>[];
+        });
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          isLoading = false;
+        });
+      }
     }
   }
 
@@ -554,6 +584,15 @@ class _CatalogoBadgesPageState extends State<CatalogoBadgesPage>
     await _ensureTabelaCacheBadgesUtilizador();
     final db = await _dbLocal.database;
 
+    final badgeModelo = await _dbLocal.listarTabela('badge_modelo');
+    final modelosPorId = <String, Map<String, dynamic>>{};
+    for (final m in badgeModelo) {
+      final id = (m['id_badge_modelo'] ?? '').toString();
+      if (id.isNotEmpty) {
+        modelosPorId[id] = m;
+      }
+    }
+
     final rows = await db.query(
       'cache_badges_utilizador',
       where: 'id_utilizador = ?',
@@ -561,22 +600,42 @@ class _CatalogoBadgesPageState extends State<CatalogoBadgesPage>
     );
 
     return rows.map((row) {
+      final idModelo = (row['id_badge_modelo'] ?? '').toString();
+      final modelo = modelosPorId[idModelo] ?? const <String, dynamic>{};
+
+      final nome = (row['nome_badge']?.toString().trim().isNotEmpty ?? false)
+          ? row['nome_badge']
+          : (modelo['nome_badge'] ?? 'Badge');
+
+      final descricao = (row['descricao_badge']?.toString().trim().isNotEmpty ?? false)
+          ? row['descricao_badge']
+          : (modelo['descricao_badge_modelo'] ?? 'Disponivel em cache offline.');
+
+      final imagem = row['imagem_url'] ?? modelo['imagem_url'];
+
+      final pontosBase = _converterInteiro(row['pontos'] ?? modelo['pontos']);
+      int pontosExtra = _converterInteiro(row['pontos_extra']);
+      final bool ganhouBonus = (row['ganhou_bonus'] ?? 0) == 1 || (row['premio_atribuido'] ?? 0) == 1;
+      if (ganhouBonus && pontosExtra == 0 && pontosBase > 0) {
+        pontosExtra = pontosBase;
+      }
+
       return <String, dynamic>{
         'id_badge_atribuido': row['id_badge_atribuido'],
         'id_badge_modelo': row['id_badge_modelo'],
         'id': row['id_badge_modelo'],
-        'nome': row['nome_badge'] ?? 'Badge',
-        'nome_badge': row['nome_badge'] ?? 'Badge',
-        'descricao': row['descricao_badge'] ?? '',
-        'descricao_badge_modelo': row['descricao_badge'] ?? '',
-        'pontos': row['pontos'] ?? 0,
-        'id_nivel': row['id_nivel'],
-        'imagem_url': row['imagem_url'],
-        'imagem': row['imagem_url'],
-        'pontos_extra': row['pontos_extra'] ?? 0,
-        'pontos_bonus': row['pontos_extra'] ?? 0,
-        'ganhou_bonus': (row['ganhou_bonus'] ?? 0) == 1,
-        'premio_atribuido': (row['premio_atribuido'] ?? 0) == 1,
+        'nome': nome,
+        'nome_badge': nome,
+        'descricao': descricao,
+        'descricao_badge_modelo': descricao,
+        'pontos': pontosBase,
+        'id_nivel': row['id_nivel'] ?? modelo['id_nivel'],
+        'imagem_url': imagem,
+        'imagem': imagem,
+        'pontos_extra': pontosExtra,
+        'pontos_bonus': pontosExtra,
+        'ganhou_bonus': ganhouBonus,
+        'premio_atribuido': ganhouBonus,
         'estado_badge_atribuido': row['estado_badge_atribuido'],
         'data_atribuicao': row['data_atribuicao'],
         'offline': true,
