@@ -31,6 +31,7 @@ import 'definicoes_page.dart';
 import 'progresso_page.dart';
 import 'dart:async';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'timeline_profissional_page.dart';
 
 class HomePage extends StatefulWidget {
   final Map<String, dynamic> userData;
@@ -635,6 +636,29 @@ class _HomePageState extends State<HomePage>
                             label: const Text(
                               'Catálogo de Badges',
                             ),
+                          ),
+
+                          const SizedBox(height: 10),
+
+                          ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF4470AF),
+                              foregroundColor: Colors.white,
+                              shape: const StadiumBorder(),
+                              elevation: 4,
+                            ),
+                            onPressed: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => TimelineProfissionalPage(
+                                    userData: widget.userData,
+                                  ),
+                                ),
+                              );
+                            },
+                            icon: const Icon(Icons.timeline),
+                            label: const Text('Timeline profissional'),
                           ),
 
                           const SizedBox(
