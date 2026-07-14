@@ -220,10 +220,34 @@ class ApiService {
       print('Login recusado com status 403.');
       print('Erro recebido: ${data['error']}');
 
+      final mensagem =
+          data['error']?.toString() ??
+          data['message']?.toString() ??
+          'Acesso recusado.';
+
+      final mensagemNormalizada =
+          mensagem.toLowerCase();
+
+      final contaPendenteAtivacao =
+          mensagemNormalizada.contains('ative a conta') ||
+          mensagemNormalizada.contains('password temporária') ||
+          mensagemNormalizada.contains('password temporaria') ||
+          mensagemNormalizada.contains('pendente de ativação') ||
+          mensagemNormalizada.contains('pendente de ativacao');
+
+      final emailNaoVerificado =
+          !contaPendenteAtivacao &&
+          (
+            mensagemNormalizada.contains('confirme o email') ||
+            mensagemNormalizada.contains('email não verificado') ||
+            mensagemNormalizada.contains('email nao verificado')
+          );
+
       return {
         'success': false,
-        'emailNaoVerificado': true,
-        'message': data['error'] ?? 'Email não verificado.',
+        'emailNaoVerificado': emailNaoVerificado,
+        'contaPendenteAtivacao': contaPendenteAtivacao,
+        'message': mensagem,
       };
     }
 

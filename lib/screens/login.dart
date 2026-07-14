@@ -190,6 +190,49 @@ class _LogPageState extends State<LogPage> {
         return;
       }
 
+      if (response['contaPendenteAtivacao'] == true) {
+        setState(() => _isLoading = false);
+
+        await showDialog(
+          context: context,
+          builder: (_) => AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            title: const Text(
+              'Conta pendente de ativação',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            content: Text(
+              response['message']?.toString() ??
+                  'Esta conta foi criada pelo administrador. '
+                  'Abra o email recebido, use a password temporária '
+                  'e defina uma nova password antes de iniciar sessão.',
+              style: const TextStyle(
+                fontSize: 13,
+                height: 1.4,
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text(
+                  'Entendi',
+                  style: TextStyle(
+                    color: Color(0xFF4470AF),
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+
+        return;
+      }
+
       // EMAIL DO CONSULTOR RETIDO EM VERIFICAÇÃO PENDENTE
       // Trata separadamente uma conta que ainda não confirmou o email.
       if (response['emailNaoVerificado'] == true) {
