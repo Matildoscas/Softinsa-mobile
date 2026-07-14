@@ -10,20 +10,22 @@
 // - Excel formatado com logótipo e todos os dados do certificado.
 // ============================================================================
 
+import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart' show rootBundle;
+import 'package:flutter/services.dart'
+    show Clipboard, ClipboardData, rootBundle;
 import 'package:open_filex/open_filex.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import 'package:syncfusion_flutter_xlsio/xlsio.dart' as xlsio;
-import '../config/app_config.dart';
-import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
+
+import '../config/app_config.dart';
 
 class CertificadoCompetenciasPage extends StatelessWidget {
   static const Color _azul = Color(0xFF4470AF);
@@ -59,6 +61,274 @@ class CertificadoCompetenciasPage extends StatelessWidget {
     if (valor is num) return valor.toInt();
 
     return int.tryParse(valor?.toString() ?? '') ?? 0;
+  }
+
+  List<dynamic> _converterParaLista(dynamic valor) {
+    if (valor == null) {
+      return [];
+    }
+
+    if (valor is List) {
+      return valor;
+    }
+
+    if (valor is String) {
+      final texto = valor.trim();
+
+      if (texto.isEmpty || texto.toLowerCase() == 'null') {
+        return [];
+      }
+
+      try {
+        final decoded = jsonDecode(texto);
+
+        if (decoded is List) {
+          return decoded;
+        }
+      } catch (_) {}
+
+      return texto
+          .split(RegExp(r'[\n;|•]+'))
+          .map((item) => item.trim())
+          .where((item) => item.isNotEmpty)
+          .toList();
+    }
+
+    return [];
+  }
+
+  String _textoCompetencia(dynamic item) {
+    if (item == null) {
+      return '';
+    }
+
+    if (item is Map) {
+      final mapa = Map<String, dynamic>.from(item);
+
+      final titulo = _primeiroTexto([
+        mapa['nome_competencia'],
+        mapa['competencia'],
+        mapa['titulo'],
+        mapa['nome'],
+        mapa['nome_requisito'],
+      ]);
+
+      final descricao = _primeiroTexto([
+        mapa['descricao_competencia'],
+        mapa['descricao'],
+        mapa['descricao_requisito'],
+      ]);
+
+      if (titulo.isNotEmpty && descricao.isNotEmpty) {
+        return '$titulo — $descricao';
+      }
+
+      if (titulo.isNotEmpty) {
+        return titulo;
+      }
+
+      return descricao;
+    }
+
+    return item.toString().trim();
+  }
+
+  List<dynamic> _obterRequisitosCertificado() {
+    final possibilidades = [
+      certificadoData['requisitos'],
+      certificadoData['requisitos_aprovados'],
+      certificadoData['requisitos_certificados'],
+      certificadoData['competencias_requisitos'],
+    ];
+
+    for (final valor in possibilidades) {
+      final lista = _converterParaLista(valor);
+
+      if (lista.isNotEmpty) {
+        return lista;
+      }
+    }
+
+    final badgeInterno = certificadoData['badge'];
+
+    if (badgeInterno is Map) {
+      final lista = _converterParaLista(
+        badgeInterno['requisitos'],
+      );
+
+      if (lista.isNotEmpty) {
+        return lista;
+      }
+    }
+
+    return [];
+  }
+
+  List<String> get _competenciasCertificadas {
+    final List<String> resultado = [];
+
+    final fontesDiretas = [
+      certificadoData['competencias_certificadas'],
+      certificadoData['competencias'],
+      certificadoData['competencias_detalhadas'],
+      certificadoData['skills'],
+      certificadoData['soft_skills'],
+      certificadoData['hard_skills'],
+    ];
+
+    for (final fonte in fontesDiretas) {
+      final lista = _converterParaLista(fonte);
+
+      for (final item in lista) {
+        final texto = _textoCompetencia(item);
+
+        if (texto.isNotEmpty && !resultado.contains(texto)) {
+          resultado.add(texto);
+        }
+      }
+    }
+
+    /*
+    * Fallback:
+    * se o backend ainda não tiver campo próprio de competências,
+    * usamos os requisitos como competências certificadas.
+    */
+    if (resultado.isEmpty) {
+      final requisitos = _obterRequisitosCertificado();
+
+      for (final requisito in requisitos) {
+        final texto = _textoCompetencia(requisito);
+
+        if (texto.isNotEmpty && !resultado.contains(texto)) {
+          resultado.add(texto);
+        }
+      }
+    }
+
+    return resultado;
+  }
+
+  Widget _competenciasCertificadasCard() {
+    final competencias = _competenciasCertificadas;
+
+    if (competencias.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: const Color(0xFFE5E7EB),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 34,
+                height: 34,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFEFF6FF),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(
+                  Icons.verified_outlined,
+                  color: _azul,
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 10),
+              const Expanded(
+                child: Text(
+                  'Competências certificadas',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF1F2937),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Competências comprovadas através dos requisitos aprovados neste badge.',
+            style: TextStyle(
+              fontSize: 12,
+              color: Colors.grey.shade600,
+              height: 1.4,
+            ),
+          ),
+          const SizedBox(height: 14),
+
+          ...competencias.asMap().entries.map(
+            (entry) {
+              final index = entry.key;
+              final competencia = entry.value;
+
+              return Container(
+                margin: const EdgeInsets.only(bottom: 9),
+                padding: const EdgeInsets.all(11),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF8FAFC),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: const Color(0xFFE2E8F0),
+                  ),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      width: 24,
+                      height: 24,
+                      decoration: const BoxDecoration(
+                        color: Color(0xFF4470AF),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Center(
+                        child: Text(
+                          '${index + 1}',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        competencia,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Color(0xFF374151),
+                          height: 1.35,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+        ],
+      ),
+    );
   }
 
   String _procurarNome(
@@ -471,6 +741,7 @@ class CertificadoCompetenciasPage extends StatelessWidget {
       const azulClaroPdf = PdfColor.fromInt(0xFFEFF6FF);
       const cinzentoPdf = PdfColor.fromInt(0xFF6B7280);
       const cinzentoClaroPdf = PdfColor.fromInt(0xFFE5E7EB);
+      final competencias = _competenciasCertificadas;
 
       documento.addPage(
         pw.Page(
@@ -554,6 +825,44 @@ class CertificadoCompetenciasPage extends StatelessWidget {
                       ),
                     ),
                     pw.SizedBox(height: 28),
+                    if (competencias.isNotEmpty) ...[
+                      pw.SizedBox(height: 14),
+                      pw.Text(
+                        'Competências certificadas',
+                        style: pw.TextStyle(
+                          fontSize: 14,
+                          fontWeight: pw.FontWeight.bold,
+                          color: PdfColor.fromInt(0xFF4470AF),
+                        ),
+                      ),
+                      pw.SizedBox(height: 8),
+                      pw.Container(
+                        width: double.infinity,
+                        padding: const pw.EdgeInsets.all(10),
+                        decoration: pw.BoxDecoration(
+                          border: pw.Border.all(
+                            color: PdfColors.grey300,
+                          ),
+                          borderRadius: pw.BorderRadius.circular(8),
+                        ),
+                        child: pw.Column(
+                          crossAxisAlignment: pw.CrossAxisAlignment.start,
+                          children: competencias.map(
+                            (competencia) {
+                              return pw.Padding(
+                                padding: const pw.EdgeInsets.only(bottom: 5),
+                                child: pw.Text(
+                                  '• $competencia',
+                                  style: const pw.TextStyle(
+                                    fontSize: 10,
+                                  ),
+                                ),
+                              );
+                            },
+                          ).toList(),
+                        ),
+                      ),
+                    ],
                     pw.Text(
                       'concluiu com sucesso todos os requisitos necessários '
                       'para a obtenção do badge',
@@ -758,8 +1067,7 @@ class CertificadoCompetenciasPage extends StatelessWidget {
       picture.width = 145;
       picture.height = 48;
 
-      final titleRange =
-          sheet.getRangeByName('C1:F2');
+      final titleRange = sheet.getRangeByName('C1:F2');
 
       titleRange.merge();
       titleRange.setText(
@@ -768,13 +1076,10 @@ class CertificadoCompetenciasPage extends StatelessWidget {
       titleRange.cellStyle.fontSize = 18;
       titleRange.cellStyle.bold = true;
       titleRange.cellStyle.fontColor = '#4470AF';
-      titleRange.cellStyle.hAlign =
-          xlsio.HAlignType.center;
-      titleRange.cellStyle.vAlign =
-          xlsio.VAlignType.center;
+      titleRange.cellStyle.hAlign = xlsio.HAlignType.center;
+      titleRange.cellStyle.vAlign = xlsio.VAlignType.center;
 
-      final subtitleRange =
-          sheet.getRangeByName('C3:F3');
+      final subtitleRange = sheet.getRangeByName('C3:F3');
 
       subtitleRange.merge();
       subtitleRange.setText(
@@ -782,32 +1087,26 @@ class CertificadoCompetenciasPage extends StatelessWidget {
       );
       subtitleRange.cellStyle.fontSize = 10;
       subtitleRange.cellStyle.fontColor = '#6B7280';
-      subtitleRange.cellStyle.hAlign =
-          xlsio.HAlignType.center;
+      subtitleRange.cellStyle.hAlign = xlsio.HAlignType.center;
 
-      final personRange =
-          sheet.getRangeByName('A5:F5');
+      final personRange = sheet.getRangeByName('A5:F5');
 
       personRange.merge();
       personRange.setText(_nomeConsultor);
       personRange.cellStyle.fontSize = 17;
       personRange.cellStyle.bold = true;
       personRange.cellStyle.fontColor = '#111827';
-      personRange.cellStyle.hAlign =
-          xlsio.HAlignType.center;
+      personRange.cellStyle.hAlign = xlsio.HAlignType.center;
 
-      final roleRange =
-          sheet.getRangeByName('A6:F6');
+      final roleRange = sheet.getRangeByName('A6:F6');
 
       roleRange.merge();
       roleRange.setText(_identificacaoProfissional);
       roleRange.cellStyle.fontSize = 11;
       roleRange.cellStyle.fontColor = '#6B7280';
-      roleRange.cellStyle.hAlign =
-          xlsio.HAlignType.center;
+      roleRange.cellStyle.hAlign = xlsio.HAlignType.center;
 
-      final badgeRange =
-          sheet.getRangeByName('A8:F9');
+      final badgeRange = sheet.getRangeByName('A8:F9');
 
       badgeRange.merge();
       badgeRange.setText(_badgeCompleto);
@@ -815,15 +1114,11 @@ class CertificadoCompetenciasPage extends StatelessWidget {
       badgeRange.cellStyle.bold = true;
       badgeRange.cellStyle.fontColor = '#315E9E';
       badgeRange.cellStyle.backColor = '#EFF6FF';
-      badgeRange.cellStyle.hAlign =
-          xlsio.HAlignType.center;
-      badgeRange.cellStyle.vAlign =
-          xlsio.VAlignType.center;
+      badgeRange.cellStyle.hAlign = xlsio.HAlignType.center;
+      badgeRange.cellStyle.vAlign = xlsio.VAlignType.center;
       badgeRange.cellStyle.wrapText = true;
-      badgeRange.cellStyle.borders.all.lineStyle =
-          xlsio.LineStyle.thin;
-      badgeRange.cellStyle.borders.all.color =
-          '#BFD4F4';
+      badgeRange.cellStyle.borders.all.lineStyle = xlsio.LineStyle.thin;
+      badgeRange.cellStyle.borders.all.color = '#BFD4F4';
 
       final dados = <MapEntry<String, String>>[
         MapEntry('Nome do consultor', _nomeConsultor),
@@ -839,18 +1134,19 @@ class CertificadoCompetenciasPage extends StatelessWidget {
         MapEntry('Data de emissão', _dataEmissao),
         MapEntry(
           'Código de verificação',
-          _codigoVerificacao,
+          _codigoVerificacao.isEmpty ? '—' : _codigoVerificacao,
         ),
-        MapEntry('URL de verificação', _urlVerificacao),
+        MapEntry(
+          'URL de verificação',
+          _urlVerificacao.isEmpty ? '—' : _urlVerificacao,
+        ),
       ];
 
       var row = 11;
 
       for (final dado in dados) {
-        final label =
-            sheet.getRangeByName('A$row:B$row');
-        final value =
-            sheet.getRangeByName('C$row:F$row');
+        final label = sheet.getRangeByName('A$row:B$row');
+        final value = sheet.getRangeByName('C$row:F$row');
 
         label.merge();
         value.merge();
@@ -861,25 +1157,64 @@ class CertificadoCompetenciasPage extends StatelessWidget {
         label.cellStyle.bold = true;
         label.cellStyle.fontColor = '#374151';
         label.cellStyle.backColor = '#F8FAFC';
-        label.cellStyle.vAlign =
-            xlsio.VAlignType.center;
+        label.cellStyle.vAlign = xlsio.VAlignType.center;
 
         value.cellStyle.fontColor = '#111827';
         value.cellStyle.wrapText = true;
-        value.cellStyle.vAlign =
-            xlsio.VAlignType.center;
+        value.cellStyle.vAlign = xlsio.VAlignType.center;
 
-        label.cellStyle.borders.all.lineStyle =
-            xlsio.LineStyle.thin;
-        value.cellStyle.borders.all.lineStyle =
-            xlsio.LineStyle.thin;
+        label.cellStyle.borders.all.lineStyle = xlsio.LineStyle.thin;
+        value.cellStyle.borders.all.lineStyle = xlsio.LineStyle.thin;
 
-        label.cellStyle.borders.all.color =
-            '#E5E7EB';
-        value.cellStyle.borders.all.color =
-            '#E5E7EB';
+        label.cellStyle.borders.all.color = '#E5E7EB';
+        value.cellStyle.borders.all.color = '#E5E7EB';
 
         row += 1;
+      }
+
+      final competencias = _competenciasCertificadas;
+
+      if (competencias.isNotEmpty) {
+        row += 2;
+
+        final tituloCompetencias =
+            sheet.getRangeByName('A$row:F$row');
+
+        tituloCompetencias.merge();
+        tituloCompetencias.setText('Competências certificadas');
+        tituloCompetencias.cellStyle.bold = true;
+        tituloCompetencias.cellStyle.fontSize = 13;
+        tituloCompetencias.cellStyle.fontColor = '#4470AF';
+        tituloCompetencias.cellStyle.backColor = '#EFF6FF';
+
+        row += 1;
+
+        for (final competencia in competencias) {
+          final bullet = sheet.getRangeByName('A$row:A$row');
+          final celulaCompetencia =
+              sheet.getRangeByName('B$row:F$row');
+
+          celulaCompetencia.merge();
+
+          bullet.setText('•');
+          celulaCompetencia.setText(competencia);
+
+          bullet.cellStyle.hAlign = xlsio.HAlignType.center;
+          bullet.cellStyle.vAlign = xlsio.VAlignType.top;
+
+          celulaCompetencia.cellStyle.wrapText = true;
+          celulaCompetencia.cellStyle.fontColor = '#111827';
+          celulaCompetencia.cellStyle.vAlign = xlsio.VAlignType.top;
+
+          bullet.cellStyle.borders.all.lineStyle = xlsio.LineStyle.thin;
+          celulaCompetencia.cellStyle.borders.all.lineStyle =
+              xlsio.LineStyle.thin;
+
+          bullet.cellStyle.borders.all.color = '#E5E7EB';
+          celulaCompetencia.cellStyle.borders.all.color = '#E5E7EB';
+
+          row += 1;
+        }
       }
 
       final signatureRow = row + 2;
@@ -901,27 +1236,23 @@ class CertificadoCompetenciasPage extends StatelessWidget {
         '____________________________\nTalent Manager',
       );
 
-      assinaturaSll.cellStyle.hAlign =
-          xlsio.HAlignType.center;
-      assinaturaTm.cellStyle.hAlign =
-          xlsio.HAlignType.center;
+      assinaturaSll.cellStyle.hAlign = xlsio.HAlignType.center;
+      assinaturaTm.cellStyle.hAlign = xlsio.HAlignType.center;
       assinaturaSll.cellStyle.wrapText = true;
       assinaturaTm.cellStyle.wrapText = true;
       assinaturaSll.cellStyle.fontColor = '#374151';
       assinaturaTm.cellStyle.fontColor = '#374151';
 
       sheet.getRangeByName('A1:A$row').columnWidth = 18;
-      sheet.getRangeByName('B1:B$row').columnWidth = 10;
+      sheet.getRangeByName('B1:B$row').columnWidth = 8;
       sheet.getRangeByName('C1:F$row').columnWidth = 16;
 
-      sheet.getRangeByName('A1:F$row').cellStyle.fontName =
-          'Arial';
+      sheet.getRangeByName('A1:F$row').cellStyle.fontName = 'Arial';
 
       final bytes = workbook.saveAsStream();
       workbook.dispose();
 
-      final directory =
-          await getApplicationDocumentsDirectory();
+      final directory = await getApplicationDocumentsDirectory();
 
       final filePath =
           '${directory.path}/certificado_'
@@ -934,11 +1265,9 @@ class CertificadoCompetenciasPage extends StatelessWidget {
         flush: true,
       );
 
-      final resultado =
-          await OpenFilex.open(filePath);
+      final resultado = await OpenFilex.open(filePath);
 
-      if (resultado.type != ResultType.done &&
-          context.mounted) {
+      if (resultado.type != ResultType.done && context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
@@ -1184,7 +1513,13 @@ class CertificadoCompetenciasPage extends StatelessWidget {
                 ),
               ),
             ),
-            const SizedBox(height: 38),
+
+            const SizedBox(height: 20),
+
+            _competenciasCertificadasCard(),
+
+            const SizedBox(height: 28),
+
             _previewMeta(
               icon: Icons.calendar_today_outlined,
               label: 'Data de emissão',
@@ -1328,69 +1663,112 @@ class CertificadoCompetenciasPage extends StatelessWidget {
         16,
         14,
       ),
-      child: Row(
-        children: [
-          Expanded(
-            child: OutlinedButton.icon(
-              onPressed: () => _gerarPDF(context),
-              icon: const Icon(
-                Icons.picture_as_pdf_outlined,
-                size: 18,
-              ),
-              label: const Text('Gerar PDF'),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: Colors.red.shade700,
-                side: BorderSide(
-                  color: Colors.red.shade200,
-                ),
-                padding: const EdgeInsets.symmetric(
-                  vertical: 13,
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: OutlinedButton.icon(
-              onPressed: () => _gerarExcel(context),
-              icon: const Icon(
-                Icons.grid_on_outlined,
-                size: 18,
-              ),
-              label: const Text('Gerar Excel'),
-              style: OutlinedButton.styleFrom(
-                foregroundColor:
-                    const Color(0xFF15803D),
-                side: const BorderSide(
-                  color: Color(0xFFBBF7D0),
-                ),
-                padding: const EdgeInsets.symmetric(
-                  vertical: 13,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final larguraBotao =
+              (constraints.maxWidth - 10) / 2;
+
+          return Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: [
+              SizedBox(
+                width: larguraBotao,
+                child: OutlinedButton.icon(
+                  onPressed: () => _gerarPDF(context),
+                  icon: const Icon(
+                    Icons.picture_as_pdf_outlined,
+                    size: 18,
+                  ),
+                  label: const Text(
+                    'PDF',
+                    style: TextStyle(fontSize: 12),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.red.shade700,
+                    side: BorderSide(
+                      color: Colors.red.shade200,
+                    ),
+                    padding: const EdgeInsets.symmetric(
+                      vertical: 13,
+                    ),
+                  ),
                 ),
               ),
-            ),
-          ),
-          Expanded(
-            child: OutlinedButton.icon(
-              onPressed: () => _copiarLinkVerificacao(context),
-              icon: const Icon(Icons.copy, size: 18),
-              label: const Text(
-                'Copiar link',
-                style: TextStyle(fontSize: 12),
+              SizedBox(
+                width: larguraBotao,
+                child: OutlinedButton.icon(
+                  onPressed: () => _gerarExcel(context),
+                  icon: const Icon(
+                    Icons.grid_on_outlined,
+                    size: 18,
+                  ),
+                  label: const Text(
+                    'Excel',
+                    style: TextStyle(fontSize: 12),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: const Color(0xFF15803D),
+                    side: const BorderSide(
+                      color: Color(0xFFBBF7D0),
+                    ),
+                    padding: const EdgeInsets.symmetric(
+                      vertical: 13,
+                    ),
+                  ),
+                ),
               ),
-            ),
-          ),
-          Expanded(
-            child: OutlinedButton.icon(
-              onPressed: () => _abrirLinkVerificacao(context),
-              icon: const Icon(Icons.open_in_new, size: 18),
-              label: const Text(
-                'Verificar',
-                style: TextStyle(fontSize: 12),
+              SizedBox(
+                width: larguraBotao,
+                child: OutlinedButton.icon(
+                  onPressed: () =>
+                      _copiarLinkVerificacao(context),
+                  icon: const Icon(
+                    Icons.copy,
+                    size: 18,
+                  ),
+                  label: const Text(
+                    'Copiar link',
+                    style: TextStyle(fontSize: 12),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: _azul,
+                    side: const BorderSide(
+                      color: Color(0xFFBFD4F4),
+                    ),
+                    padding: const EdgeInsets.symmetric(
+                      vertical: 13,
+                    ),
+                  ),
+                ),
               ),
-            ),
-          ),
-        ],
+              SizedBox(
+                width: larguraBotao,
+                child: OutlinedButton.icon(
+                  onPressed: () =>
+                      _abrirLinkVerificacao(context),
+                  icon: const Icon(
+                    Icons.open_in_new,
+                    size: 18,
+                  ),
+                  label: const Text(
+                    'Verificar',
+                    style: TextStyle(fontSize: 12),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: _azul,
+                    side: const BorderSide(
+                      color: Color(0xFFBFD4F4),
+                    ),
+                    padding: const EdgeInsets.symmetric(
+                      vertical: 13,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
