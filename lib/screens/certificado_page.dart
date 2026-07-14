@@ -21,6 +21,7 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import 'package:syncfusion_flutter_xlsio/xlsio.dart' as xlsio;
+import '../config/app_config.dart';
 
 class CertificadoCompetenciasPage extends StatelessWidget {
   static const Color _azul = Color(0xFF4470AF);
@@ -281,7 +282,8 @@ class CertificadoCompetenciasPage extends StatelessWidget {
   }
 
   String get _codigoVerificacao {
-    final existente = _primeiroTexto([
+    final existente =
+        _primeiroTexto([
       certificadoData['codigo_certificado'],
       certificadoData['codigo_verificacao'],
       certificadoData['codigo'],
@@ -293,47 +295,57 @@ class CertificadoCompetenciasPage extends StatelessWidget {
           : 'CERT-$existente';
     }
 
-    final idUtilizador = _primeiroTexto([
+    final idHistorico =
+        _primeiroTexto([
+      certificadoData['id_candidatura_historico'],
+      certificadoData['id_historico'],
+      userData['id_candidatura_historico'],
+    ]);
+
+    final idUtilizador =
+        _primeiroTexto([
       userData['id_utilizador'],
       userData['ID_UTILIZADOR'],
       certificadoData['id_utilizador'],
     ]);
 
-    final idBadge = _primeiroTexto([
-      certificadoData['id_badge_modelo'],
-      certificadoData['id'],
-      certificadoData['id_candidatura_historico'],
-    ]);
+    if (
+      idHistorico.isNotEmpty &&
+      idUtilizador.isNotEmpty
+    ) {
+      return 'CERT-$idHistorico-$idUtilizador';
+    }
 
-    return 'CERT-${idUtilizador.isEmpty ? 'U' : idUtilizador}-'
-        '${idBadge.isEmpty ? 'B' : idBadge}';
+    return '';
   }
 
   String get _urlVerificacao {
-    final existente = _primeiroTexto([
+    final existente =
+        _primeiroTexto([
       certificadoData['url_verificacao'],
+      certificadoData['url_certificado'],
     ]);
 
     if (existente.isNotEmpty) {
-      return existente
-          .replaceFirst('https://', '')
-          .replaceFirst('http://', '');
+      if (
+        existente.startsWith('http://') ||
+        existente.startsWith('https://')
+      ) {
+        return existente;
+      }
+
+      return '${AppConfig.webBaseUrl}/'
+          '${existente.replaceFirst(RegExp(r'^/+'), '')}';
     }
 
-    final idUtilizador = _primeiroTexto([
-      userData['id_utilizador'],
-      userData['ID_UTILIZADOR'],
-      certificadoData['id_utilizador'],
-    ]);
+    final codigo =
+        _codigoVerificacao;
 
-    final idBadge = _primeiroTexto([
-      certificadoData['id_badge_modelo'],
-      certificadoData['id'],
-    ]);
+    if (codigo.isEmpty) {
+      return '';
+    }
 
-    return 'softinsa.pt/badges/'
-        '${idUtilizador.isEmpty ? 'user' : idUtilizador}/'
-        '${idBadge.isEmpty ? 'badge' : idBadge}';
+    return '${AppConfig.webBaseUrl}/verificar/$codigo';
   }
 
   int get _pontos {
@@ -533,7 +545,7 @@ class CertificadoCompetenciasPage extends StatelessWidget {
                           ),
                           child: pw.BarcodeWidget(
                             barcode: pw.Barcode.qrCode(),
-                            data: 'https://$_urlVerificacao',
+                            data: _urlVerificacao,
                             width: 66,
                             height: 66,
                           ),
