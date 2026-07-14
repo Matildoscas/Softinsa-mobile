@@ -14,6 +14,7 @@ import 'package:flutter/material.dart';
 import 'dart:math' as math;
 import '../services/api_service.dart';
 import '../database/basededados.dart'; // Import central para fallbacks do SQFlite
+import 'package:shared_preferences/shared_preferences.dart';
 
 class _BadgeBonusInfo {
   final bool ganhouBonus;
@@ -22,6 +23,20 @@ class _BadgeBonusInfo {
   const _BadgeBonusInfo({
     required this.ganhouBonus,
     required this.pontosExtra,
+  });
+}
+
+class _MarcoConquista {
+  final String id;
+  final String titulo;
+  final String descricao;
+  final String icone;
+
+  const _MarcoConquista({
+    required this.id,
+    required this.titulo,
+    required this.descricao,
+    required this.icone,
   });
 }
 
@@ -54,6 +69,7 @@ class _ProgressoPageState extends State<ProgressoPage> {
 
   // Ranking / Destaques
   List<Map<String, dynamic>> ranking = [];
+  List<_MarcoConquista> marcosAlcancados = [];
 
   int _converterInteiro(
     dynamic valor,
@@ -415,6 +431,278 @@ class _ProgressoPageState extends State<ProgressoPage> {
     return unicos.values.toList();
   }
 
+  int _obterIdUtilizador() {
+    return int.tryParse(
+          widget.userData['id_utilizador']?.toString() ?? '',
+        ) ??
+        0;
+  }
+
+  List<_MarcoConquista> _calcularMarcos({
+    required int totalBadgesObtidos,
+    required int totalPontos,
+    required int badgesEspeciaisObtidos,
+    required bool concluiuDesafio,
+  }) {
+    final List<_MarcoConquista> lista = [];
+
+    if (totalBadgesObtidos >= 1) {
+      lista.add(
+        const _MarcoConquista(
+          id: 'MARCO_PRIMEIRO_BADGE',
+          titulo: 'Primeiro badge conquistado',
+          descricao: 'Conquistaste o teu primeiro badge na Softinsa Academy.',
+          icone: '🎉',
+        ),
+      );
+    }
+
+    if (totalBadgesObtidos >= 3) {
+      lista.add(
+        const _MarcoConquista(
+          id: 'MARCO_3_BADGES',
+          titulo: '3 badges conquistados',
+          descricao: 'Já conquistaste 3 badges. Continua o bom percurso!',
+          icone: '🔥',
+        ),
+      );
+    }
+
+    if (totalBadgesObtidos >= 5) {
+      lista.add(
+        const _MarcoConquista(
+          id: 'MARCO_5_BADGES',
+          titulo: '5 badges conquistados',
+          descricao: 'Atingiste a marca dos 5 badges conquistados.',
+          icone: '🏅',
+        ),
+      );
+    }
+
+    if (totalBadgesObtidos >= 10) {
+      lista.add(
+        const _MarcoConquista(
+          id: 'MARCO_10_BADGES',
+          titulo: '10 badges conquistados',
+          descricao: 'Chegaste aos 10 badges. Excelente evolução!',
+          icone: '🚀',
+        ),
+      );
+    }
+
+    if (totalPontos >= 100) {
+      lista.add(
+        const _MarcoConquista(
+          id: 'MARCO_100_PONTOS',
+          titulo: '100 pontos alcançados',
+          descricao: 'Já acumulaste pelo menos 100 pontos.',
+          icone: '⭐',
+        ),
+      );
+    }
+
+    if (totalPontos >= 500) {
+      lista.add(
+        const _MarcoConquista(
+          id: 'MARCO_500_PONTOS',
+          titulo: '500 pontos alcançados',
+          descricao: 'Atingiste uma marca importante de 500 pontos.',
+          icone: '💎',
+        ),
+      );
+    }
+
+    if (badgesEspeciaisObtidos >= 1) {
+      lista.add(
+        const _MarcoConquista(
+          id: 'MARCO_PRIMEIRO_ESPECIAL',
+          titulo: 'Primeiro badge especial',
+          descricao: 'Conquistaste o teu primeiro badge especial ou desafio.',
+          icone: '🏆',
+        ),
+      );
+    }
+
+    if (concluiuDesafio) {
+      lista.add(
+        const _MarcoConquista(
+          id: 'MARCO_DESAFIO_CONCLUIDO',
+          titulo: 'Desafio concluído',
+          descricao: 'Concluíste um desafio com bónus especial.',
+          icone: '⚡',
+        ),
+      );
+    }
+
+    return lista;
+  }
+
+  Future<void> _verificarCelebracaoMarcos(
+    List<_MarcoConquista> marcos,
+  ) async {
+    if (!mounted || marcos.isEmpty) {
+      return;
+    }
+
+    final int userId = _obterIdUtilizador();
+
+    if (userId == 0) {
+      return;
+    }
+
+    final prefs = await SharedPreferences.getInstance();
+
+    final String chave =
+        'marcos_celebrados_$userId';
+
+    final List<String> jaCelebrados =
+        prefs.getStringList(chave) ?? <String>[];
+
+    final List<_MarcoConquista> novos =
+        marcos.where((marco) {
+      return !jaCelebrados.contains(marco.id);
+    }).toList();
+
+    if (novos.isEmpty) {
+      return;
+    }
+
+    /*
+    * Mostra apenas um modal de cada vez.
+    * Escolhemos o último porque normalmente é o marco mais alto.
+    */
+    final _MarcoConquista marcoParaCelebrar =
+        novos.last;
+
+    final List<String> atualizados = [
+      ...jaCelebrados,
+      ...novos.map((marco) => marco.id),
+    ].toSet().toList();
+
+    await prefs.setStringList(
+      chave,
+      atualizados,
+    );
+
+    if (!mounted) {
+      return;
+    }
+
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) {
+        if (mounted) {
+          _mostrarModalCelebracaoMarco(
+            marcoParaCelebrar,
+          );
+        }
+      },
+    );
+  }
+
+  void _mostrarModalCelebracaoMarco(
+    _MarcoConquista marco,
+  ) {
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (_) {
+        return Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(22),
+          ),
+          child: Container(
+            padding: const EdgeInsets.all(22),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(22),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 76,
+                  height: 76,
+                  decoration: const BoxDecoration(
+                    color: Color(0xFFFFF7D6),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Center(
+                    child: Text(
+                      marco.icone,
+                      style: const TextStyle(
+                        fontSize: 38,
+                      ),
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 16),
+
+                const Text(
+                  'Marco alcançado!',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF4470AF),
+                  ),
+                ),
+
+                const SizedBox(height: 8),
+
+                Text(
+                  marco.titulo,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+
+                const SizedBox(height: 8),
+
+                Text(
+                  marco.descricao,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: Colors.grey.shade700,
+                    height: 1.4,
+                  ),
+                ),
+
+                const SizedBox(height: 20),
+
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF4470AF),
+                      foregroundColor: Colors.white,
+                      shape: const StadiumBorder(),
+                      padding: const EdgeInsets.symmetric(
+                        vertical: 13,
+                      ),
+                    ),
+                    onPressed: () {
+                      Navigator.pop(context);
+                    },
+                    child: const Text(
+                      'Continuar',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   @override
   // Executado uma vez quando a página é criada.
   void initState() {
@@ -721,6 +1009,39 @@ class _ProgressoPageState extends State<ProgressoPage> {
       }
     }
 
+    final bool concluiuDesafio =
+      obtidosRaw.any(
+    (badge) {
+      final bonus =
+          _obterBonusBadge(
+        badge,
+      );
+
+      final String tipo =
+          _normalizarTexto(
+        badge['tipo_lembrete'] ??
+            badge['tipoLembrete'] ??
+            badge['tipo_badge'] ??
+            badge['tipo'],
+      );
+
+      return bonus.ganhouBonus ||
+          bonus.pontosExtra > 0 ||
+          tipo.contains('DESAFIO');
+    },
+  );
+
+  final int totalBadgesObtidos =
+      comunsObtidos + especiaisObtidos;
+
+  final List<_MarcoConquista> marcosCalculados =
+      _calcularMarcos(
+    totalBadgesObtidos: totalBadgesObtidos,
+    totalPontos: pontosTotalCalc,
+    badgesEspeciaisObtidos: especiaisObtidos,
+    concluiuDesafio: concluiuDesafio,
+  );
+
     /*
     * Agora contamos o catálogo.
     * Se o badge estiver nos especiais conquistados,
@@ -764,8 +1085,12 @@ class _ProgressoPageState extends State<ProgressoPage> {
         badgesEspeciais = especiaisObtidos;
         totalBadgesEspeciais = especiaisTotal > 0 ? especiaisTotal : 4;
         ranking = top3Badges;
+        marcosAlcancados = marcosCalculados;
         isLoading = false;
       });
+      await _verificarCelebracaoMarcos(
+        marcosCalculados,
+      );
     }
   }
 
@@ -937,6 +1262,11 @@ class _ProgressoPageState extends State<ProgressoPage> {
                               ],
                             ),
                           ),
+                          const SizedBox(height: 16),
+
+                          _marcosSection(),
+
+                          const SizedBox(height: 16),
                         ],
                       ),
                     ),
@@ -1186,6 +1516,157 @@ class _ProgressoPageState extends State<ProgressoPage> {
           const SizedBox(height: 8),
         Text(label, style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
       ],
+    );
+  }
+
+  Widget _marcosSection() {
+    return _secaoCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Expanded(
+                child: Text(
+                  'Marcos alcançados',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 15,
+                  ),
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 9,
+                  vertical: 4,
+                ),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFEFF6FF),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  '${marcosAlcancados.length}',
+                  style: const TextStyle(
+                    color: Color(0xFF4470AF),
+                    fontWeight: FontWeight.bold,
+                    fontSize: 11,
+                  ),
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 6),
+
+          Text(
+            'Celebrações importantes do teu percurso.',
+            style: TextStyle(
+              fontSize: 12,
+              color: Colors.grey.shade600,
+            ),
+          ),
+
+          const SizedBox(height: 14),
+
+          if (marcosAlcancados.isEmpty)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF8F9FA),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: Colors.grey.shade200,
+                ),
+              ),
+              child: Text(
+                'Ainda não existem marcos alcançados. '
+                'Continua a conquistar badges para desbloquear celebrações.',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.grey.shade600,
+                  height: 1.4,
+                ),
+              ),
+            )
+          else
+            ...marcosAlcancados
+                .reversed
+                .take(4)
+                .map(
+                  (marco) => _marcoCard(
+                    marco,
+                  ),
+                ),
+        ],
+      ),
+    );
+  }
+
+  Widget _marcoCard(
+    _MarcoConquista marco,
+  ) {
+    return Container(
+      margin: const EdgeInsets.only(
+        bottom: 10,
+      ),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFFDF4),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: const Color(0xFFF0D36B),
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: const BoxDecoration(
+              color: Color(0xFFFFF7D6),
+              shape: BoxShape.circle,
+            ),
+            child: Center(
+              child: Text(
+                marco.icone,
+                style: const TextStyle(
+                  fontSize: 22,
+                ),
+              ),
+            ),
+          ),
+
+          const SizedBox(width: 12),
+
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  marco.titulo,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF9A6B00),
+                  ),
+                ),
+
+                const SizedBox(height: 3),
+
+                Text(
+                  marco.descricao,
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: Colors.grey.shade700,
+                    height: 1.3,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 
