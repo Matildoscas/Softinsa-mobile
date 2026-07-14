@@ -28,6 +28,7 @@ import 'Perfil.dart';
 import 'lembretes_page.dart';
 import 'informacoes_badge.dart';
 import 'definicoes_page.dart';
+import 'progresso_page.dart';
 
 class HomePage extends StatefulWidget {
   final Map<String, dynamic> userData;
@@ -265,6 +266,11 @@ class _HomePageState extends State<HomePage> {
             final listaRecomendados =
                 removerBadgesDuplicados(
               provider.badgesRecomendados,
+            );
+
+            final learningPaths =
+                List<Map<String, dynamic>>.from(
+              provider.learningPaths,
             );
 
             final int pontosAtuais =
@@ -546,6 +552,16 @@ class _HomePageState extends State<HomePage> {
                             height: 20,
                           ),
 
+                          // ============= LEARNING PATHS =============
+                          learningPathsDashboardCard(
+                            learningPaths: learningPaths,
+                            userData: widget.userData,
+                          ),
+
+                          const SizedBox(
+                            height: 8,
+                          ),
+
                           // ============= CONQUISTADOS =============
                           sectionHeader(
                             'Badges conquistados',
@@ -631,6 +647,246 @@ class _HomePageState extends State<HomePage> {
             );
           },
         ),
+      ),
+    );
+  }
+
+  Widget learningPathsDashboardCard({
+    required List<Map<String, dynamic>> learningPaths,
+    required Map<String, dynamic> userData,
+  }) {
+    final principais =
+        learningPaths.take(3).toList();
+
+    return Container(
+      margin: const EdgeInsets.symmetric(
+        horizontal: 16,
+        vertical: 8,
+      ),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment:
+                MainAxisAlignment.spaceBetween,
+            children: [
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment:
+                      CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Progresso nos Learning Paths',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                      ),
+                    ),
+                    SizedBox(height: 3),
+                    Text(
+                      'Acompanha o teu percurso de evolução',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: Colors.grey,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              TextButton(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) =>
+                          ProgressoPage(
+                        userData: userData,
+                      ),
+                    ),
+                  );
+                },
+                child: const Text(
+                  'Ver progresso',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Color(0xFF4470AF),
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 12),
+
+          if (principais.isEmpty)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(
+                vertical: 18,
+                horizontal: 12,
+              ),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF8F9FA),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                  color: Colors.grey.shade200,
+                ),
+              ),
+              child: Column(
+                children: [
+                  Icon(
+                    Icons.route_outlined,
+                    size: 30,
+                    color: Colors.grey.shade400,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Sem Learning Paths disponíveis.',
+                    style: TextStyle(
+                      color: Colors.grey.shade600,
+                      fontSize: 13,
+                    ),
+                  ),
+                ],
+              ),
+            )
+          else
+            ...principais.map(
+              (lp) => learningPathMiniItem(lp),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget learningPathMiniItem(
+    Map<String, dynamic> lp,
+  ) {
+    final String nome =
+        lp['nome_learningpath']
+            ?.toString() ??
+        lp['nome_learningpaths']
+            ?.toString() ??
+        lp['nome']
+            ?.toString() ??
+        'Learning Path';
+
+    final int total =
+        _converterInteiro(
+      lp['total_badges'] ??
+          lp['numero_badges'] ??
+          lp['badges_total'] ??
+          lp['total'] ??
+          lp['numero_servicelines'],
+    );
+
+    final int conquistados =
+        _converterInteiro(
+      lp['badges_conquistados'] ??
+          lp['badges_conquistas_total'] ??
+          lp['total_conquistados'] ??
+          lp['conquistados'],
+    );
+
+    int percentagem =
+        _converterInteiro(
+      lp['percentagem'] ??
+          lp['progresso_percentagem'],
+    );
+
+    if (
+      percentagem == 0 &&
+      total > 0 &&
+      conquistados > 0
+    ) {
+      percentagem =
+          ((conquistados / total) * 100)
+              .round();
+    }
+
+    percentagem =
+        percentagem.clamp(
+      0,
+      100,
+    );
+
+    final double progresso =
+        percentagem / 100;
+
+    return Padding(
+      padding: const EdgeInsets.only(
+        bottom: 14,
+      ),
+      child: Column(
+        crossAxisAlignment:
+            CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  nome,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF111827),
+                  ),
+                  maxLines: 1,
+                  overflow:
+                      TextOverflow.ellipsis,
+                ),
+              ),
+
+              const SizedBox(width: 8),
+
+              Text(
+                '$percentagem%',
+                style: const TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFF4470AF),
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 7),
+
+          ClipRRect(
+            borderRadius: BorderRadius.circular(10),
+            child: LinearProgressIndicator(
+              value: progresso,
+              minHeight: 7,
+              backgroundColor:
+                  Colors.grey.shade200,
+              color: const Color(0xFF4470AF),
+            ),
+          ),
+
+          const SizedBox(height: 5),
+
+          Text(
+            '$conquistados / $total badges concluídos',
+            style: TextStyle(
+              fontSize: 11,
+              color: Colors.grey.shade600,
+            ),
+          ),
+        ],
       ),
     );
   }

@@ -58,6 +58,8 @@ class UtilizadorProvider with ChangeNotifier {
   // Badges sugeridos pela aplicação para o utilizador.
   List<Map<String, dynamic>> _badgesRecomendados = [];
 
+  List<Map<String, dynamic>> _learningPaths = [];
+
   // Controla a apresentação de indicadores de carregamento na interface.
   bool _estaA_Carregar = false;
 
@@ -86,6 +88,9 @@ class UtilizadorProvider with ChangeNotifier {
 
   List<Map<String, dynamic>> get badgesRecomendados =>
       _badgesRecomendados;
+
+  List<Map<String, dynamic>> get learningPaths =>
+    _learningPaths;
 
   bool get estaA_Carregar =>
       _estaA_Carregar;
@@ -166,6 +171,10 @@ class UtilizadorProvider with ChangeNotifier {
       await _sincronizarAreas();
 
       await _carregarDashboard(userId);
+
+      await _carregarLearningPaths(
+        userId,
+      );
 
       await _carregarBadgesProgresso(
         userId,
@@ -587,6 +596,132 @@ class UtilizadorProvider with ChangeNotifier {
   }
 
   // =====================================================
+  // LEARNING PATHS
+  // =====================================================
+
+  Future<void> _carregarLearningPaths(
+    int userId,
+  ) async {
+    try {
+      print(
+        '========== LEARNING PATHS DASHBOARD ==========',
+      );
+
+      final resultado =
+          await _apiService
+              .getProgressoLearningPaths(
+        userId,
+      );
+
+      _learningPaths =
+          List<Map<String, dynamic>>.from(
+        resultado,
+      );
+
+      print(
+        '[LEARNING PATHS] Total recebido: '
+        '${_learningPaths.length}',
+      );
+
+      for (final lp in _learningPaths) {
+        try {
+          await _dbLocal.salvarRegisto(
+            'learningpaths',
+            {
+              'id_learningpaths':
+                  int.tryParse(
+                        (
+                          lp['id_learningpaths'] ??
+                          lp['id_learningpath'] ??
+                          lp['id'] ??
+                          0
+                        ).toString(),
+                      ) ??
+                      0,
+
+              'nome_learningpaths':
+                  lp['nome_learningpath'] ??
+                  lp['nome_learningpaths'] ??
+                  lp['nome'] ??
+                  'Learning Path',
+
+              'numero_servicelines':
+                  int.tryParse(
+                        (
+                          lp['total_badges'] ??
+                          lp['numero_badges'] ??
+                          lp['badges_total'] ??
+                          lp['total'] ??
+                          0
+                        ).toString(),
+                      ) ??
+                      0,
+            },
+          );
+        } catch (erroCache) {
+          print(
+            '[LEARNING PATHS] '
+            'Erro ao guardar na cache: '
+            '$erroCache',
+          );
+        }
+      }
+    } catch (erroApi, stackTrace) {
+      print(
+        '[LEARNING PATHS] Erro na API: '
+        '$erroApi',
+      );
+      print(stackTrace);
+
+      try {
+        final dadosLocais =
+            await _dbLocal.listarTabela(
+          'learningpaths',
+        );
+
+        _learningPaths =
+            dadosLocais.map(
+          (lp) {
+            return <String, dynamic>{
+              'id_learningpaths':
+                  lp['id_learningpaths'],
+
+              'id_learningpath':
+                  lp['id_learningpaths'],
+
+              'nome_learningpath':
+                  lp['nome_learningpaths'] ??
+                  'Learning Path',
+
+              'nome_learningpaths':
+                  lp['nome_learningpaths'] ??
+                  'Learning Path',
+
+              'total_badges':
+                  lp['numero_servicelines'] ??
+                  0,
+
+              'badges_conquistados':
+                  0,
+
+              'percentagem':
+                  0,
+            };
+          },
+        ).toList();
+      } catch (erroLocal) {
+        print(
+          '[LEARNING PATHS] '
+          'Erro na cache local: '
+          '$erroLocal',
+        );
+
+        _learningPaths = [];
+      }
+    }
+  }
+
+  // =====================================================
   // BADGES EM PROGRESSO
   // =====================================================
 
@@ -982,6 +1117,10 @@ class UtilizadorProvider with ChangeNotifier {
         userId,
       );
 
+      await _carregarLearningPaths(
+        userId,
+      );
+
       await _carregarBadgesProgresso(
         userId,
       );
@@ -1012,6 +1151,10 @@ class UtilizadorProvider with ChangeNotifier {
       print(
         '[REFRESH] Recomendados: '
         '${_badgesRecomendados.length}',
+      );
+      print(
+        '[REFRESH] Learning Paths: '
+        '${_learningPaths.length}',
       );
     } catch (e, stackTrace) {
       print(
