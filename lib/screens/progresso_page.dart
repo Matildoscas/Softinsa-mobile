@@ -207,11 +207,27 @@ class _ProgressoPageState extends State<ProgressoPage> {
   bool _isBadgeEspecial(
     Map<String, dynamic> badge,
   ) {
+    final _BadgeBonusInfo bonus =
+        _obterBonusBadge(
+      badge,
+    );
+
+    /*
+    * Regra dos desafios:
+    * Se o badge veio de um desafio com prémio/bónus,
+    * conta como badge especial.
+    */
+    if (bonus.ganhouBonus || bonus.pontosExtra > 0) {
+      return true;
+    }
+
     final String tipo =
         _normalizarTexto(
       badge['tipo_badge'] ??
           badge['tipoBadge'] ??
-          badge['tipo'],
+          badge['tipo'] ??
+          badge['tipo_lembrete'] ??
+          badge['tipoLembrete'],
     );
 
     final String codigoNivel =
@@ -230,13 +246,40 @@ class _ProgressoPageState extends State<ProgressoPage> {
           badge['titulo_nivel'],
     );
 
+    final String nomeBadge =
+        _normalizarTexto(
+      badge['nome'] ??
+          badge['nome_badge'] ??
+          badge['titulo'] ??
+          badge['descricao'],
+    );
+
+    /*
+    * Regra principal do tipo do badge.
+    */
     if (
       tipo == 'ESPECIAL' ||
-      tipo == 'SPECIAL'
+      tipo == 'SPECIAL' ||
+      tipo.contains('DESAFIO')
     ) {
       return true;
     }
 
+    /*
+    * Regra por nome.
+    * Serve para badges/desafios antigos onde o backend
+    * ainda não envia tipo_badge corretamente.
+    */
+    if (
+      nomeBadge.contains('DESAFIO') ||
+      nomeBadge.contains('CHALLENGE')
+    ) {
+      return true;
+    }
+
+    /*
+    * Regra do nível E.
+    */
     if (codigoNivel == 'E') {
       return true;
     }
@@ -257,8 +300,7 @@ class _ProgressoPageState extends State<ProgressoPage> {
 
     /*
     * Fallback antigo:
-    * só conta id_nivel 5 como especial quando o backend
-    * ainda não envia tipo_badge/codigo_nivel/nome_nivel.
+    * só usa id_nivel 5 se não houver informação melhor.
     */
     if (
       idNivel == 5 &&
@@ -640,28 +682,64 @@ class _ProgressoPageState extends State<ProgressoPage> {
               )
             : pontosCalculados;
 
-    // Conta quantos badges comuns e especiais existem no catálogo.
-    // Conta quantos badges comuns e especiais existem no catálogo.
-    int comunsTotal = 0;
-    int especiaisTotal = 0;
-
-    for (final badge in todosBadgesRaw) {
-      if (_isBadgeEspecial(badge)) {
-        especiaisTotal++;
-      } else {
-        comunsTotal++;
-      }
+    int _idBadge(
+      Map<String, dynamic> badge,
+    ) {
+      return int.tryParse(
+            (
+              badge['id'] ??
+              badge['id_badge_modelo'] ??
+              badge['badge_id'] ??
+              badge['id_badge_atribuido'] ??
+              ''
+            ).toString(),
+          ) ??
+          0;
     }
 
-    // Conta quantos badges comuns e especiais o consultor conquistou.
+    /*
+    * Primeiro vemos quais badges conquistados são especiais.
+    * Isto é importante para desafios, porque o catálogo geral
+    * nem sempre traz os campos de bónus/desafio.
+    */
+    final Set<int> idsEspeciaisObtidos = {};
+
     int comunsObtidos = 0;
     int especiaisObtidos = 0;
 
     for (final badge in obtidosRaw) {
+      final int id = _idBadge(badge);
+
       if (_isBadgeEspecial(badge)) {
         especiaisObtidos++;
+
+        if (id > 0) {
+          idsEspeciaisObtidos.add(id);
+        }
       } else {
         comunsObtidos++;
+      }
+    }
+
+    /*
+    * Agora contamos o catálogo.
+    * Se o badge estiver nos especiais conquistados,
+    * também conta como especial no total.
+    */
+    int comunsTotal = 0;
+    int especiaisTotal = 0;
+
+    for (final badge in todosBadgesRaw) {
+      final int id = _idBadge(badge);
+
+      final bool especial =
+          _isBadgeEspecial(badge) ||
+          idsEspeciaisObtidos.contains(id);
+
+      if (especial) {
+        especiaisTotal++;
+      } else {
+        comunsTotal++;
       }
     }
 
