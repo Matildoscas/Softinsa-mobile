@@ -16,6 +16,7 @@
 
 // Componentes visuais e navegação do Flutter.
 import 'package:flutter/material.dart';
+import 'package:sqflite/sqflite.dart';
 // Serviço utilizado para obter os badges conquistados.
 import '../services/api_service.dart';
 // Base de dados SQLite utilizada como cache offline.
@@ -363,60 +364,19 @@ class _MeusBadgesPageState extends State<MeusBadgesPage>
 
       // 2. Sincroniza com o SQFlite local para consulta offline posterior
       for (var b in dados) {
-        await _dbLocal.salvarRegisto('badge_atribuido', {
-          'id_badge_atribuido': b['id_badge_atribuido'] ?? b['id'] ?? 0,
-          'id_badge_modelo': b['id_badge_modelo'] ?? b['id'] ?? 0,
-          'data_atribuicao': b['data_atribuicao']?.toString(),
-          'estado_badge_atribuido': 'Conquistado',
-        });
+        await _guardarBadgeUtilizadorCache(
+          userId: userId,
+          badge: b,
+          estadoPadrao: 'Conquistado',
+        );
       }
     } catch (e) {
       debugPrint("Modo Offline Ativo em Os Seus Badges: $e");
 
-      // 3. Fallback: Se falhar a rede, carrega os dados diretamente do SQLite local
-      final dadosLocais = await _dbLocal.listarTabela('badge_atribuido');
-      
+      // 3. Fallback: Se falhar a rede, carrega os dados cacheados com detalhe
+      final badgesLocais = await _carregarBadgesUtilizadorDoCache(userId);
+
       if (mounted) {
-        final badgesLocais =
-            dadosLocais.map(
-          (e) => <String, dynamic>{
-            'id':
-                e['id_badge_modelo'],
-
-            'nome':
-                e['nome'] ??
-                'Badge Conquistado',
-
-            'descricao':
-                e['descricao'] ??
-                'Disponível em cache offline.',
-
-            'pontos':
-                e['pontos'] ??
-                0,
-
-            'data_atribuicao':
-                e['data_atribuicao'],
-
-            'id_nivel':
-                e['id_nivel'],
-
-            'imagem':
-                e['imagem'],
-
-            'imagem_url':
-                e['imagem_url'],
-
-            'ganhou_bonus':
-                e['ganhou_bonus'] ??
-                false,
-
-            'pontos_extra':
-                e['pontos_extra'] ??
-                0,
-          },
-        ).toList();
-
         setState(() {
           meusBadges =
               badgesLocais;
@@ -433,6 +393,193 @@ class _MeusBadgesPageState extends State<MeusBadgesPage>
         });
       }
     }
+  }
+
+  Future<void> _ensureTabelaCacheBadgesUtilizador() async {
+    final db = await _dbLocal.database;
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS cache_badges_utilizador (
+        id_utilizador INTEGER,
+        id_badge_modelo INTEGER,
+        id_badge_atribuido INTEGER,
+        nome_badge TEXT,
+        descricao_badge TEXT,
+        pontos INTEGER,
+        id_nivel INTEGER,
+        imagem_url TEXT,
+        pontos_extra INTEGER,
+        ganhou_bonus INTEGER,
+        premio_atribuido INTEGER,
+        estado_badge_atribuido TEXT,
+        data_atribuicao TEXT,
+        data_validade TEXT,
+        tipo_badge TEXT,
+        PRIMARY KEY (id_utilizador, id_badge_modelo, id_badge_atribuido)
+      )
+    ''');
+  }
+
+  Future<void> _guardarBadgeUtilizadorCache({
+    required int userId,
+    required Map<String, dynamic> badge,
+    required String estadoPadrao,
+  }) async {
+    await _ensureTabelaCacheBadgesUtilizador();
+    final db = await _dbLocal.database;
+
+    final idBadgeModelo =
+        int.tryParse((badge['id_badge_modelo'] ?? badge['id'] ?? badge['badge_id'] ?? 0).toString()) ?? 0;
+
+    if (idBadgeModelo == 0) {
+      return;
+    }
+
+    final idBadgeAtribuido =
+        int.tryParse((badge['id_badge_atribuido'] ?? badge['id'] ?? idBadgeModelo).toString()) ?? idBadgeModelo;
+
+    final pontosExtra =
+        int.tryParse((badge['pontos_extra'] ?? badge['pontos_bonus'] ?? 0).toString()) ?? 0;
+
+    final ganhouBonus =
+        ((badge['ganhou_bonus'] == true) || (badge['premio_atribuido'] == true) || pontosExtra > 0) ? 1 : 0;
+
+    await _dbLocal.salvarRegisto('badge_modelo', {
+      'id_badge_modelo': idBadgeModelo,
+      'id_serviceline': int.tryParse((badge['id_serviceline'] ?? 0).toString()),
+      'id_areas': int.tryParse((badge['id_areas'] ?? 0).toString()),
+      'id_nivel': int.tryParse((badge['id_nivel'] ?? 0).toString()),
+      'id_utilizador': userId,
+      'nome_badge': badge['nome_badge'] ?? badge['nome'] ?? 'Badge',
+      'descricao_badge_modelo': badge['descricao_badge_modelo'] ?? badge['descricao'] ?? '',
+      'data_criacao_badge_modelo': badge['data_atribuicao']?.toString(),
+      'estado_badge_modelo': badge['estado_badge_modelo'] ?? 'ATIVO',
+      'numero_requisitos': int.tryParse((badge['numero_requisitos'] ?? 0).toString()) ?? 0,
+      'pontos': int.tryParse((badge['pontos'] ?? 0).toString()) ?? 0,
+      'tempo_expiracao': badge['tempo_expiracao']?.toString(),
+      'imagem': null,
+    });
+
+    await _dbLocal.salvarRegisto('badge_atribuido', {
+      'id_badge_atribuido': idBadgeAtribuido,
+      'id_badge_modelo': idBadgeModelo,
+      'data_atribuicao': badge['data_atribuicao']?.toString(),
+      'data_validade': badge['data_validade']?.toString(),
+      'estado_badge_atribuido': badge['estado_badge_atribuido'] ?? estadoPadrao,
+    });
+
+    await _dbLocal.salvarRegisto('obtem', {
+      'id_utilizador': userId,
+      'id_badge_atribuido': idBadgeAtribuido,
+    });
+
+    await db.insert(
+      'cache_badges_utilizador',
+      {
+        'id_utilizador': userId,
+        'id_badge_modelo': idBadgeModelo,
+        'id_badge_atribuido': idBadgeAtribuido,
+        'nome_badge': badge['nome_badge'] ?? badge['nome'] ?? 'Badge',
+        'descricao_badge': badge['descricao_badge_modelo'] ?? badge['descricao'] ?? '',
+        'pontos': int.tryParse((badge['pontos'] ?? 0).toString()) ?? 0,
+        'id_nivel': int.tryParse((badge['id_nivel'] ?? 0).toString()) ?? 0,
+        'imagem_url': badge['imagem_url'] ?? badge['imagem']?.toString(),
+        'pontos_extra': pontosExtra,
+        'ganhou_bonus': ganhouBonus,
+        'premio_atribuido': ganhouBonus,
+        'estado_badge_atribuido': badge['estado_badge_atribuido'] ?? estadoPadrao,
+        'data_atribuicao': badge['data_atribuicao']?.toString(),
+        'data_validade': badge['data_validade']?.toString(),
+        'tipo_badge': badge['tipo_badge'] ?? badge['tipo']?.toString(),
+      },
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  Future<List<Map<String, dynamic>>> _carregarBadgesUtilizadorDoCache(int userId) async {
+    await _ensureTabelaCacheBadgesUtilizador();
+    final db = await _dbLocal.database;
+
+    final rows = await db.query(
+      'cache_badges_utilizador',
+      where: 'id_utilizador = ?',
+      whereArgs: [userId],
+    );
+
+    if (rows.isNotEmpty) {
+      return rows.map((row) {
+        return <String, dynamic>{
+          'id_badge_atribuido': row['id_badge_atribuido'],
+          'id_badge_modelo': row['id_badge_modelo'],
+          'id': row['id_badge_modelo'],
+          'nome': row['nome_badge'] ?? 'Badge',
+          'nome_badge': row['nome_badge'] ?? 'Badge',
+          'descricao': row['descricao_badge'] ?? '',
+          'descricao_badge_modelo': row['descricao_badge'] ?? '',
+          'pontos': row['pontos'] ?? 0,
+          'id_nivel': row['id_nivel'],
+          'imagem_url': row['imagem_url'],
+          'imagem': row['imagem_url'],
+          'pontos_extra': row['pontos_extra'] ?? 0,
+          'pontos_bonus': row['pontos_extra'] ?? 0,
+          'ganhou_bonus': (row['ganhou_bonus'] ?? 0) == 1,
+          'premio_atribuido': (row['premio_atribuido'] ?? 0) == 1,
+          'estado_badge_atribuido': row['estado_badge_atribuido'],
+          'data_atribuicao': row['data_atribuicao'],
+          'offline': true,
+        };
+      }).toList();
+    }
+
+    final badgeAtribuido = await _dbLocal.listarTabela('badge_atribuido');
+    final badgeModelo = await _dbLocal.listarTabela('badge_modelo');
+    final obtem = await _dbLocal.listarTabela('obtem');
+
+    final idsAtribuidos = obtem
+        .where((row) => row['id_utilizador'].toString() == userId.toString())
+        .map((row) => row['id_badge_atribuido'].toString())
+        .toSet();
+
+    final modelosPorId = <String, Map<String, dynamic>>{};
+    for (final m in badgeModelo) {
+      final id = (m['id_badge_modelo'] ?? '').toString();
+      if (id.isNotEmpty) {
+        modelosPorId[id] = m;
+      }
+    }
+
+    final resultado = <Map<String, dynamic>>[];
+    for (final atribuido in badgeAtribuido) {
+      final idAtribuido = (atribuido['id_badge_atribuido'] ?? '').toString();
+      if (!idsAtribuidos.contains(idAtribuido)) {
+        continue;
+      }
+
+      final idModelo = (atribuido['id_badge_modelo'] ?? '').toString();
+      final modelo = modelosPorId[idModelo] ?? const <String, dynamic>{};
+
+      resultado.add({
+        'id_badge_atribuido': atribuido['id_badge_atribuido'],
+        'id_badge_modelo': atribuido['id_badge_modelo'],
+        'id': atribuido['id_badge_modelo'],
+        'nome': modelo['nome_badge'] ?? 'Badge Conquistado',
+        'nome_badge': modelo['nome_badge'] ?? 'Badge Conquistado',
+        'descricao': modelo['descricao_badge_modelo'] ?? 'Disponivel em cache offline.',
+        'descricao_badge_modelo': modelo['descricao_badge_modelo'] ?? 'Disponivel em cache offline.',
+        'pontos': modelo['pontos'] ?? 0,
+        'id_nivel': modelo['id_nivel'],
+        'imagem_url': modelo['imagem_url'],
+        'imagem': modelo['imagem_url'],
+        'pontos_extra': 0,
+        'pontos_bonus': 0,
+        'ganhou_bonus': false,
+        'premio_atribuido': false,
+        'estado_badge_atribuido': atribuido['estado_badge_atribuido'],
+        'data_atribuicao': atribuido['data_atribuicao'],
+        'offline': true,
+      });
+    }
+
+    return resultado;
   }
 
   @override

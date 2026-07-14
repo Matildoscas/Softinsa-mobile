@@ -225,6 +225,8 @@ class UtilizadorNotifier extends StateNotifier<UtilizadorState> {
       final resultado = await _apiService.getProgressoLearningPaths(userId);
       final learningPaths = List<Map<String, dynamic>>.from(resultado);
 
+      await _guardarLearningPathsCache(userId, learningPaths);
+
       for (final lp in learningPaths) {
         await _dbLocal.salvarRegisto('learningpaths', {
           'id_learningpaths': int.tryParse(
@@ -243,6 +245,11 @@ class UtilizadorNotifier extends StateNotifier<UtilizadorState> {
       return learningPaths;
     } catch (_) {
       try {
+        final learningPathsCache = await _carregarLearningPathsCache(userId);
+        if (learningPathsCache.isNotEmpty) {
+          return learningPathsCache;
+        }
+
         final dadosLocais = await _dbLocal.listarTabela('learningpaths');
         return dadosLocais
             .map((lp) => <String, dynamic>{
@@ -394,6 +401,14 @@ class UtilizadorNotifier extends StateNotifier<UtilizadorState> {
       'id_utilizador': userId,
       'id_badge_atribuido': idBadgeAtribuido,
     });
+
+    await _guardarBadgeUtilizadorCache(
+      userId: userId,
+      idBadgeModelo: idBadgeModelo,
+      idBadgeAtribuido: idBadgeAtribuido,
+      badge: badge,
+      estadoPadrao: estadoPadrao,
+    );
   }
 
   Future<List<Map<String, dynamic>>> _carregarBadgesAtribuidosDoCache({
@@ -401,6 +416,15 @@ class UtilizadorNotifier extends StateNotifier<UtilizadorState> {
     required List<String> estadosValidos,
   }) async {
     try {
+      final cacheDetalhe = await _carregarBadgesUtilizadorCache(
+        userId: userId,
+        estadosValidos: estadosValidos,
+      );
+
+      if (cacheDetalhe.isNotEmpty) {
+        return cacheDetalhe;
+      }
+
       final badgeAtribuido = await _dbLocal.listarTabela('badge_atribuido');
       final badgeModelo = await _dbLocal.listarTabela('badge_modelo');
       final obtem = await _dbLocal.listarTabela('obtem');
@@ -457,6 +481,219 @@ class UtilizadorNotifier extends StateNotifier<UtilizadorState> {
       }
 
       return resultado;
+    } catch (_) {
+      return <Map<String, dynamic>>[];
+    }
+  }
+
+  Future<void> _ensureTabelaCacheBadgesUtilizador() async {
+    final db = await _dbLocal.database;
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS cache_badges_utilizador (
+        id_utilizador INTEGER,
+        id_badge_modelo INTEGER,
+        id_badge_atribuido INTEGER,
+        nome_badge TEXT,
+        descricao_badge TEXT,
+        pontos INTEGER,
+        id_nivel INTEGER,
+        imagem_url TEXT,
+        pontos_extra INTEGER,
+        ganhou_bonus INTEGER,
+        premio_atribuido INTEGER,
+        estado_badge_atribuido TEXT,
+        data_atribuicao TEXT,
+        data_validade TEXT,
+        tipo_badge TEXT,
+        PRIMARY KEY (id_utilizador, id_badge_modelo, id_badge_atribuido)
+      )
+    ''');
+  }
+
+  Future<void> _guardarBadgeUtilizadorCache({
+    required int userId,
+    required int idBadgeModelo,
+    required int idBadgeAtribuido,
+    required Map<String, dynamic> badge,
+    required String estadoPadrao,
+  }) async {
+    await _ensureTabelaCacheBadgesUtilizador();
+
+    final db = await _dbLocal.database;
+    final pontosExtra =
+        int.tryParse((badge['pontos_extra'] ?? badge['pontos_bonus'] ?? 0).toString()) ?? 0;
+
+    final ganhouBonus =
+        ((badge['ganhou_bonus'] == true) || (badge['premio_atribuido'] == true) || pontosExtra > 0) ? 1 : 0;
+
+    await db.insert(
+      'cache_badges_utilizador',
+      {
+        'id_utilizador': userId,
+        'id_badge_modelo': idBadgeModelo,
+        'id_badge_atribuido': idBadgeAtribuido,
+        'nome_badge': badge['nome_badge'] ?? badge['nome'] ?? 'Badge',
+        'descricao_badge': badge['descricao_badge_modelo'] ?? badge['descricao'] ?? '',
+        'pontos': int.tryParse((badge['pontos'] ?? 0).toString()) ?? 0,
+        'id_nivel': int.tryParse((badge['id_nivel'] ?? 0).toString()) ?? 0,
+        'imagem_url': badge['imagem_url'] ?? badge['imagem']?.toString(),
+        'pontos_extra': pontosExtra,
+        'ganhou_bonus': ganhouBonus,
+        'premio_atribuido': ganhouBonus,
+        'estado_badge_atribuido': badge['estado_badge_atribuido'] ?? estadoPadrao,
+        'data_atribuicao': badge['data_atribuicao']?.toString(),
+        'data_validade': badge['data_validade']?.toString(),
+        'tipo_badge': badge['tipo_badge'] ?? badge['tipo']?.toString(),
+      },
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  Future<List<Map<String, dynamic>>> _carregarBadgesUtilizadorCache({
+    required int userId,
+    required List<String> estadosValidos,
+  }) async {
+    try {
+      await _ensureTabelaCacheBadgesUtilizador();
+      final db = await _dbLocal.database;
+
+      final rows = await db.query(
+        'cache_badges_utilizador',
+        where: 'id_utilizador = ?',
+        whereArgs: [userId],
+      );
+
+      if (rows.isEmpty) {
+        return <Map<String, dynamic>>[];
+      }
+
+      final normalized = rows.where((row) {
+        final estado = (row['estado_badge_atribuido'] ?? '').toString().toUpperCase();
+        return estadosValidos.any((e) => e.toUpperCase() == estado);
+      }).map((row) {
+        return <String, dynamic>{
+          'id_badge_atribuido': row['id_badge_atribuido'],
+          'id_badge_modelo': row['id_badge_modelo'],
+          'id': row['id_badge_modelo'],
+          'nome': row['nome_badge'] ?? 'Badge',
+          'nome_badge': row['nome_badge'] ?? 'Badge',
+          'descricao': row['descricao_badge'] ?? '',
+          'descricao_badge_modelo': row['descricao_badge'] ?? '',
+          'pontos': row['pontos'] ?? 0,
+          'id_nivel': row['id_nivel'],
+          'imagem_url': row['imagem_url'],
+          'imagem': row['imagem_url'],
+          'pontos_extra': row['pontos_extra'] ?? 0,
+          'pontos_bonus': row['pontos_extra'] ?? 0,
+          'ganhou_bonus': (row['ganhou_bonus'] ?? 0) == 1,
+          'premio_atribuido': (row['premio_atribuido'] ?? 0) == 1,
+          'estado_badge_atribuido': row['estado_badge_atribuido'],
+          'data_atribuicao': row['data_atribuicao'],
+          'data_validade': row['data_validade'],
+          'tipo_badge': row['tipo_badge'],
+          'offline': true,
+        };
+      }).toList();
+
+      return normalized;
+    } catch (_) {
+      return <Map<String, dynamic>>[];
+    }
+  }
+
+  Future<void> _ensureTabelaLearningPathsUtilizador() async {
+    final db = await _dbLocal.database;
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS cache_learningpaths_utilizador (
+        id_utilizador INTEGER,
+        id_learningpaths INTEGER,
+        nome_learningpaths TEXT,
+        total_badges INTEGER,
+        badges_conquistados INTEGER,
+        percentagem INTEGER,
+        data_cache TEXT,
+        PRIMARY KEY (id_utilizador, id_learningpaths)
+      )
+    ''');
+  }
+
+  Future<void> _guardarLearningPathsCache(
+    int userId,
+    List<Map<String, dynamic>> learningPaths,
+  ) async {
+    await _ensureTabelaLearningPathsUtilizador();
+
+    final db = await _dbLocal.database;
+    await db.delete(
+      'cache_learningpaths_utilizador',
+      where: 'id_utilizador = ?',
+      whereArgs: [userId],
+    );
+
+    for (final lp in learningPaths) {
+      final idLearningPath =
+          int.tryParse((lp['id_learningpaths'] ?? lp['id_learningpath'] ?? lp['id'] ?? 0).toString()) ?? 0;
+
+      if (idLearningPath == 0) {
+        continue;
+      }
+
+      final totalBadges = int.tryParse(
+            (lp['total_badges'] ?? lp['numero_badges'] ?? lp['badges_total'] ?? lp['total'] ?? 0).toString(),
+          ) ??
+          0;
+
+      final badgesConquistados = int.tryParse(
+            (lp['badges_conquistados'] ?? lp['badges_conquistas_total'] ?? lp['conquistados'] ?? 0).toString(),
+          ) ??
+          0;
+
+      int percentagem =
+          int.tryParse((lp['percentagem'] ?? lp['progresso_percentagem'] ?? 0).toString()) ?? 0;
+
+      if (percentagem == 0 && totalBadges > 0 && badgesConquistados > 0) {
+        percentagem = ((badgesConquistados / totalBadges) * 100).round();
+      }
+
+      await db.insert(
+        'cache_learningpaths_utilizador',
+        {
+          'id_utilizador': userId,
+          'id_learningpaths': idLearningPath,
+          'nome_learningpaths': lp['nome_learningpath'] ?? lp['nome_learningpaths'] ?? lp['nome'] ?? 'Learning Path',
+          'total_badges': totalBadges,
+          'badges_conquistados': badgesConquistados,
+          'percentagem': percentagem.clamp(0, 100),
+          'data_cache': DateTime.now().toIso8601String(),
+        },
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> _carregarLearningPathsCache(int userId) async {
+    try {
+      await _ensureTabelaLearningPathsUtilizador();
+      final db = await _dbLocal.database;
+
+      final rows = await db.query(
+        'cache_learningpaths_utilizador',
+        where: 'id_utilizador = ?',
+        whereArgs: [userId],
+      );
+
+      return rows
+          .map((row) => <String, dynamic>{
+                'id_learningpaths': row['id_learningpaths'],
+                'id_learningpath': row['id_learningpaths'],
+                'nome_learningpath': row['nome_learningpaths'],
+                'nome_learningpaths': row['nome_learningpaths'],
+                'total_badges': row['total_badges'] ?? 0,
+                'badges_conquistados': row['badges_conquistados'] ?? 0,
+                'percentagem': row['percentagem'] ?? 0,
+                'offline': true,
+              })
+          .toList();
     } catch (_) {
       return <Map<String, dynamic>>[];
     }
