@@ -15,11 +15,6 @@ import 'dart:math' as math;
 import '../services/api_service.dart';
 import '../database/basededados.dart'; // Import central para fallbacks do SQFlite
 
-// Funções auxiliares que classificam os níveis dos badges.
-// Nível 5 é especial; níveis 1 a 4 são comuns.
-bool isEspecial(int nivel) => nivel == 5;
-bool isComum(int nivel) => nivel >= 1 && nivel <= 4;
-
 class _BadgeBonusInfo {
   final bool ganhouBonus;
   final int pontosExtra;
@@ -185,6 +180,96 @@ class _ProgressoPageState extends State<ProgressoPage> {
     }
 
     return null;
+  }
+
+  String _normalizarTexto(
+    dynamic valor,
+  ) {
+    return valor
+            ?.toString()
+            .trim()
+            .toUpperCase()
+            .replaceAll('Á', 'A')
+            .replaceAll('À', 'A')
+            .replaceAll('Â', 'A')
+            .replaceAll('Ã', 'A')
+            .replaceAll('É', 'E')
+            .replaceAll('Ê', 'E')
+            .replaceAll('Í', 'I')
+            .replaceAll('Ó', 'O')
+            .replaceAll('Ô', 'O')
+            .replaceAll('Õ', 'O')
+            .replaceAll('Ú', 'U')
+            .replaceAll('Ç', 'C') ??
+        '';
+  }
+
+  bool _isBadgeEspecial(
+    Map<String, dynamic> badge,
+  ) {
+    final String tipo =
+        _normalizarTexto(
+      badge['tipo_badge'] ??
+          badge['tipoBadge'] ??
+          badge['tipo'],
+    );
+
+    final String codigoNivel =
+        _normalizarTexto(
+      badge['codigo_nivel'] ??
+          badge['codigoNivel'] ??
+          badge['letra_nivel'] ??
+          badge['codigo'],
+    );
+
+    final String nomeNivel =
+        _normalizarTexto(
+      badge['nome_nivel'] ??
+          badge['nomeNivel'] ??
+          badge['nivel'] ??
+          badge['titulo_nivel'],
+    );
+
+    if (
+      tipo == 'ESPECIAL' ||
+      tipo == 'SPECIAL'
+    ) {
+      return true;
+    }
+
+    if (codigoNivel == 'E') {
+      return true;
+    }
+
+    if (
+      nomeNivel == 'E' ||
+      nomeNivel.contains('LIDER DE CONHECIMENTO') ||
+      nomeNivel.contains('LEADER OF KNOWLEDGE')
+    ) {
+      return true;
+    }
+
+    final int idNivel =
+        int.tryParse(
+          badge['id_nivel']?.toString() ?? '',
+        ) ??
+        0;
+
+    /*
+    * Fallback antigo:
+    * só conta id_nivel 5 como especial quando o backend
+    * ainda não envia tipo_badge/codigo_nivel/nome_nivel.
+    */
+    if (
+      idNivel == 5 &&
+      tipo.isEmpty &&
+      codigoNivel.isEmpty &&
+      nomeNivel.isEmpty
+    ) {
+      return true;
+    }
+
+    return false;
   }
 
   List<Map<String, dynamic>>
@@ -556,25 +641,26 @@ class _ProgressoPageState extends State<ProgressoPage> {
             : pontosCalculados;
 
     // Conta quantos badges comuns e especiais existem no catálogo.
+    // Conta quantos badges comuns e especiais existem no catálogo.
     int comunsTotal = 0;
     int especiaisTotal = 0;
-    for (final b in todosBadgesRaw) {
-      final nivel = int.tryParse(b['id_nivel'].toString()) ?? 0;
-      if (nivel == 5) {
+
+    for (final badge in todosBadgesRaw) {
+      if (_isBadgeEspecial(badge)) {
         especiaisTotal++;
-      } else if (nivel >= 1 && nivel <= 4) {
+      } else {
         comunsTotal++;
       }
     }
 
-    // Conta quantos badges comuns e especiais foram conquistados.
+    // Conta quantos badges comuns e especiais o consultor conquistou.
     int comunsObtidos = 0;
     int especiaisObtidos = 0;
-    for (final b in obtidosRaw) {
-      final nivel = int.tryParse(b['id_nivel'].toString()) ?? 0;
-      if (nivel == 5) {
+
+    for (final badge in obtidosRaw) {
+      if (_isBadgeEspecial(badge)) {
         especiaisObtidos++;
-      } else if (nivel >= 1 && nivel <= 4) {
+      } else {
         comunsObtidos++;
       }
     }
@@ -912,7 +998,7 @@ class _ProgressoPageState extends State<ProgressoPage> {
         percentagem.clamp(
       0,
       100,
-    );
+    ).toInt();
 
     final double progresso =
         percentagem / 100;

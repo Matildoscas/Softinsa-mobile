@@ -1027,6 +1027,21 @@ class ApiService {
 
           'requisitos':
               <Map<String, dynamic>>[],
+
+          'tipo_badge':
+              linha['tipo_badge'] ??
+              linha['tipoBadge'] ??
+              linha['tipo'],
+
+          'nome_nivel':
+              linha['nome_nivel'] ??
+              linha['nomeNivel'] ??
+              linha['nivel'],
+
+          'codigo_nivel':
+              linha['codigo_nivel'] ??
+              linha['codigoNivel'] ??
+              linha['letra_nivel'],
         };
       } else {
         final badgeAtual =
