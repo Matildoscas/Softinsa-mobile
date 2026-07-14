@@ -21,6 +21,7 @@ import 'submeter_badges.dart';
 import 'certificado.dart';
 import 'dart:async';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 // Variável global que pode guardar uma notificação/objeto associado
 // à disponibilidade de certificado para o badge atual.
@@ -534,6 +535,67 @@ class _BadgeDetalheState extends State<BadgeDetalhe>
   }
 
   static const List<String> _todosNiveis = ['A', 'B', 'C', 'D', 'E'];
+
+  Future<void> _partilharNoLinkedIn() async {
+    if (!conquistado) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Só é possível partilhar badges já conquistados.',
+          ),
+          backgroundColor: Colors.orange,
+        ),
+      );
+
+      return;
+    }
+
+    final String nomeBadge =
+        badge?['nome']?.toString() ??
+        badge?['nome_badge']?.toString() ??
+        'Badge Softinsa';
+
+    final String urlPublico =
+        'https://softinsa.pt/badges/'
+        '${widget.userId}/'
+        '${widget.badgeId}';
+
+    final Uri linkedInUrl = Uri.parse(
+      'https://www.linkedin.com/sharing/share-offsite/'
+      '?url=${Uri.encodeComponent(urlPublico)}',
+    );
+
+    try {
+      final bool abriu = await launchUrl(
+        linkedInUrl,
+        mode: LaunchMode.externalApplication,
+      );
+
+      if (!abriu && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Não foi possível abrir o LinkedIn para partilhar "$nomeBadge".',
+            ),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } catch (e) {
+      if (!mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Erro ao abrir o LinkedIn: $e',
+          ),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
 
   @override
   // =========================================================================
@@ -1264,7 +1326,7 @@ class _BadgeDetalheState extends State<BadgeDetalhe>
                                 Expanded(
                                   child: OutlinedButton.icon(
                                     style: OutlinedButton.styleFrom(foregroundColor: Colors.black87, side: const BorderSide(color: Colors.black87, width: 1.5), shape: const StadiumBorder(), padding: const EdgeInsets.symmetric(vertical: 12)),
-                                    onPressed: () {}, 
+                                    onPressed: _partilharNoLinkedIn,
                                     icon: Container(width: 22, height: 22, decoration: BoxDecoration(color: const Color(0xFF0077B5), borderRadius: BorderRadius.circular(4)), child: const Center(child: Text("in", style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)))),
                                     label: const Text("Partilhar no LinkedIn", style: TextStyle(fontSize: 12)),
                                   ),
