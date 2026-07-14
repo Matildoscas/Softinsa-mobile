@@ -197,6 +197,17 @@ class AppNotificationItem {
           'Informação importante',
       'ALERTA':
           'Atenção necessária',
+      'SLA_ULTRAPASSADO':
+          'SLA ultrapassado',
+
+      'SLA_ULTRAPASSADO_TM':
+          'SLA ultrapassado - Talent Manager',
+
+      'SLA_ULTRAPASSADO_SLL':
+          'SLA ultrapassado - Service Line Leader',
+
+      'CANDIDATURA_SLA_ULTRAPASSADO':
+          'SLA da candidatura ultrapassado',
     };
 
     return titulos[tipo] ??
