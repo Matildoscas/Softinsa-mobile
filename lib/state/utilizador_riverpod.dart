@@ -168,6 +168,69 @@ class UtilizadorNotifier extends StateNotifier<UtilizadorState> {
     };
   }
 
+  String _normalizarEstadoTexto(String? valor) {
+    final texto = (valor ?? '').toLowerCase().trim();
+    return texto
+        .replaceAll('á', 'a')
+        .replaceAll('à', 'a')
+        .replaceAll('â', 'a')
+        .replaceAll('ã', 'a')
+        .replaceAll('é', 'e')
+        .replaceAll('ê', 'e')
+        .replaceAll('í', 'i')
+        .replaceAll('ó', 'o')
+        .replaceAll('ô', 'o')
+        .replaceAll('õ', 'o')
+        .replaceAll('ú', 'u')
+        .replaceAll('ç', 'c')
+        .replaceAll('_', ' ')
+        .replaceAll('-', ' ');
+  }
+
+  bool _estadoCompativel(String? estado, List<String> estadosValidos) {
+    final estadoNormalizado = _normalizarEstadoTexto(estado);
+    if (estadoNormalizado.isEmpty) {
+      return false;
+    }
+
+    final validosNormalizados = estadosValidos
+        .map(_normalizarEstadoTexto)
+        .where((e) => e.isNotEmpty)
+        .toList();
+
+    if (validosNormalizados.contains(estadoNormalizado)) {
+      return true;
+    }
+
+    if (validosNormalizados.any((v) => estadoNormalizado.contains(v))) {
+      return true;
+    }
+
+    if (estadoNormalizado.contains('conclu') ||
+        estadoNormalizado.contains('conquist') ||
+        estadoNormalizado.contains('aprov') ||
+        estadoNormalizado.contains('valid') ||
+        estadoNormalizado.contains('complet')) {
+      final bool procuraConcluidos = validosNormalizados.any(
+        (v) => v.contains('conclu') || v.contains('conquist') || v.contains('aprov') || v.contains('valid'),
+      );
+      if (procuraConcluidos) {
+        return true;
+      }
+    }
+
+    if (estadoNormalizado.contains('progres') || estadoNormalizado.contains('pendente')) {
+      final bool procuraProgresso = validosNormalizados.any(
+        (v) => v.contains('progres') || v.contains('pendente'),
+      );
+      if (procuraProgresso) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
   Future<Map<String, dynamic>> _carregarDashboard(int userId) async {
     try {
       final dados = await _apiService.getDashboard(userId);
@@ -475,6 +538,12 @@ class UtilizadorNotifier extends StateNotifier<UtilizadorState> {
           .map((row) => row['id_badge_atribuido'].toString())
           .toSet();
 
+        final idsModelosDoUtilizador = badgeModelo
+          .where((modelo) => modelo['id_utilizador'].toString() == userId.toString())
+          .map((modelo) => (modelo['id_badge_modelo'] ?? '').toString())
+          .where((id) => id.isNotEmpty)
+          .toSet();
+
       final mapaModelo = <String, Map<String, dynamic>>{};
       for (final modelo in badgeModelo) {
         final idModelo = (modelo['id_badge_modelo'] ?? '').toString();
@@ -486,22 +555,21 @@ class UtilizadorNotifier extends StateNotifier<UtilizadorState> {
       final resultado = <Map<String, dynamic>>[];
       for (final atribuido in badgeAtribuido) {
         final idAtribuido = (atribuido['id_badge_atribuido'] ?? '').toString();
-        if (!idsAtribuidosDoUtilizador.contains(idAtribuido)) {
+        final idModelo = (atribuido['id_badge_modelo'] ?? '').toString();
+
+        final bool pertenceAoUtilizadorPorObtem = idsAtribuidosDoUtilizador.contains(idAtribuido);
+        final bool pertenceAoUtilizadorPorModelo =
+            idsAtribuidosDoUtilizador.isEmpty && idsModelosDoUtilizador.contains(idModelo);
+
+        if (!pertenceAoUtilizadorPorObtem && !pertenceAoUtilizadorPorModelo) {
           continue;
         }
 
         final estado = (atribuido['estado_badge_atribuido'] ?? '').toString();
-        final estadoUpper = estado.toUpperCase();
-
-        final estadoCompativel = estadosValidos.any(
-          (e) => e.toUpperCase() == estadoUpper,
-        );
-
-        if (!estadoCompativel) {
+        if (!_estadoCompativel(estado, estadosValidos)) {
           continue;
         }
 
-        final idModelo = (atribuido['id_badge_modelo'] ?? '').toString();
         final modelo = mapaModelo[idModelo] ?? const <String, dynamic>{};
 
         resultado.add({
@@ -616,8 +684,8 @@ class UtilizadorNotifier extends StateNotifier<UtilizadorState> {
       }
 
       final normalized = rows.where((row) {
-        final estado = (row['estado_badge_atribuido'] ?? '').toString().toUpperCase();
-        return estadosValidos.any((e) => e.toUpperCase() == estado);
+        final estado = (row['estado_badge_atribuido'] ?? '').toString();
+        return _estadoCompativel(estado, estadosValidos);
       }).map((row) {
         return <String, dynamic>{
           'id_badge_atribuido': row['id_badge_atribuido'],
