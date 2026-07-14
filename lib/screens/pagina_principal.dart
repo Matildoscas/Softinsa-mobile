@@ -5,7 +5,7 @@
 //
 // Responsabilidades principais:
 // - Receber os dados básicos do utilizador autenticado;
-// - Escutar o UtilizadorProvider e mostrar dados online ou em cache;
+// - Escutar o estado Riverpod e mostrar dados online ou em cache;
 // - Apresentar pontos, total de badges e acesso aos lembretes;
 // - Listar badges conquistados, em progresso e recomendados;
 // - Remover badges duplicados antes de os mostrar;
@@ -16,12 +16,12 @@
 // ============================================================================
 
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../pop/notificacoes.dart';
 import '../pop/definicoes.dart';
-import '../providers/utilizador_provider.dart';
+import '../state/utilizador_riverpod.dart';
 
 import 'catalogo_badges.dart';
 import 'Perfil.dart';
@@ -33,7 +33,7 @@ import 'dart:async';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'timeline_profissional_page.dart';
 
-class HomePage extends StatefulWidget {
+class HomePage extends ConsumerStatefulWidget {
   final Map<String, dynamic> userData;
 
   const HomePage({
@@ -42,7 +42,7 @@ class HomePage extends StatefulWidget {
   });
 
   @override
-  State<HomePage> createState() =>
+  ConsumerState<HomePage> createState() =>
       _HomePageState();
 }
 
@@ -56,11 +56,12 @@ class BadgeBonusInfo {
   });
 }
 
-class _HomePageState extends State<HomePage>
+class _HomePageState extends ConsumerState<HomePage>
     with WidgetsBindingObserver {
 
   StreamSubscription<RemoteMessage>? _onMessageSubscription;
   StreamSubscription<RemoteMessage>? _onMessageOpenedSubscription;
+  bool _dadosIniciaisCarregados = false;
 
   BadgeBonusInfo obterBonusBadge(
     Map<String, dynamic> badge,
@@ -251,6 +252,24 @@ class _HomePageState extends State<HomePage>
           );
         }
       });
+
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || _dadosIniciaisCarregados) {
+          return;
+        }
+
+        final int userId = int.tryParse(
+              widget.userData['id_utilizador']?.toString() ?? '',
+            ) ??
+            0;
+
+        if (userId > 0) {
+          _dadosIniciaisCarregados = true;
+          ref
+              .read(utilizadorStateProvider.notifier)
+              .inicializarDados(userId);
+        }
+      });
     }
 
     @override
@@ -283,8 +302,8 @@ class _HomePageState extends State<HomePage>
       );
 
       try {
-        await context
-            .read<UtilizadorProvider>()
+        await ref
+            .read(utilizadorStateProvider.notifier)
             .atualizarDashboard(userId);
       } catch (e) {
         debugPrint(
@@ -303,6 +322,8 @@ class _HomePageState extends State<HomePage>
 
   @override
   Widget build(BuildContext context) {
+    final provider = ref.watch(utilizadorStateProvider);
+
     final String nomeCompleto =
         widget.userData['nome_completo']
             ?.toString()
@@ -325,14 +346,10 @@ class _HomePageState extends State<HomePage>
       backgroundColor:
           const Color(0xFFF7F7F7),
       body: SafeArea(
-        child: Consumer<UtilizadorProvider>(
-          builder: (
-            context,
-            provider,
-            child,
-          ) {
+        child: Builder(
+          builder: (context) {
             if (
-              provider.estaA_Carregar &&
+              provider.estaACarregar &&
               provider.dashboard.isEmpty
             ) {
               return const Center(
@@ -487,7 +504,7 @@ class _HomePageState extends State<HomePage>
                       0xFF4470AF,
                     ),
                     onRefresh: () =>
-                        provider
+                      ref.read(utilizadorStateProvider.notifier)
                             .atualizarDashboard(
                       userId,
                     ),

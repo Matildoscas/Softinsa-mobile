@@ -5,7 +5,7 @@
 //
 // Responsabilidades principais:
 // - Receber nome, email, password e aceitação dos termos do ecrã anterior;
-// - Carregar as áreas através do UtilizadorProvider;
+// - Carregar as áreas através do estado global Riverpod;
 // - Apresentar as áreas num DropdownButtonFormField;
 // - Validar se foi escolhida uma área;
 // - Enviar o registo completo para a API;
@@ -13,26 +13,24 @@
 // - Regressar ao Login depois de criar a conta.
 //
 // As áreas podem vir da API ou do SQLite, porque essa decisão é feita dentro
-// do UtilizadorProvider. O registo final, contudo, necessita de ligação à API.
+// da camada de estado Riverpod. O registo final, contudo, necessita de ligação à API.
 // ============================================================================
 
 // Widgets visuais, navegação, formulários e mensagens SnackBar.
 import 'package:flutter/material.dart';
-
-// Permite observar e consultar o estado global da aplicação.
-import 'package:provider/provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 // Serviço responsável pelo pedido HTTP de registo.
 import '../services/api_service.dart';
 
 // Provider que disponibiliza as áreas online ou através da cache local.
-import '../providers/utilizador_provider.dart';
+import '../state/utilizador_riverpod.dart';
 
 // Ecrã para o qual a aplicação regressa depois do registo.
 import 'login.dart';
 
 // StatefulWidget porque a área selecionada e o estado de gravação mudam.
-class AreaRegisterPage extends StatefulWidget {
+class AreaRegisterPage extends ConsumerStatefulWidget {
   // Dados recebidos do primeiro passo do registo.
   final String nome;
   final String email;
@@ -49,10 +47,10 @@ class AreaRegisterPage extends StatefulWidget {
 
   @override
   // Cria o objeto que guarda o estado mutável deste ecrã.
-  _AreaRegPageState createState() => _AreaRegPageState();
+  ConsumerState<AreaRegisterPage> createState() => _AreaRegPageState();
 }
 
-class _AreaRegPageState extends State<AreaRegisterPage> {
+class _AreaRegPageState extends ConsumerState<AreaRegisterPage> {
   // Serviço utilizado para enviar o pedido final de registo.
   final ApiService _apiService = ApiService();
 
@@ -76,11 +74,9 @@ class _AreaRegPageState extends State<AreaRegisterPage> {
     // O callback corre depois da primeira construção do ecrã, momento em que
     // o BuildContext já pode procurar o Provider de forma segura.
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      Provider.of<UtilizadorProvider>(
-        context,
-        // Não precisa reconstruir este método; o Consumer no build já escuta.
-        listen: false,
-      ).carregarAreas();
+      ref
+          .read(utilizadorStateProvider.notifier)
+          .carregarAreas();
     });
   }
 
@@ -161,17 +157,17 @@ class _AreaRegPageState extends State<AreaRegisterPage> {
   // =========================================================================
   @override
   Widget build(BuildContext context) {
+    final provider = ref.watch(utilizadorStateProvider);
+
     return Scaffold(
       backgroundColor: const Color(0xFFF7F7F7),
       body: SafeArea(
-        // Consumer disponibiliza o Provider e escuta notifyListeners().
-        child: Consumer<UtilizadorProvider>(
-          builder: (context, provider, child) {
-            // Pode conter dados vindos da API ou recuperados do SQLite.
+        child: Builder(
+          builder: (context) {
             final listaAreas = provider.areas;
 
             // Enquanto carrega e ainda não existem áreas, mostra o spinner.
-            return provider.estaA_Carregar && listaAreas.isEmpty
+            return provider.estaACarregar && listaAreas.isEmpty
                 ? const Center(
                     child: CircularProgressIndicator(
                       color: Color(0xFF6993BE),

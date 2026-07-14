@@ -12,10 +12,10 @@
 // ============================================================================
 
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../services/api_service.dart';
 import '../database/basededados.dart'; // Import crucial para ler a cache offline
-import '../providers/utilizador_provider.dart';
+import '../state/utilizador_riverpod.dart';
 import 'catalogo_badges_utilizador.dart';
 import 'informacoes_badge.dart';
 import 'progresso_page.dart';
@@ -47,16 +47,16 @@ class _BadgeBonusInfo {
 
 // StatefulWidget porque os badges, o catálogo e o carregamento
 // são atualizados depois de pedidos assíncronos.
-class PerfilPage extends StatefulWidget {
+class PerfilPage extends ConsumerStatefulWidget {
   final Map<String, dynamic> userData;
 
   const PerfilPage({super.key, required this.userData});
 
   @override
-  State<PerfilPage> createState() => _PerfilPageState();
+  ConsumerState<PerfilPage> createState() => _PerfilPageState();
 }
 
-class _PerfilPageState extends State<PerfilPage> {
+class _PerfilPageState extends ConsumerState<PerfilPage> {
   final ApiService _apiService = ApiService();
   final Basededados _dbLocal = Basededados(); // Conexão local para modo Offline
 
@@ -508,8 +508,8 @@ class _PerfilPageState extends State<PerfilPage> {
   Widget build(BuildContext context) {
     const double headerHeight = 65.0;
     
-    // Consome o Provider para obter os dados do consultor atualizados em tempo real na Home
-    final userProvider = Provider.of<UtilizadorProvider>(context);
+    // Consome o estado global para obter os dados atualizados do dashboard.
+    final userProvider = ref.watch(utilizadorStateProvider);
 
     final int pontosAtuais =
         _converterInteiro(

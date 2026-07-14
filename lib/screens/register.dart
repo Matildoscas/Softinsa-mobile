@@ -15,22 +15,22 @@
 // ============================================================================
 
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart'; // Import adicionado
-import '../providers/utilizador_provider.dart'; // Import adicionado
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../state/utilizador_riverpod.dart';
 import 'login.dart';
 import 'area_register.dart';
 
 // StatefulWidget porque o formulário altera a visibilidade da password,
 // o valor da checkbox e o conteúdo dos campos.
-class RegisterPage extends StatefulWidget {
+class RegisterPage extends ConsumerStatefulWidget {
   const RegisterPage({super.key});
 
   @override
-  _RegisterPageState createState() => _RegisterPageState();
+  ConsumerState<RegisterPage> createState() => _RegisterPageState();
 }
 
 // Estado mutável do primeiro passo do registo.
-class _RegisterPageState extends State<RegisterPage> {
+class _RegisterPageState extends ConsumerState<RegisterPage> {
   // Controla se as passwords ficam escondidas.
   bool _obscureText = true;
 
@@ -55,9 +55,9 @@ class _RegisterPageState extends State<RegisterPage> {
     // Agenda a chamada para depois do primeiro frame, quando o context
     // já pode consultar o Provider de forma segura.
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      // listen: false porque apenas executa uma ação e este ecrã
-      // não precisa reconstruir quando o Provider mudar.
-      Provider.of<UtilizadorProvider>(context, listen: false).inicializarDados(0);
+      ref
+          .read(utilizadorStateProvider.notifier)
+          .carregarAreas();
     });
   }
 

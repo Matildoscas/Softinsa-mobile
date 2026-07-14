@@ -4,11 +4,10 @@
 // ============================================================
 
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 
-import 'providers/utilizador_provider.dart';
 import 'screens/login.dart';
 import 'screens/pagina_principal.dart';
 import 'screens/Perfil.dart';
@@ -92,8 +91,7 @@ void main() async {
   );
 
   runApp(
-    ChangeNotifierProvider(
-      create: (_) => UtilizadorProvider(),
+    const ProviderScope(
       child: const MyApp(),
     ),
   );
