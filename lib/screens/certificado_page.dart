@@ -22,6 +22,8 @@ import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import 'package:syncfusion_flutter_xlsio/xlsio.dart' as xlsio;
 import '../config/app_config.dart';
+import 'package:flutter/services.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class CertificadoCompetenciasPage extends StatelessWidget {
   static const Color _azul = Color(0xFF4470AF);
@@ -370,6 +372,83 @@ class CertificadoCompetenciasPage extends StatelessWidget {
       data.offsetInBytes,
       data.lengthInBytes,
     );
+  }
+
+  Future<void> _copiarLinkVerificacao(
+    BuildContext context,
+  ) async {
+    final url =
+        _urlVerificacao;
+
+    if (url.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Link de verificação indisponível.',
+          ),
+          backgroundColor: Colors.orange,
+        ),
+      );
+
+      return;
+    }
+
+    await Clipboard.setData(
+      ClipboardData(text: url),
+    );
+
+    if (!context.mounted) {
+      return;
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text(
+          'Link de verificação copiado.',
+        ),
+        backgroundColor: Color(0xFF2E7D32),
+      ),
+    );
+  }
+
+  Future<void> _abrirLinkVerificacao(
+    BuildContext context,
+  ) async {
+    final url =
+        _urlVerificacao;
+
+    if (url.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Link de verificação indisponível.',
+          ),
+          backgroundColor: Colors.orange,
+        ),
+      );
+
+      return;
+    }
+
+    final uri =
+        Uri.parse(url);
+
+    final abriu =
+        await launchUrl(
+      uri,
+      mode: LaunchMode.externalApplication,
+    );
+
+    if (!abriu && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Não foi possível abrir o link.',
+          ),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   // =========================================================================
@@ -1288,6 +1367,26 @@ class CertificadoCompetenciasPage extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(
                   vertical: 13,
                 ),
+              ),
+            ),
+          ),
+          Expanded(
+            child: OutlinedButton.icon(
+              onPressed: () => _copiarLinkVerificacao(context),
+              icon: const Icon(Icons.copy, size: 18),
+              label: const Text(
+                'Copiar link',
+                style: TextStyle(fontSize: 12),
+              ),
+            ),
+          ),
+          Expanded(
+            child: OutlinedButton.icon(
+              onPressed: () => _abrirLinkVerificacao(context),
+              icon: const Icon(Icons.open_in_new, size: 18),
+              label: const Text(
+                'Verificar',
+                style: TextStyle(fontSize: 12),
               ),
             ),
           ),
