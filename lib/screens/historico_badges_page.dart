@@ -13,6 +13,7 @@
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 import '../database/basededados.dart'; // Import central para o fallback de base de dados
+import 'informacoes_badge.dart';
 
 class _BadgeBonusInfo {
   final bool ganhouBonus;
@@ -156,96 +157,76 @@ class _HistoricoBadgesPageState extends State<HistoricoBadgesPage> {
   // 4. Remove badges duplicados através de um Map por ID.
   Future<void> carregarBadges() async {
     final int userId =
-      int.tryParse(
-        widget.userData[
-          'id_utilizador'
-        ]?.toString() ??
-        '',
-      ) ??
-      0;
-    List<Map<String, dynamic>> dadosRaw = [];
+        int.tryParse(
+          widget.userData['id_utilizador']?.toString() ?? '',
+        ) ??
+        0;
+
+    List<Map<String, dynamic>> conquistados = [];
+    List<Map<String, dynamic>> pendentes = [];
 
     try {
-      // 1. Tenta ir buscar os badges conquistados em tempo real à API
-      dadosRaw = await _apiService.getBadgesConquistados(userId);
+      conquistados =
+          await _apiService.getBadgesConquistados(userId);
 
-      // 2. MIRRORING: Guarda os dados na cache local para suportar o modo offline
-      for (var b in dadosRaw) {
-        await _dbLocal.salvarRegisto('badge_atribuido', {
-          'id_badge_atribuido': b['id_badge_atribuido'] ?? b['id'] ?? 0,
-          'id_badge_modelo': b['id_badge_modelo'] ?? b['id'] ?? 0,
-          'data_atribuicao': b['data_atribuicao']?.toString(),
-          'data_validade': b['data_validade']?.toString(),
-          'estado_badge_atribuido': 'Conquistado',
-        });
+      pendentes =
+          await _apiService.getCandidaturasPendentes(userId);
+
+      for (final b in conquistados) {
+        await _dbLocal.salvarRegisto(
+          'badge_atribuido',
+          {
+            'id_badge_atribuido':
+                b['id_badge_atribuido'] ?? b['id'] ?? 0,
+            'id_badge_modelo':
+                b['id_badge_modelo'] ?? b['id'] ?? 0,
+            'data_atribuicao':
+                b['data_atribuicao']?.toString(),
+            'data_validade':
+                b['data_validade']?.toString(),
+            'estado_badge_atribuido':
+                'Conquistado',
+          },
+        );
       }
     } catch (e) {
-      debugPrint("Modo Offline Ativo no Histórico: Carregando cache local... ($e)");
-      
-      // 3. FALLBACK: Lê as tabelas locais se o servidor estiver inacessível
-      final localAtribuidos = await _dbLocal.listarTabela('badge_atribuido');
-      
-      dadosRaw = localAtribuidos
-      .map(
+      debugPrint(
+        'Modo Offline Ativo no Histórico: $e',
+      );
+
+      final localAtribuidos =
+          await _dbLocal.listarTabela(
+        'badge_atribuido',
+      );
+
+      conquistados =
+          localAtribuidos.map(
         (e) => <String, dynamic>{
-          'id':
-              e['id_badge_modelo'],
-
-          'id_badge_modelo':
-              e['id_badge_modelo'],
-
-          'nome':
-              e['nome'] ??
-              'Badge Conquistado',
-
+          'id': e['id_badge_modelo'],
+          'id_badge_modelo': e['id_badge_modelo'],
+          'nome': e['nome'] ?? 'Badge Conquistado',
           'descricao':
               e['descricao'] ??
               'Dados guardados localmente.',
-
-          'pontos':
-              e['pontos'] ??
-              0,
-
-          'data_atribuicao':
-              e['data_atribuicao'],
-
-          'data_validade':
-              e['data_validade'],
-
-          'imagem':
-              e['imagem'],
-
-          'imagem_url':
-              e['imagem_url'],
-
-          'ganhou_bonus':
-              e['ganhou_bonus'] ??
-              false,
-
+          'pontos': e['pontos'] ?? 0,
+          'data_atribuicao': e['data_atribuicao'],
+          'data_validade': e['data_validade'],
+          'imagem': e['imagem'],
+          'imagem_url': e['imagem_url'],
+          'ganhou_bonus': e['ganhou_bonus'] ?? false,
           'premio_atribuido':
-              e['premio_atribuido'] ??
-              false,
-
-          'pontos_extra':
-              e['pontos_extra'] ??
-              0,
-
-          'pontos_bonus':
-              e['pontos_bonus'] ??
-              0,
+              e['premio_atribuido'] ?? false,
+          'pontos_extra': e['pontos_extra'] ?? 0,
+          'pontos_bonus': e['pontos_bonus'] ?? 0,
         },
-      )
-      .toList();
+      ).toList();
+
+      pendentes = [];
     }
 
-    // 4. LÓGICA DE UNIFICAÇÃO (Preservada a remoção de duplicados original da tua colega)
-    // A chave do Map é o ID. Assim, cada badge aparece uma única vez.
-    final Map<
-      int,
-      Map<String, dynamic>
-    > unicos = {};
+    final Map<String, Map<String, dynamic>> unicos = {};
 
-    for (final badgeOriginal in dadosRaw) {
+    for (final badgeOriginal in conquistados) {
       final badge =
           Map<String, dynamic>.from(
         badgeOriginal,
@@ -262,85 +243,137 @@ class _HistoricoBadgesPageState extends State<HistoricoBadgesPage> {
         ).toString(),
       );
 
-      if (id == null) {
+      if (id == null || id <= 0) {
         continue;
       }
 
-      final bonusNovo =
+      final bonus =
           _obterBonusBadge(
         badge,
       );
 
-      if (!unicos.containsKey(id)) {
-        unicos[id] = {
-          ...badge,
+      unicos['obtido_$id'] = {
+        ...badge,
+        'id': id,
+        'id_badge_modelo':
+            badge['id_badge_modelo'] ?? id,
+        'tipo_historico': 'OBTIDO',
+        'estado_historico': 'Conquistado',
+        'data_evento':
+            badge['data_atribuicao'] ??
+            badge['data_conquista'],
+        'ganhou_bonus': bonus.ganhouBonus,
+        'premio_atribuido': bonus.ganhouBonus,
+        'pontos_extra': bonus.pontosExtra,
+        'pontos_bonus': bonus.pontosExtra,
+      };
+    }
 
-          'id': id,
+    for (final pedidoOriginal in pendentes) {
+      final pedido =
+          Map<String, dynamic>.from(
+        pedidoOriginal,
+      );
 
-          'ganhou_bonus':
-              bonusNovo.ganhouBonus,
+      final int? idBadge =
+          int.tryParse(
+        (
+          pedido['id_badge_modelo'] ??
+          pedido['id'] ??
+          pedido['badge_id'] ??
+          ''
+        ).toString(),
+      );
 
-          'premio_atribuido':
-              bonusNovo.ganhouBonus,
-
-          'pontos_extra':
-              bonusNovo.pontosExtra,
-
-          'pontos_bonus':
-              bonusNovo.pontosExtra,
-        };
-
+      if (idBadge == null || idBadge <= 0) {
         continue;
       }
 
-      final atual = unicos[id]!;
+      /*
+      * Se já está conquistado, o histórico deve mostrar
+      * a versão conquistada, não a candidatura antiga.
+      */
+      if (unicos.containsKey('obtido_$idBadge')) {
+        continue;
+      }
 
-      final bonusAtual =
-          _obterBonusBadge(
-        atual,
-      );
+      final String estado =
+          (
+            pedido['estado_validacao'] ??
+            pedido['estado_candidatura_pedido'] ??
+            pedido['estado_candidatura'] ??
+            pedido['estado_final'] ??
+            pedido['estado'] ??
+            'Em validação'
+          ).toString();
 
-      final int maiorBonus =
-          bonusNovo.pontosExtra >
-                  bonusAtual.pontosExtra
-              ? bonusNovo.pontosExtra
-              : bonusAtual.pontosExtra;
-
-      final String? imagemAtual =
-          _obterImagemBadge(atual);
-
-      final String? imagemNova =
-          _obterImagemBadge(badge);
-
-      unicos[id] = {
-        ...atual,
-        ...badge,
-
-        'id': id,
-
-        'ganhou_bonus':
-            bonusAtual.ganhouBonus ||
-            bonusNovo.ganhouBonus,
-
-        'premio_atribuido':
-            bonusAtual.ganhouBonus ||
-            bonusNovo.ganhouBonus,
-
-        'pontos_extra':
-            maiorBonus,
-
-        'pontos_bonus':
-            maiorBonus,
-
+      unicos['pedido_$idBadge'] = {
+        ...pedido,
+        'id': idBadge,
+        'id_badge_modelo': idBadge,
+        'tipo_historico': 'PEDIDO',
+        'estado_historico': estado,
+        'data_evento':
+            pedido['data_submissao'] ??
+            pedido['data_submisao'] ??
+            pedido['data_candidatura'] ??
+            pedido['data_entrada_historico'] ??
+            pedido['data_validacao'],
+        'nome':
+            pedido['nome'] ??
+            pedido['nome_badge'] ??
+            pedido['nome_badge_modelo'] ??
+            'Badge em validação',
+        'descricao':
+            pedido['descricao'] ??
+            pedido['descricao_badge_modelo'] ??
+            '',
+        'pontos':
+            pedido['pontos'] ?? 0,
         'imagem_url':
-            imagemNova ??
-            imagemAtual,
-
+            pedido['imagem_url'] ??
+            pedido['imagem'] ??
+            pedido['url_imagem'],
         'imagem':
-            imagemNova ??
-            imagemAtual,
+            pedido['imagem_url'] ??
+            pedido['imagem'] ??
+            pedido['url_imagem'],
+        'ganhou_bonus': false,
+        'premio_atribuido': false,
+        'pontos_extra': 0,
+        'pontos_bonus': 0,
       };
     }
+
+    final listaFinal =
+        unicos.values.toList();
+
+    listaFinal.sort(
+      (a, b) {
+        final dataA =
+            DateTime.tryParse(
+              a['data_evento']?.toString() ?? '',
+            ) ??
+            DateTime.fromMillisecondsSinceEpoch(0);
+
+        final dataB =
+            DateTime.tryParse(
+              b['data_evento']?.toString() ?? '',
+            ) ??
+            DateTime.fromMillisecondsSinceEpoch(0);
+
+        return dataB.compareTo(dataA);
+      },
+    );
+
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      badges = listaFinal;
+      isLoading = false;
+    });
   }
 
   // Formata datas para dd/MM/yyyy e aceita valores inválidos
@@ -359,31 +392,109 @@ class _HistoricoBadgesPageState extends State<HistoricoBadgesPage> {
   // Calcula o estado visual do badge através de data_validade.
   // Pode devolver: sem validade, data inválida, expirado,
   // a expirar em até 30 dias ou ativo.
-  Map<String, dynamic> _estadoBadge(Map<String, dynamic> badge) {
-    final validadeRaw = badge['data_validade'];
+  Map<String, dynamic> _estadoHistorico(
+    Map<String, dynamic> badge,
+  ) {
+    final String tipo =
+        badge['tipo_historico']
+            ?.toString()
+            .toUpperCase() ??
+        '';
+
+    final String estado =
+        badge['estado_historico']
+            ?.toString()
+            .toUpperCase() ??
+        '';
+
+    if (tipo == 'PEDIDO') {
+      if (
+        estado.contains('REJEIT') ||
+        estado.contains('RECUS')
+      ) {
+        return {
+          'texto': 'Rejeitado',
+          'cor': Colors.red,
+          'fundo': const Color(0xFFFFEBEE),
+          'icone': Icons.cancel_outlined,
+        };
+      }
+
+      if (
+        estado.contains('RETIFIC') ||
+        estado.contains('ALTERA')
+      ) {
+        return {
+          'texto': 'Necessita retificação',
+          'cor': Colors.deepOrange,
+          'fundo': const Color(0xFFFFF3E0),
+          'icone': Icons.edit_note,
+        };
+      }
+
+      if (
+        estado.contains('TM') &&
+        !estado.contains('SLL')
+      ) {
+        return {
+          'texto': 'A aguardar Talent Manager',
+          'cor': const Color(0xFF4470AF),
+          'fundo': const Color(0xFFEFF6FF),
+          'icone': Icons.manage_accounts_outlined,
+        };
+      }
+
+      if (
+        estado.contains('SLL') ||
+        estado.contains('SERVICE')
+      ) {
+        return {
+          'texto': 'A aguardar SLL',
+          'cor': Colors.purple,
+          'fundo': const Color(0xFFF3E8FF),
+          'icone': Icons.verified_user_outlined,
+        };
+      }
+
+      return {
+        'texto': 'Em validação',
+        'cor': Colors.orange,
+        'fundo': const Color(0xFFFFF3E0),
+        'icone': Icons.hourglass_bottom,
+      };
+    }
+
+    final validadeRaw =
+        badge['data_validade'];
 
     if (validadeRaw == null) {
       return {
-        'texto': 'Sem validade definida',
-        'cor': Colors.grey,
-        'fundo': const Color(0xFFF5F5F5),
-        'icone': Icons.help_outline,
+        'texto': 'Conquistado',
+        'cor': const Color(0xFF2E7D32),
+        'fundo': const Color(0xFFE8F5E9),
+        'icone': Icons.check_circle_outline,
       };
     }
 
-    final validade = DateTime.tryParse(validadeRaw.toString());
+    final validade =
+        DateTime.tryParse(
+      validadeRaw.toString(),
+    );
 
     if (validade == null) {
       return {
-        'texto': 'Data inválida',
-        'cor': Colors.grey,
-        'fundo': const Color(0xFFF5F5F5),
-        'icone': Icons.help_outline,
+        'texto': 'Conquistado',
+        'cor': const Color(0xFF2E7D32),
+        'fundo': const Color(0xFFE8F5E9),
+        'icone': Icons.check_circle_outline,
       };
     }
 
-    final hoje = DateTime.now();
-    final diasRestantes = validade.difference(hoje).inDays;
+    final hoje =
+        DateTime.now();
+
+    final diasRestantes =
+        validade.difference(hoje).inDays;
 
     if (diasRestantes < 0) {
       return {
@@ -404,7 +515,7 @@ class _HistoricoBadgesPageState extends State<HistoricoBadgesPage> {
     }
 
     return {
-      'texto': 'Ativo',
+      'texto': 'Conquistado',
       'cor': const Color(0xFF2E7D32),
       'fundo': const Color(0xFFE8F5E9),
       'icone': Icons.check_circle_outline,
@@ -414,13 +525,16 @@ class _HistoricoBadgesPageState extends State<HistoricoBadgesPage> {
   @override
   // Calcula os totais de ativos e expirados e constrói a página.
   Widget build(BuildContext context) {
-    final ativos = badges.where((b) {
-      final estado = _estadoBadge(b)['texto'].toString();
-      return estado == 'Ativo' || estado.startsWith('Expira em');
+    final conquistados = badges.where((b) {
+      return b['tipo_historico'] == 'OBTIDO';
+    }).length;
+
+    final emProcesso = badges.where((b) {
+      return b['tipo_historico'] == 'PEDIDO';
     }).length;
 
     final expirados = badges.where((b) {
-      return _estadoBadge(b)['texto'] == 'Expirado';
+      return _estadoHistorico(b)['texto'] == 'Expirado';
     }).length;
 
     return Scaffold(
@@ -474,11 +588,17 @@ class _HistoricoBadgesPageState extends State<HistoricoBadgesPage> {
               child: Row(
                 children: [
                   _resumoCard(
-                    titulo: "Ativos",
-                    valor: ativos.toString(),
+                    titulo: "Obtidos",
+                    valor: conquistados.toString(),
                     cor: const Color(0xFF2E7D32),
                   ),
-                  const SizedBox(width: 10),
+                  const SizedBox(width: 8),
+                  _resumoCard(
+                    titulo: "Em processo",
+                    valor: emProcesso.toString(),
+                    cor: Colors.orange,
+                  ),
+                  const SizedBox(width: 8),
                   _resumoCard(
                     titulo: "Expirados",
                     valor: expirados.toString(),
@@ -499,7 +619,7 @@ class _HistoricoBadgesPageState extends State<HistoricoBadgesPage> {
                   : badges.isEmpty
                       ? const Center(
                           child: Text(
-                            "Ainda não tem badges conquistados.",
+                            "Ainda não existe histórico de badges ou candidaturas.",
                             style: TextStyle(color: Colors.grey),
                           ),
                         )
@@ -508,7 +628,7 @@ class _HistoricoBadgesPageState extends State<HistoricoBadgesPage> {
                           itemCount: badges.length,
                           itemBuilder: (context, index) {
                             final badge = badges[index];
-                            final estado = _estadoBadge(badge);
+                            final estado = _estadoHistorico(badge);
                             return _badgeHistoricoCard(
                               badge: badge,
                               estado: estado,
@@ -614,421 +734,452 @@ class _HistoricoBadgesPageState extends State<HistoricoBadgesPage> {
     const Color fundoDourado =
         Color(0xFFFFFDF4);
 
-    return Container(
-      margin:
-          const EdgeInsets.only(
-        bottom: 12,
-      ),
-      decoration: BoxDecoration(
-        color: ganhouBonus
-            ? fundoDourado
-            : Colors.white,
+    final int badgeId =
+      int.tryParse(
+        (
+          badge['id_badge_modelo'] ??
+          badge['id'] ??
+          0
+        ).toString(),
+      ) ??
+      0;
 
-        borderRadius:
-            BorderRadius.circular(
-          14,
-        ),
-
-        border: Border.all(
-          color: ganhouBonus
-              ? dourado
-              : Colors.grey.shade200,
-
-          width: ganhouBonus
-              ? 2
-              : 1,
-        ),
-
-        boxShadow: [
-          BoxShadow(
-            color: ganhouBonus
-                ? dourado.withOpacity(
-                    0.16,
-                  )
-                : Colors.black.withOpacity(
-                    0.03,
+    return GestureDetector(
+      onTap: badgeId <= 0
+          ? null
+          : () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => BadgeDetalhe(
+                    userId: int.parse(
+                      widget.userData['id_utilizador']
+                          .toString(),
+                    ),
+                    badgeId: badgeId,
                   ),
-
-            blurRadius: ganhouBonus
-                ? 9
-                : 5,
-
-            spreadRadius: ganhouBonus
-                ? 1
-                : 0,
-
-            offset:
-                const Offset(
-              0,
-              2,
-            ),
+                ),
+              );
+            },
+      child: Container(
+          margin:
+              const EdgeInsets.only(
+            bottom: 12,
           ),
-        ],
-      ),
-      child: Column(
-        children: [
-          Padding(
-            padding:
-                const EdgeInsets.all(
+          decoration: BoxDecoration(
+            color: ganhouBonus
+                ? fundoDourado
+                : Colors.white,
+
+            borderRadius:
+                BorderRadius.circular(
               14,
             ),
-            child: Row(
-              crossAxisAlignment:
-                  CrossAxisAlignment
-                      .center,
-              children: [
-                Container(
-                  padding:
-                      const EdgeInsets.all(
-                    3,
-                  ),
-                  decoration:
-                      BoxDecoration(
-                    shape:
-                        BoxShape.circle,
 
-                    color: ganhouBonus
-                        ? douradoClaro
-                        : const Color(
-                            0xFFEFF6FF,
-                          ),
+            border: Border.all(
+              color: ganhouBonus
+                  ? dourado
+                  : Colors.grey.shade200,
 
-                    border:
-                        Border.all(
-                      color: ganhouBonus
-                          ? dourado
-                          : const Color(
-                              0xFFDBEAFE,
-                            ),
+              width: ganhouBonus
+                  ? 2
+                  : 1,
+            ),
 
-                      width: ganhouBonus
-                          ? 1.5
-                          : 1,
+            boxShadow: [
+              BoxShadow(
+                color: ganhouBonus
+                    ? dourado.withOpacity(
+                        0.16,
+                      )
+                    : Colors.black.withOpacity(
+                        0.03,
+                      ),
+
+                blurRadius: ganhouBonus
+                    ? 9
+                    : 5,
+
+                spreadRadius: ganhouBonus
+                    ? 1
+                    : 0,
+
+                offset:
+                    const Offset(
+                  0,
+                  2,
+                ),
+              ),
+            ],
+          ),
+          child: Column(
+            children: [
+              Padding(
+                padding:
+                    const EdgeInsets.all(
+                  14,
+                ),
+                child: Row(
+                  crossAxisAlignment:
+                      CrossAxisAlignment
+                          .center,
+                  children: [
+                    Container(
+                      padding:
+                          const EdgeInsets.all(
+                        3,
+                      ),
+                      decoration:
+                          BoxDecoration(
+                        shape:
+                            BoxShape.circle,
+
+                        color: ganhouBonus
+                            ? douradoClaro
+                            : const Color(
+                                0xFFEFF6FF,
+                              ),
+
+                        border:
+                            Border.all(
+                          color: ganhouBonus
+                              ? dourado
+                              : const Color(
+                                  0xFFDBEAFE,
+                                ),
+
+                          width: ganhouBonus
+                              ? 1.5
+                              : 1,
+                        ),
+                      ),
+                      child: BadgeImage(
+                        imageUrl:
+                            imagemUrl,
+                        size: 58,
+                      ),
                     ),
-                  ),
-                  child: BadgeImage(
-                    imageUrl:
-                        imagemUrl,
-                    size: 58,
-                  ),
-                ),
 
-                const SizedBox(
-                  width: 12,
-                ),
+                    const SizedBox(
+                      width: 12,
+                    ),
 
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment:
-                        CrossAxisAlignment
-                            .start,
-                    children: [
-                      Wrap(
-                        spacing: 7,
-                        runSpacing: 5,
+                    Expanded(
+                      child: Column(
                         crossAxisAlignment:
-                            WrapCrossAlignment
-                                .center,
+                            CrossAxisAlignment
+                                .start,
                         children: [
-                          Text(
-                            nome,
-                            style:
-                                const TextStyle(
-                              fontWeight:
-                                  FontWeight
-                                      .bold,
-                              fontSize:
-                                  13,
-                            ),
-                          ),
-
-                          if (ganhouBonus)
-                            Container(
-                              padding:
-                                  const EdgeInsets
-                                      .symmetric(
-                                horizontal:
-                                    8,
-                                vertical:
-                                    3,
-                              ),
-                              decoration:
-                                  BoxDecoration(
-                                color:
-                                    douradoClaro,
-
-                                borderRadius:
-                                    BorderRadius
-                                        .circular(
-                                  20,
-                                ),
-
-                                border:
-                                    Border.all(
-                                  color:
-                                      const Color(
-                                    0xFFF0D36B,
-                                  ),
-                                ),
-                              ),
-                              child:
-                                  const Text(
-                                'Desafio concluído',
+                          Wrap(
+                            spacing: 7,
+                            runSpacing: 5,
+                            crossAxisAlignment:
+                                WrapCrossAlignment
+                                    .center,
+                            children: [
+                              Text(
+                                nome,
                                 style:
-                                    TextStyle(
-                                  fontSize:
-                                      9,
+                                    const TextStyle(
                                   fontWeight:
                                       FontWeight
                                           .bold,
-                                  color:
-                                      douradoEscuro,
+                                  fontSize:
+                                      13,
                                 ),
+                              ),
+
+                              if (ganhouBonus)
+                                Container(
+                                  padding:
+                                      const EdgeInsets
+                                          .symmetric(
+                                    horizontal:
+                                        8,
+                                    vertical:
+                                        3,
+                                  ),
+                                  decoration:
+                                      BoxDecoration(
+                                    color:
+                                        douradoClaro,
+
+                                    borderRadius:
+                                        BorderRadius
+                                            .circular(
+                                      20,
+                                    ),
+
+                                    border:
+                                        Border.all(
+                                      color:
+                                          const Color(
+                                        0xFFF0D36B,
+                                      ),
+                                    ),
+                                  ),
+                                  child:
+                                      const Text(
+                                    'Desafio concluído',
+                                    style:
+                                        TextStyle(
+                                      fontSize:
+                                          9,
+                                      fontWeight:
+                                          FontWeight
+                                              .bold,
+                                      color:
+                                          douradoEscuro,
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+
+                          if (
+                            descricao.isNotEmpty
+                          ) ...[
+                            const SizedBox(
+                              height: 3,
+                            ),
+
+                            Text(
+                              descricao,
+                              style:
+                                  const TextStyle(
+                                color:
+                                    Colors.grey,
+                                fontSize:
+                                    11,
+                              ),
+                              maxLines:
+                                  2,
+                              overflow:
+                                  TextOverflow
+                                      .ellipsis,
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(
+                      width: 8,
+                    ),
+
+                    Container(
+                      padding:
+                          const EdgeInsets
+                              .symmetric(
+                        horizontal: 8,
+                        vertical: 5,
+                      ),
+                      decoration:
+                          BoxDecoration(
+                        color:
+                            estado['fundo'],
+
+                        borderRadius:
+                            BorderRadius
+                                .circular(
+                          20,
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize:
+                            MainAxisSize.min,
+                        children: [
+                          Icon(
+                            estado['icone'],
+                            size: 14,
+                            color:
+                                estado['cor'],
+                          ),
+
+                          const SizedBox(
+                            width: 4,
+                          ),
+
+                          Text(
+                            estado['texto'],
+                            style:
+                                TextStyle(
+                              fontSize:
+                                  10,
+                              color:
+                                  estado['cor'],
+                              fontWeight:
+                                  FontWeight
+                                      .w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              Divider(
+                color: ganhouBonus
+                    ? const Color(
+                        0xFFF0D36B,
+                      )
+                    : Colors.grey.shade100,
+                height: 1,
+              ),
+
+              Padding(
+                padding:
+                    const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 11,
+                ),
+                child: Row(
+                  mainAxisAlignment:
+                      MainAxisAlignment
+                          .spaceBetween,
+                  crossAxisAlignment:
+                      CrossAxisAlignment
+                          .start,
+                  children: [
+                    Expanded(
+                      child: _dataInfo(
+                        label:
+                            badge['tipo_historico'] == 'PEDIDO'
+                                ? 'Submetido'
+                                : 'Conquistado',
+                        value: _formatarData(
+                          badge['data_evento'] ??
+                              badge['data_atribuicao'] ??
+                              badge['data_submissao'] ??
+                              badge['data_submisao'],
+                        ),
+                      ),
+                    ),
+
+                    Expanded(
+                      child: _dataInfo(
+                        label:
+                            'Validade',
+                        value: _formatarData(
+                          badge[
+                            'data_validade'
+                          ],
+                        ),
+                      ),
+                    ),
+
+                    Expanded(
+                      child: Column(
+                        children: [
+                          const Text(
+                            'Pontos',
+                            style:
+                                TextStyle(
+                              fontSize:
+                                  10,
+                              color:
+                                  Colors.grey,
+                            ),
+                          ),
+
+                          const SizedBox(
+                            height: 3,
+                          ),
+
+                          Text(
+                            '$pontos',
+                            style:
+                                const TextStyle(
+                              fontSize:
+                                  11,
+                              fontWeight:
+                                  FontWeight
+                                      .w600,
+                            ),
+                          ),
+
+                          if (
+                            ganhouBonus &&
+                            pontosExtra > 0
+                          )
+                            Text(
+                              '+$pontosExtra extra',
+                              style:
+                                  const TextStyle(
+                                fontSize:
+                                    9,
+                                fontWeight:
+                                    FontWeight
+                                        .bold,
+                                color:
+                                    dourado,
                               ),
                             ),
                         ],
                       ),
-
-                      if (
-                        descricao.isNotEmpty
-                      ) ...[
-                        const SizedBox(
-                          height: 3,
-                        ),
-
-                        Text(
-                          descricao,
-                          style:
-                              const TextStyle(
-                            color:
-                                Colors.grey,
-                            fontSize:
-                                11,
-                          ),
-                          maxLines:
-                              2,
-                          overflow:
-                              TextOverflow
-                                  .ellipsis,
-                        ),
-                      ],
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
+              ),
 
-                const SizedBox(
-                  width: 8,
-                ),
-
+              if (
+                ganhouBonus &&
+                pontosExtra > 0
+              )
                 Container(
+                  width:
+                      double.infinity,
+
                   padding:
                       const EdgeInsets
                           .symmetric(
-                    horizontal: 8,
-                    vertical: 5,
+                    horizontal: 14,
+                    vertical: 8,
                   ),
+
                   decoration:
-                      BoxDecoration(
+                      const BoxDecoration(
                     color:
-                        estado['fundo'],
+                        fundoDourado,
 
-                    borderRadius:
-                        BorderRadius
-                            .circular(
-                      20,
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisSize:
-                        MainAxisSize.min,
-                    children: [
-                      Icon(
-                        estado['icone'],
-                        size: 14,
+                    border:
+                        Border(
+                      top:
+                          BorderSide(
                         color:
-                            estado['cor'],
-                      ),
-
-                      const SizedBox(
-                        width: 4,
-                      ),
-
-                      Text(
-                        estado['texto'],
-                        style:
-                            TextStyle(
-                          fontSize:
-                              10,
-                          color:
-                              estado['cor'],
-                          fontWeight:
-                              FontWeight
-                                  .w600,
+                            Color(
+                          0xFFF0D36B,
                         ),
                       ),
-                    ],
+                    ),
                   ),
-                ),
-              ],
-            ),
-          ),
 
-          Divider(
-            color: ganhouBonus
-                ? const Color(
-                    0xFFF0D36B,
-                  )
-                : Colors.grey.shade100,
-            height: 1,
-          ),
+                  child: Text(
+                    'Recebeste +$pontosExtra '
+                    'pontos extra • '
+                    'Total obtido: '
+                    '$totalObtido pontos',
 
-          Padding(
-            padding:
-                const EdgeInsets.symmetric(
-              horizontal: 14,
-              vertical: 11,
-            ),
-            child: Row(
-              mainAxisAlignment:
-                  MainAxisAlignment
-                      .spaceBetween,
-              crossAxisAlignment:
-                  CrossAxisAlignment
-                      .start,
-              children: [
-                Expanded(
-                  child: _dataInfo(
-                    label:
-                        'Conquistado',
-                    value: _formatarData(
-                      badge[
-                        'data_atribuicao'
-                      ],
+                    textAlign:
+                        TextAlign.center,
+
+                    style:
+                        const TextStyle(
+                      fontSize:
+                          10,
+                      color:
+                          douradoEscuro,
+                      fontWeight:
+                          FontWeight.w600,
                     ),
                   ),
                 ),
-
-                Expanded(
-                  child: _dataInfo(
-                    label:
-                        'Validade',
-                    value: _formatarData(
-                      badge[
-                        'data_validade'
-                      ],
-                    ),
-                  ),
-                ),
-
-                Expanded(
-                  child: Column(
-                    children: [
-                      const Text(
-                        'Pontos',
-                        style:
-                            TextStyle(
-                          fontSize:
-                              10,
-                          color:
-                              Colors.grey,
-                        ),
-                      ),
-
-                      const SizedBox(
-                        height: 3,
-                      ),
-
-                      Text(
-                        '$pontos',
-                        style:
-                            const TextStyle(
-                          fontSize:
-                              11,
-                          fontWeight:
-                              FontWeight
-                                  .w600,
-                        ),
-                      ),
-
-                      if (
-                        ganhouBonus &&
-                        pontosExtra > 0
-                      )
-                        Text(
-                          '+$pontosExtra extra',
-                          style:
-                              const TextStyle(
-                            fontSize:
-                                9,
-                            fontWeight:
-                                FontWeight
-                                    .bold,
-                            color:
-                                dourado,
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
+            ],
           ),
-
-          if (
-            ganhouBonus &&
-            pontosExtra > 0
-          )
-            Container(
-              width:
-                  double.infinity,
-
-              padding:
-                  const EdgeInsets
-                      .symmetric(
-                horizontal: 14,
-                vertical: 8,
-              ),
-
-              decoration:
-                  const BoxDecoration(
-                color:
-                    fundoDourado,
-
-                border:
-                    Border(
-                  top:
-                      BorderSide(
-                    color:
-                        Color(
-                      0xFFF0D36B,
-                    ),
-                  ),
-                ),
-              ),
-
-              child: Text(
-                'Recebeste +$pontosExtra '
-                'pontos extra • '
-                'Total obtido: '
-                '$totalObtido pontos',
-
-                textAlign:
-                    TextAlign.center,
-
-                style:
-                    const TextStyle(
-                  fontSize:
-                      10,
-                  color:
-                      douradoEscuro,
-                  fontWeight:
-                      FontWeight.w600,
-                ),
-              ),
-            ),
-        ],
-      ),
-    );
+        )
+      );
   }
 
   // Pequeno componente utilizado para data de conquista,
