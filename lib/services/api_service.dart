@@ -38,7 +38,7 @@ class ApiService {
 
   //Trabalhar por localhost
   static const String baseUrl =
-    'http://localhost:3000/api';
+    'http://192.168.1.76:3000/api';
 
   int _converterInteiro(
     dynamic valor,

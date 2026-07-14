@@ -29,6 +29,8 @@ import 'lembretes_page.dart';
 import 'informacoes_badge.dart';
 import 'definicoes_page.dart';
 import 'progresso_page.dart';
+import 'dart:async';
+import 'package:firebase_messaging/firebase_messaging.dart';
 
 class HomePage extends StatefulWidget {
   final Map<String, dynamic> userData;
@@ -53,7 +55,11 @@ class BadgeBonusInfo {
   });
 }
 
-class _HomePageState extends State<HomePage> {
+class _HomePageState extends State<HomePage>
+    with WidgetsBindingObserver {
+
+  StreamSubscription<RemoteMessage>? _onMessageSubscription;
+  StreamSubscription<RemoteMessage>? _onMessageOpenedSubscription;
 
   BadgeBonusInfo obterBonusBadge(
     Map<String, dynamic> badge,
@@ -210,6 +216,89 @@ class _HomePageState extends State<HomePage> {
 
     return unicos.values.toList();
   }
+
+  @override
+    void initState() {
+      super.initState();
+
+      WidgetsBinding.instance.addObserver(this);
+
+      _onMessageSubscription =
+          FirebaseMessaging.onMessage.listen(
+        (RemoteMessage message) {
+          _atualizarDashboardEmTempoReal(
+            origem: 'push_foreground',
+          );
+        },
+      );
+
+      _onMessageOpenedSubscription =
+          FirebaseMessaging.onMessageOpenedApp.listen(
+        (RemoteMessage message) {
+          _atualizarDashboardEmTempoReal(
+            origem: 'push_aberta',
+          );
+        },
+      );
+
+      FirebaseMessaging.instance
+          .getInitialMessage()
+          .then((message) {
+        if (message != null) {
+          _atualizarDashboardEmTempoReal(
+            origem: 'push_inicial',
+          );
+        }
+      });
+    }
+
+    @override
+    void didChangeAppLifecycleState(
+      AppLifecycleState state,
+    ) {
+      if (state == AppLifecycleState.resumed) {
+        _atualizarDashboardEmTempoReal(
+          origem: 'app_resumed',
+        );
+      }
+    }
+
+    Future<void> _atualizarDashboardEmTempoReal({
+      required String origem,
+    }) async {
+      final int userId = int.tryParse(
+            widget.userData['id_utilizador']
+                    ?.toString() ??
+                '',
+          ) ??
+          0;
+
+      if (userId == 0 || !mounted) {
+        return;
+      }
+
+      debugPrint(
+        '[TEMPO REAL DASHBOARD] Atualizar por: $origem',
+      );
+
+      try {
+        await context
+            .read<UtilizadorProvider>()
+            .atualizarDashboard(userId);
+      } catch (e) {
+        debugPrint(
+          '[TEMPO REAL DASHBOARD] Erro: $e',
+        );
+      }
+    }
+
+    @override
+    void dispose() {
+      WidgetsBinding.instance.removeObserver(this);
+      _onMessageSubscription?.cancel();
+      _onMessageOpenedSubscription?.cancel();
+      super.dispose();
+    }
 
   @override
   Widget build(BuildContext context) {

@@ -19,6 +19,8 @@ import '../services/api_service.dart';
 import '../database/basededados.dart'; // Import crucial para ler os requisitos offline
 import 'submeter_badges.dart';
 import 'certificado.dart';
+import 'dart:async';
+import 'package:firebase_messaging/firebase_messaging.dart';
 
 // Variável global que pode guardar uma notificação/objeto associado
 // à disponibilidade de certificado para o badge atual.
@@ -90,9 +92,14 @@ class BadgeDetalhe extends StatefulWidget {
 }
 
 // Guarda badge, progresso, relacionados, requisitos e estados visuais.
-class _BadgeDetalheState extends State<BadgeDetalhe> {
+class _BadgeDetalheState extends State<BadgeDetalhe>
+    with WidgetsBindingObserver {
   final ApiService _apiService = ApiService();
   final Basededados _dbLocal = Basededados(); // Conexão local SQLite
+  StreamSubscription<RemoteMessage>? _onMessageSubscription;
+  StreamSubscription<RemoteMessage>? _onMessageOpenedSubscription;
+  Timer? _refreshTimer;
+  bool _aAtualizarTempoReal = false;
 
   Map<String, dynamic>? badge;
   Map<String, dynamic>? progresso;
@@ -217,10 +224,93 @@ class _BadgeDetalheState extends State<BadgeDetalhe> {
   }
 
   @override
-  // Inicia o carregamento do badge quando a página é criada.
   void initState() {
     super.initState();
+
+    WidgetsBinding.instance.addObserver(this);
+
     carregar();
+
+    _onMessageSubscription =
+        FirebaseMessaging.onMessage.listen(
+      (_) {
+        _atualizarDetalheEmTempoReal(
+          origem: 'push_foreground',
+        );
+      },
+    );
+
+    _onMessageOpenedSubscription =
+        FirebaseMessaging.onMessageOpenedApp.listen(
+      (_) {
+        _atualizarDetalheEmTempoReal(
+          origem: 'push_aberta',
+        );
+      },
+    );
+
+    FirebaseMessaging.instance
+        .getInitialMessage()
+        .then((message) {
+      if (message != null) {
+        _atualizarDetalheEmTempoReal(
+          origem: 'push_inicial',
+        );
+      }
+    });
+
+    _refreshTimer = Timer.periodic(
+      const Duration(seconds: 30),
+      (_) {
+        _atualizarDetalheEmTempoReal(
+          origem: 'timer_30s',
+        );
+      },
+    );
+  }
+
+  @override
+  void didChangeAppLifecycleState(
+    AppLifecycleState state,
+  ) {
+    if (state == AppLifecycleState.resumed) {
+      _atualizarDetalheEmTempoReal(
+        origem: 'app_resumed',
+      );
+    }
+  }
+
+  Future<void> _atualizarDetalheEmTempoReal({
+    required String origem,
+  }) async {
+    if (_aAtualizarTempoReal || !mounted) {
+      return;
+    }
+
+    try {
+      _aAtualizarTempoReal = true;
+
+      debugPrint(
+        '[TEMPO REAL DETALHE BADGE] Atualizar por: $origem',
+      );
+
+      await carregar();
+    } catch (e) {
+      debugPrint(
+        '[TEMPO REAL DETALHE BADGE] Erro: $e',
+      );
+    } finally {
+      _aAtualizarTempoReal = false;
+    }
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _onMessageSubscription?.cancel();
+    _onMessageOpenedSubscription?.cancel();
+    _refreshTimer?.cancel();
+    super.dispose();
   }
 
   // =========================================================================

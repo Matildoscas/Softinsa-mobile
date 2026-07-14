@@ -22,6 +22,8 @@ import '../services/api_service.dart';
 import '../database/basededados.dart'; // Import central para a cache local
 import 'catalogo_badges_utilizador.dart';
 import 'informacoes_badge.dart';
+import 'dart:async';
+import 'package:firebase_messaging/firebase_messaging.dart';
 
 // =========================================================================
 // OBTER NÍVEL
@@ -65,9 +67,14 @@ class CatalogoBadgesPage extends StatefulWidget {
 
 // Estado privado do catálogo.
 // Guarda os dados originais e a versão filtrada apresentada na interface.
-class _CatalogoBadgesPageState extends State<CatalogoBadgesPage> {
+class _CatalogoBadgesPageState extends State<CatalogoBadgesPage>
+    with WidgetsBindingObserver {
   final ApiService _apiService = ApiService();
   final Basededados _dbLocal = Basededados(); // Chave de acesso ao SQLite local
+  StreamSubscription<RemoteMessage>? _onMessageSubscription;
+  StreamSubscription<RemoteMessage>? _onMessageOpenedSubscription;
+  Timer? _refreshTimer;
+  bool _aAtualizarTempoReal = false;
 
   int _converterInteiro(
     dynamic valor,
@@ -150,11 +157,93 @@ class _CatalogoBadgesPageState extends State<CatalogoBadgesPage> {
   List<String> niveis = [];
 
   @override
-  // Executado uma única vez quando a página é criada.
-  // Inicia imediatamente o carregamento do catálogo.
-  void initState() {
-    super.initState();
-    carregarDados();
+    void initState() {
+      super.initState();
+
+      WidgetsBinding.instance.addObserver(this);
+
+      carregarDados();
+
+      _onMessageSubscription =
+          FirebaseMessaging.onMessage.listen(
+        (RemoteMessage message) {
+          _atualizarCatalogoEmTempoReal(
+            origem: 'push_foreground',
+          );
+        },
+      );
+
+      _onMessageOpenedSubscription =
+          FirebaseMessaging.onMessageOpenedApp.listen(
+        (RemoteMessage message) {
+          _atualizarCatalogoEmTempoReal(
+            origem: 'push_aberta',
+          );
+        },
+      );
+
+      FirebaseMessaging.instance
+          .getInitialMessage()
+          .then((message) {
+        if (message != null) {
+          _atualizarCatalogoEmTempoReal(
+            origem: 'push_inicial',
+          );
+        }
+      });
+
+      _refreshTimer = Timer.periodic(
+        const Duration(seconds: 30),
+        (_) {
+          _atualizarCatalogoEmTempoReal(
+            origem: 'timer_30s',
+          );
+        },
+      );
+    }
+
+  @override
+  void didChangeAppLifecycleState(
+    AppLifecycleState state,
+  ) {
+    if (state == AppLifecycleState.resumed) {
+      _atualizarCatalogoEmTempoReal(
+        origem: 'app_resumed',
+      );
+    }
+  }
+
+  Future<void> _atualizarCatalogoEmTempoReal({
+    required String origem,
+  }) async {
+    if (_aAtualizarTempoReal || !mounted) {
+      return;
+    }
+
+    try {
+      _aAtualizarTempoReal = true;
+
+      debugPrint(
+        '[TEMPO REAL CATÁLOGO] Atualizar por: $origem',
+      );
+
+      await carregarDados();
+    } catch (e) {
+      debugPrint(
+        '[TEMPO REAL CATÁLOGO] Erro: $e',
+      );
+    } finally {
+      _aAtualizarTempoReal = false;
+    }
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _onMessageSubscription?.cancel();
+    _onMessageOpenedSubscription?.cancel();
+    _refreshTimer?.cancel();
+    super.dispose();
   }
 
   // =========================================================================
@@ -286,7 +375,44 @@ class _CatalogoBadgesPageState extends State<CatalogoBadgesPage> {
       setState(() {
         todosBadges = merged;
         _extrairNiveis();
-        _aplicarFiltros();
+
+        var lista = todosBadges.where((b) {
+          final matchPesquisa = pesquisa.isEmpty ||
+              (b['nome'] ?? '')
+                  .toString()
+                  .toLowerCase()
+                  .contains(pesquisa.toLowerCase()) ||
+              (b['descricao'] ?? '')
+                  .toString()
+                  .toLowerCase()
+                  .contains(pesquisa.toLowerCase());
+
+          final matchNivel =
+              filtroNivel == null ||
+              obterNivel(b['id_nivel']) == filtroNivel;
+
+          return matchPesquisa && matchNivel;
+        }).toList();
+
+        if (ordenacao == 'az') {
+          lista.sort(
+            (a, b) => (a['nome'] ?? '')
+                .toString()
+                .compareTo(
+                  (b['nome'] ?? '').toString(),
+                ),
+          );
+        } else if (ordenacao == 'za') {
+          lista.sort(
+            (a, b) => (b['nome'] ?? '')
+                .toString()
+                .compareTo(
+                  (a['nome'] ?? '').toString(),
+                ),
+          );
+        }
+
+        badgesFiltrados = lista;
         isLoading = false;
       });
     }

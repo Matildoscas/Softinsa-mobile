@@ -21,6 +21,8 @@ import '../services/api_service.dart';
 // Base de dados SQLite utilizada como cache offline.
 import '../database/basededados.dart';
 import 'informacoes_badge.dart';
+import 'dart:async';
+import 'package:firebase_messaging/firebase_messaging.dart';
 
 // Converte o ID do nível para A, B, C, D ou E.
 String obterNivel(dynamic idNivel) {
@@ -56,9 +58,14 @@ class MeusBadgesPage extends StatefulWidget {
 }
 
 // Estado da página: listas, carregamento, pesquisa, filtro e ordenação.
-class _MeusBadgesPageState extends State<MeusBadgesPage> {
+class _MeusBadgesPageState extends State<MeusBadgesPage>
+    with WidgetsBindingObserver {
   final ApiService _apiService = ApiService();
   final Basededados _dbLocal = Basededados();
+  StreamSubscription<RemoteMessage>? _onMessageSubscription;
+  StreamSubscription<RemoteMessage>? _onMessageOpenedSubscription;
+  Timer? _refreshTimer;
+  bool _aAtualizarTempoReal = false;
 
   List<Map<String, dynamic>> meusBadges = [];
   bool isLoading = true;
@@ -72,10 +79,93 @@ class _MeusBadgesPageState extends State<MeusBadgesPage> {
   List<String> niveis = [];
 
   @override
-  // Inicia o carregamento assim que a página é criada.
   void initState() {
     super.initState();
+
+    WidgetsBinding.instance.addObserver(this);
+
     _carregarMeusBadges();
+
+    _onMessageSubscription =
+        FirebaseMessaging.onMessage.listen(
+      (_) {
+        _atualizarMeusBadgesEmTempoReal(
+          origem: 'push_foreground',
+        );
+      },
+    );
+
+    _onMessageOpenedSubscription =
+        FirebaseMessaging.onMessageOpenedApp.listen(
+      (_) {
+        _atualizarMeusBadgesEmTempoReal(
+          origem: 'push_aberta',
+        );
+      },
+    );
+
+    FirebaseMessaging.instance
+        .getInitialMessage()
+        .then((message) {
+      if (message != null) {
+        _atualizarMeusBadgesEmTempoReal(
+          origem: 'push_inicial',
+        );
+      }
+    });
+
+    _refreshTimer = Timer.periodic(
+      const Duration(seconds: 30),
+      (_) {
+        _atualizarMeusBadgesEmTempoReal(
+          origem: 'timer_30s',
+        );
+      },
+    );
+  }
+
+  @override
+  void didChangeAppLifecycleState(
+    AppLifecycleState state,
+  ) {
+    if (state == AppLifecycleState.resumed) {
+      _atualizarMeusBadgesEmTempoReal(
+        origem: 'app_resumed',
+      );
+    }
+  }
+
+  Future<void> _atualizarMeusBadgesEmTempoReal({
+    required String origem,
+  }) async {
+    if (_aAtualizarTempoReal || !mounted) {
+      return;
+    }
+
+    try {
+      _aAtualizarTempoReal = true;
+
+      debugPrint(
+        '[TEMPO REAL MEUS BADGES] Atualizar por: $origem',
+      );
+
+      await _carregarMeusBadges();
+    } catch (e) {
+      debugPrint(
+        '[TEMPO REAL MEUS BADGES] Erro: $e',
+      );
+    } finally {
+      _aAtualizarTempoReal = false;
+    }
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _onMessageSubscription?.cancel();
+    _onMessageOpenedSubscription?.cancel();
+    _refreshTimer?.cancel();
+    super.dispose();
   }
 
   int _converterInteiro(
