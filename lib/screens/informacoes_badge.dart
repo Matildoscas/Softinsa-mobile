@@ -550,19 +550,20 @@ class _BadgeDetalheState extends State<BadgeDetalhe>
       return;
     }
 
-    final String nomeBadge =
-        badge?['nome']?.toString() ??
-        badge?['nome_badge']?.toString() ??
-        'Badge Softinsa';
-
-    final String urlPublico =
-        'https://softinsa.pt/badges/'
-        '${widget.userId}/'
-        '${widget.badgeId}';
+    /*
+    * Este URL deve ser a página pública da WEB,
+    * ou seja, a galeria onde o badge aparece publicamente.
+    *
+    * Troca pelo domínio/rota real do teu frontend web.
+    */
+    final String urlBadgePublico =
+      'https://softinsa-web.onrender.com/galeria-badges'
+      '${widget.userId}/'
+      '${widget.badgeId}';
 
     final Uri linkedInUrl = Uri.parse(
       'https://www.linkedin.com/sharing/share-offsite/'
-      '?url=${Uri.encodeComponent(urlPublico)}',
+      '?url=${Uri.encodeComponent(urlBadgePublico)}',
     );
 
     try {
@@ -573,18 +574,16 @@ class _BadgeDetalheState extends State<BadgeDetalhe>
 
       if (!abriu && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
+          const SnackBar(
             content: Text(
-              'Não foi possível abrir o LinkedIn para partilhar "$nomeBadge".',
+              'Não foi possível abrir o LinkedIn.',
             ),
             backgroundColor: Colors.red,
           ),
         );
       }
     } catch (e) {
-      if (!mounted) {
-        return;
-      }
+      if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
