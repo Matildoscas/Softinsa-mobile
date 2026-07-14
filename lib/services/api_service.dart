@@ -86,6 +86,48 @@ class ApiService {
     ].contains(texto);
   }
 
+  List<Map<String, dynamic>> _extrairListaMap(
+    dynamic decoded,
+  ) {
+    if (decoded is List) {
+      return decoded
+          .whereType<Map>()
+          .map((e) => Map<String, dynamic>.from(e))
+          .toList();
+    }
+
+    if (decoded is Map<String, dynamic>) {
+      const chavesPossiveis = <String>[
+        'data',
+        'rows',
+        'badges',
+        'items',
+        'resultados',
+        'conquistados',
+        'progresso',
+        'recomendados',
+      ];
+
+      for (final chave in chavesPossiveis) {
+        final valor = decoded[chave];
+        if (valor is List) {
+          return valor
+              .whereType<Map>()
+              .map((e) => Map<String, dynamic>.from(e))
+              .toList();
+        }
+      }
+
+      if (decoded.containsKey('id') ||
+          decoded.containsKey('id_badge_modelo') ||
+          decoded.containsKey('id_badge_atribuido')) {
+        return [decoded];
+      }
+    }
+
+    return <Map<String, dynamic>>[];
+  }
+
 
   // =========================================================================
   // CABEÇALHOS HTTP
@@ -566,8 +608,8 @@ class ApiService {
     try {
       final response = await http.get(Uri.parse('$baseUrl/badges/progresso/$userId'), headers: _headers);
       if (response.statusCode == 200) {
-        final List data = jsonDecode(response.body);
-        return data.map((e) => e as Map<String, dynamic>).toList();
+        final dynamic decoded = jsonDecode(response.body);
+        return _extrairListaMap(decoded);
       }
       throw Exception('Erro badges progresso');
     } on SocketException {
@@ -583,8 +625,8 @@ class ApiService {
     try {
       final response = await http.get(Uri.parse('$baseUrl/badges/recomendados/$userId'), headers: _headers);
       if (response.statusCode == 200) {
-        final List data = jsonDecode(response.body);
-        return data.map((e) => e as Map<String, dynamic>).toList();
+        final dynamic decoded = jsonDecode(response.body);
+        return _extrairListaMap(decoded);
       }
       throw Exception('Erro badges recomendados');
     } on SocketException {
@@ -655,13 +697,17 @@ class ApiService {
   // Obtém os badges atribuídos ao utilizador e agrupa os respetivos requisitos.
   // =========================================================================
   Future<List<Map<String, dynamic>>> getBadgesConquistados(int userId) async {
-    final response = await http.get(Uri.parse('$baseUrl/badges/conquistados/$userId'), headers: _headers);
-    if (response.statusCode == 200) {
-      final List data = jsonDecode(response.body);
-      final listaPlana = data.map((e) => e as Map<String, dynamic>).toList();
-      return agruparBadgesComRequisitos(listaPlana);
+    try {
+      final response = await http.get(Uri.parse('$baseUrl/badges/conquistados/$userId'), headers: _headers);
+      if (response.statusCode == 200) {
+        final dynamic decoded = jsonDecode(response.body);
+        final listaPlana = _extrairListaMap(decoded);
+        return agruparBadgesComRequisitos(listaPlana);
+      }
+      throw Exception('Erro conquistados');
+    } on SocketException {
+      throw const SocketException('offline');
     }
-    throw Exception('Erro conquistados');
   }
 
   // =========================================================================
@@ -951,9 +997,10 @@ class ApiService {
       final int? badgeId =
           int.tryParse(
         (
-          linha['id'] ??
           linha['id_badge_modelo'] ??
+          linha['id'] ??
           linha['badge_id'] ??
+          linha['id_badge_atribuido'] ??
           ''
         ).toString(),
       );
@@ -983,6 +1030,10 @@ class ApiService {
           ...linha,
 
           'id': badgeId,
+
+            'id_badge_modelo':
+              linha['id_badge_modelo'] ??
+              badgeId,
 
           'nome':
               linha['nome'] ??

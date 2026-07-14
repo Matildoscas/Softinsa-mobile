@@ -66,6 +66,10 @@ class _HomePageState extends ConsumerState<HomePage>
   BadgeBonusInfo obterBonusBadge(
     Map<String, dynamic> badge,
   ) {
+    final int pontosBase = _converterInteiro(
+      badge['pontos'],
+    );
+
     final int pontosExtra =
         _converterInteiro(
       badge['pontos_extra'] ??
@@ -79,10 +83,29 @@ class _HomePageState extends ConsumerState<HomePage>
         ) ||
         pontosExtra > 0;
 
+    final int pontosExtraNormalizado =
+        (ganhouBonus && pontosExtra == 0 && pontosBase > 0)
+        ? pontosBase
+        : pontosExtra;
+
     return BadgeBonusInfo(
       ganhouBonus: ganhouBonus,
-      pontosExtra: pontosExtra,
+      pontosExtra: pontosExtraNormalizado,
     );
+  }
+
+  int _obterTotalBadge(
+    Map<String, dynamic> badge,
+  ) {
+    final int pontosBase = _converterInteiro(
+      badge['pontos'],
+    );
+
+    final bonus = obterBonusBadge(
+      badge,
+    );
+
+    return pontosBase + bonus.pontosExtra;
   }
 
   int _converterInteiro(
@@ -380,7 +403,7 @@ class _HomePageState extends ConsumerState<HomePage>
               provider.learningPaths,
             );
 
-            final int pontosAtuais =
+            final int pontosDashboard =
                 _converterInteiro(
               provider.dashboard[
                 'total_pontos'
@@ -389,6 +412,20 @@ class _HomePageState extends ConsumerState<HomePage>
                 'pontos_atuais'
               ],
             );
+
+            final int pontosCalculados =
+                listaConquistados.fold(
+              0,
+              (acumulado, badge) =>
+                  acumulado + _obterTotalBadge(badge),
+            );
+
+            final int pontosAtuais =
+                pontosDashboard > 0
+                ? (pontosCalculados > pontosDashboard
+                    ? pontosCalculados
+                    : pontosDashboard)
+                : pontosCalculados;
 
             final int totalDashboard =
                 int.tryParse(
