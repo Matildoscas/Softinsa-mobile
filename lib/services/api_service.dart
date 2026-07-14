@@ -33,12 +33,9 @@ class ApiService {
   // Para produção, usa-se normalmente o endereço do Render.
   // Para desenvolvimento local, usa-se o IP do computador na rede.
 
-  // Trabalhar por Render
-  //static const String baseUrl = 'https://softinsa-api.onrender.com/api';
-
-  //Trabalhar por localhost
+  // Produção (Render)
   static const String baseUrl =
-    'http://192.168.1.76:3000/api';
+    'https://softinsa-api.onrender.com/api';
 
   int _converterInteiro(
     dynamic valor,
