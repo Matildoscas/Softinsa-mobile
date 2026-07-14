@@ -21,6 +21,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:firebase_analytics/firebase_analytics.dart';
+import 'screens/ativacao_admin.dart';
 
 
 // ============================================================
@@ -165,6 +166,7 @@ class MyApp extends StatelessWidget {
         '/login': (context) => const LoginPage(),
         '/home':  (context) => HomePage(userData: const {}),
         '/perfil': (context) => const PerfilPage(userData: {}),
+        '/ativacao-admin': (context) => const AtivacaoAdminPage(),
       },
 
       // FutureBuilder: constrói o ecrã inicial de forma assíncrona,

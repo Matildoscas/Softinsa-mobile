@@ -118,6 +118,84 @@ class ApiService {
   //
   // Este método trata os erros internamente e devolve sempre um Map.
   // =========================================================================
+
+  Future<Map<String, dynamic>> validarAtivacaoAdmin(
+    String tokenAtivacao,
+  ) async {
+    final url = Uri.parse(
+      '$baseUrl/auth/ativacao-admin/validar?token=$tokenAtivacao',
+    );
+
+    final response = await http
+        .get(
+          url,
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+          },
+        )
+        .timeout(const Duration(seconds: 30));
+
+    final decoded = jsonDecode(response.body);
+
+    if (response.statusCode == 200 && decoded is Map<String, dynamic>) {
+      return decoded;
+    }
+
+    if (decoded is Map<String, dynamic>) {
+      throw Exception(
+        decoded['error'] ??
+            decoded['message'] ??
+            'Não foi possível validar a conta.',
+      );
+    }
+
+    throw Exception('Não foi possível validar a conta.');
+  }
+
+  Future<Map<String, dynamic>> confirmarAtivacaoAdmin({
+    required String tokenAtivacao,
+    required String passwordTemporaria,
+    required String novaPassword,
+    int? idArea,
+  }) async {
+    final url = Uri.parse(
+      '$baseUrl/auth/ativacao-admin/confirmar',
+    );
+
+    final response = await http
+        .post(
+          url,
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+          },
+          body: jsonEncode({
+            'token': tokenAtivacao,
+            'password_temporaria': passwordTemporaria,
+            'nova_password': novaPassword,
+            if (idArea != null) 'id_area': idArea,
+          }),
+        )
+        .timeout(const Duration(seconds: 30));
+
+    final decoded = jsonDecode(response.body);
+
+    if (response.statusCode == 200 && decoded is Map<String, dynamic>) {
+      return decoded;
+    }
+
+    if (decoded is Map<String, dynamic>) {
+      throw Exception(
+        decoded['error'] ??
+            decoded['message'] ??
+            'Não foi possível ativar a conta.',
+      );
+    }
+
+    throw Exception('Não foi possível ativar a conta.');
+  }
+
   Future<Map<String, dynamic>> login(
     String email,
     String password,
