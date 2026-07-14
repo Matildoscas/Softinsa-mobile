@@ -673,7 +673,7 @@ class _PerfilPageState extends ConsumerState<PerfilPage> {
     // Consome o estado global para obter os dados atualizados do dashboard.
     final userProvider = ref.watch(utilizadorStateProvider);
 
-    final int pontosAtuais =
+    final int pontosDashboard =
         _converterInteiro(
       userProvider.dashboard[
             'total_pontos'
@@ -682,6 +682,29 @@ class _PerfilPageState extends ConsumerState<PerfilPage> {
             'pontos_atuais'
           ],
     );
+
+    final int pontosCalculados =
+        badgesConquistados.fold(
+      0,
+      (acumulado, badge) {
+        final int base = _converterInteiro(
+          badge['pontos'],
+        );
+
+        final bonus = _obterBonusBadge(
+          badge,
+        );
+
+        return acumulado + base + bonus.pontosExtra;
+      },
+    );
+
+    final int pontosAtuais =
+        pontosDashboard > 0
+            ? (pontosCalculados > pontosDashboard
+                ? pontosCalculados
+                : pontosDashboard)
+            : pontosCalculados;
 
     final int totalDashboard =
         _converterInteiro(

@@ -307,7 +307,18 @@ class UtilizadorNotifier extends StateNotifier<UtilizadorState> {
     } catch (_) {
       return _carregarBadgesAtribuidosDoCache(
         userId: userId,
-        estadosValidos: const ['Conquistado', 'CONQUISTADO', 'Concluido', 'CONCLUIDO'],
+        estadosValidos: const [
+          'Conquistado',
+          'CONQUISTADO',
+          'Concluido',
+          'CONCLUIDO',
+          'Aprovado',
+          'APROVADO',
+          'Validado',
+          'VALIDADO',
+          'Completo',
+          'COMPLETO',
+        ],
       );
     }
   }
@@ -364,17 +375,47 @@ class UtilizadorNotifier extends StateNotifier<UtilizadorState> {
     required String estadoPadrao,
   }) async {
     final int idBadgeModelo =
-        int.tryParse((badge['id_badge_modelo'] ?? badge['id'] ?? badge['badge_id'] ?? 0).toString()) ?? 0;
+        int.tryParse(
+              (
+                badge['id_badge_modelo'] ??
+                badge['id_badge'] ??
+                badge['id_badgeModelo'] ??
+                badge['badge_id'] ??
+                badge['id'] ??
+                badge['id_badge_atribuido'] ??
+                0
+              ).toString(),
+            ) ??
+            0;
 
     final int idBadgeAtribuido =
-        int.tryParse((badge['id_badge_atribuido'] ?? badge['id'] ?? idBadgeModelo).toString()) ?? idBadgeModelo;
+        int.tryParse(
+              (
+                badge['id_badge_atribuido'] ??
+                badge['id_atribuido'] ??
+                badge['id'] ??
+                idBadgeModelo
+              ).toString(),
+            ) ??
+            idBadgeModelo;
 
-    if (idBadgeModelo == 0 || idBadgeAtribuido == 0) {
+    if (idBadgeAtribuido == 0) {
       return;
     }
 
+    final int idModeloPersistido =
+        idBadgeModelo == 0
+            ? idBadgeAtribuido
+            : idBadgeModelo;
+
+    final String estadoBadge =
+        badge['estado_badge_atribuido']?.toString() ??
+        badge['estado']?.toString() ??
+        badge['status']?.toString() ??
+        estadoPadrao;
+
     await _dbLocal.salvarRegisto('badge_modelo', {
-      'id_badge_modelo': idBadgeModelo,
+      'id_badge_modelo': idModeloPersistido,
       'id_serviceline': int.tryParse((badge['id_serviceline'] ?? 0).toString()),
       'id_areas': int.tryParse((badge['id_areas'] ?? 0).toString()),
       'id_nivel': int.tryParse((badge['id_nivel'] ?? 0).toString()),
@@ -391,10 +432,10 @@ class UtilizadorNotifier extends StateNotifier<UtilizadorState> {
 
     await _dbLocal.salvarRegisto('badge_atribuido', {
       'id_badge_atribuido': idBadgeAtribuido,
-      'id_badge_modelo': idBadgeModelo,
+      'id_badge_modelo': idModeloPersistido,
       'data_atribuicao': badge['data_atribuicao']?.toString(),
       'data_validade': badge['data_validade']?.toString(),
-      'estado_badge_atribuido': badge['estado_badge_atribuido'] ?? estadoPadrao,
+      'estado_badge_atribuido': estadoBadge,
     });
 
     await _dbLocal.salvarRegisto('obtem', {
@@ -404,7 +445,7 @@ class UtilizadorNotifier extends StateNotifier<UtilizadorState> {
 
     await _guardarBadgeUtilizadorCache(
       userId: userId,
-      idBadgeModelo: idBadgeModelo,
+      idBadgeModelo: idModeloPersistido,
       idBadgeAtribuido: idBadgeAtribuido,
       badge: badge,
       estadoPadrao: estadoPadrao,
