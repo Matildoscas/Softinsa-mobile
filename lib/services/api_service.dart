@@ -109,6 +109,80 @@ class ApiService {
     return <Map<String, dynamic>>[];
   }
 
+  Map<String, dynamic>? _extrairMapaDetalheStatus(dynamic decoded) {
+    if (decoded is! Map<String, dynamic>) {
+      return null;
+    }
+
+    Map<String, dynamic>? _comoMapa(dynamic valor) {
+      if (valor is Map<String, dynamic>) {
+        return Map<String, dynamic>.from(valor);
+      }
+
+      if (valor is Map) {
+        return Map<String, dynamic>.from(valor);
+      }
+
+      return null;
+    }
+
+    List<Map<String, dynamic>> _comoListaMap(dynamic valor) {
+      if (valor is List) {
+        return valor
+            .whereType<Map>()
+            .map((e) => Map<String, dynamic>.from(e))
+            .toList();
+      }
+
+      return const <Map<String, dynamic>>[];
+    }
+
+    Map<String, dynamic>? _montar(Map<String, dynamic> origem) {
+      final candidaturaDireta = _comoMapa(origem['candidatura']);
+      final statusDireto = _comoMapa(origem['status']);
+      final candidatura = candidaturaDireta ?? statusDireto;
+
+      if (candidatura != null) {
+        final requisitos = _comoListaMap(origem['requisitos']);
+        return {
+          'candidatura': candidatura,
+          'requisitos': requisitos,
+        };
+      }
+
+      // Alguns payloads chegam com o próprio objeto da candidatura na raiz.
+      if (origem.containsKey('id_candidatura_pedido') ||
+          origem.containsKey('estado_geral') ||
+          origem.containsKey('estado_candidatura_pedido')) {
+        return {
+          'candidatura': Map<String, dynamic>.from(origem),
+          'requisitos': _comoListaMap(origem['requisitos']),
+        };
+      }
+
+      return null;
+    }
+
+    final direto = _montar(decoded);
+    if (direto != null) {
+      return direto;
+    }
+
+    for (final chave in const ['data', 'resultado', 'result', 'detalhe']) {
+      final interno = _comoMapa(decoded[chave]);
+      if (interno == null) {
+        continue;
+      }
+
+      final extraido = _montar(interno);
+      if (extraido != null) {
+        return extraido;
+      }
+    }
+
+    return null;
+  }
+
   // =========================================================================
   // CABEÇALHOS HTTP
   // =========================================================================
@@ -1266,9 +1340,7 @@ class ApiService {
 
       if (response.statusCode == 200) {
         final decoded = jsonDecode(response.body);
-        if (decoded is Map<String, dynamic>) {
-          return decoded;
-        }
+        return _extrairMapaDetalheStatus(decoded);
       }
 
       return null;

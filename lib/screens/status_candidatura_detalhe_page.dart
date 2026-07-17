@@ -32,8 +32,15 @@ class StatusCandidaturaDetalhePage extends StatelessWidget {
         0;
 
     final int idCandidatura =
-        int.tryParse((candidatura['id_candidatura_pedido'] ?? '').toString()) ??
-        0;
+      int.tryParse(
+        (candidatura['id_candidatura_pedido'] ??
+            candidatura['idCandidatura'] ??
+            candidatura['id_candidatura'] ??
+            candidatura['id'] ??
+            '')
+          .toString(),
+      ) ??
+      0;
 
     if (idUtilizador <= 0 || idCandidatura <= 0) {
       return null;
@@ -50,10 +57,8 @@ class StatusCandidaturaDetalhePage extends StatelessWidget {
         return detalheApi;
       }
 
-      return {
-        'candidatura': candidatura,
-        'requisitos': const <Map<String, dynamic>>[],
-      };
+      // Evita exibir payload antigo quando a API não devolve detalhe válido.
+      return null;
     } on SocketException {
       // TESTE: fallback offline pela BD local desativado apenas no detalhe de status.
       // Sem internet, não mostrar payload antigo para evitar estado enganador.
@@ -337,6 +342,104 @@ class StatusCandidaturaDetalhePage extends StatelessWidget {
               .toString(),
         ) ??
         0;
+  }
+
+  Map<String, dynamic> _normalizarCandidatura(Map<String, dynamic> origem) {
+    final item = Map<String, dynamic>.from(origem);
+
+    dynamic valorDe(List<String> chaves) {
+      for (final chave in chaves) {
+        if (item.containsKey(chave) && item[chave] != null) {
+          final valor = item[chave];
+          if (valor is String && valor.trim().isEmpty) {
+            continue;
+          }
+          return valor;
+        }
+      }
+      return null;
+    }
+
+    void garantir(String chave, List<String> alternativas) {
+      final atual = item[chave];
+      if (atual is String && atual.trim().isNotEmpty) {
+        return;
+      }
+      if (atual != null && atual.toString().trim().isNotEmpty) {
+        return;
+      }
+
+      final valor = valorDe(alternativas);
+      if (valor != null) {
+        item[chave] = valor;
+      }
+    }
+
+    garantir('id_candidatura_pedido', [
+      'id_candidatura_pedido',
+      'idCandidatura',
+      'id_candidatura',
+    ]);
+    garantir('id_badge_modelo', ['id_badge_modelo', 'id_badge', 'idBadge']);
+    garantir('nome_badge', ['nome_badge', 'nomeBadge', 'nome']);
+
+    garantir('estado_geral', [
+      'estado_geral',
+      'estadoGeral',
+      'estado_final',
+      'estadoFinal',
+      'estado_candidatura_pedido',
+      'estado_candidaturatm',
+      'estado_candidaturasll',
+    ]);
+    garantir('fase_geral', ['fase_geral', 'faseGeral', 'fase']);
+
+    garantir('data_submissao', [
+      'data_submissao',
+      'data_submisao',
+      'dataSubmissao',
+    ]);
+    garantir('data_rececao_tm', ['data_rececao_tm', 'dataRececaoTm']);
+    garantir('data_conclusao_tm', ['data_conclusao_tm', 'dataConclusaoTm']);
+    garantir('data_rececao_sll', ['data_rececao_sll', 'dataRececaoSll']);
+    garantir('data_conclusao_sll', [
+      'data_conclusao_sll',
+      'dataConclusaoSll',
+    ]);
+    garantir('data_avaliacao_sll', [
+      'data_avaliacao_sll',
+      'dataAvaliacaoSll',
+    ]);
+    garantir('data_entrada_historico', [
+      'data_entrada_historico',
+      'dataEntradaHistorico',
+    ]);
+
+    garantir('total_evidencias', ['total_evidencias', 'totalEvidencias']);
+    garantir('evidencias_decididas_tm', [
+      'evidencias_decididas_tm',
+      'evidenciasDecididasTm',
+    ]);
+    garantir('evidencias_decididas_sll', [
+      'evidencias_decididas_sll',
+      'evidenciasDecididasSll',
+    ]);
+    garantir('evidencias_rejeitadas_tm', [
+      'evidencias_rejeitadas_tm',
+      'evidenciasRejeitadasTm',
+    ]);
+    garantir('evidencias_rejeitadas_sll', [
+      'evidencias_rejeitadas_sll',
+      'evidenciasRejeitadasSll',
+    ]);
+    garantir('comentarios_tm', ['comentarios_tm', 'comentario_tm']);
+    garantir('comentarios_sll', ['comentarios_sll', 'comentario_sll']);
+    garantir('motivo_estado_final', [
+      'motivo_estado_final',
+      'motivoEstadoFinal',
+    ]);
+
+    return item;
   }
 
   Widget _buildChip(String label, Color fundo, Color texto, Color borda) {
@@ -626,8 +729,8 @@ class StatusCandidaturaDetalhePage extends StatelessWidget {
           );
         }
 
-        final candidaturaDetalhe = Map<String, dynamic>.from(
-          detalhe['candidatura'] as Map,
+        final candidaturaDetalhe = _normalizarCandidatura(
+          Map<String, dynamic>.from(detalhe['candidatura'] as Map),
         );
         final requisitos = detalhe != null && detalhe['requisitos'] is List
             ? (detalhe['requisitos'] as List)
