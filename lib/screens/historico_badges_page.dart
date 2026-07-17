@@ -128,16 +128,57 @@ class _HistoricoBadgesPageState extends State<HistoricoBadgesPage> {
     ];
 
     for (final imagem in possibilidades) {
-      final valor =
-          imagem?.toString().trim();
+      final String valor =
+          imagem
+              ?.toString()
+              .trim() ??
+          '';
 
       if (
-        valor != null &&
-        valor.isNotEmpty &&
-        valor != 'null'
+        valor.isEmpty ||
+        valor.toLowerCase() ==
+            'null'
+      ) {
+        continue;
+      }
+
+      /*
+      * Cloudinary ou outro URL completo.
+      */
+      if (
+        valor.startsWith(
+          'https://',
+        ) ||
+        valor.startsWith(
+          'http://',
+        )
       ) {
         return valor;
       }
+
+      /*
+      * Remove /api do endereço base:
+      *
+      * https://softinsa-api.onrender.com/api
+      * passa para
+      * https://softinsa-api.onrender.com
+      */
+      final String servidor =
+          ApiService.baseUrl
+              .replaceFirst(
+        RegExp(
+          r'/api/?$',
+        ),
+        '',
+      );
+
+      if (
+        valor.startsWith('/')
+      ) {
+        return '$servidor$valor';
+      }
+
+      return '$servidor/$valor';
     }
 
     return null;
@@ -177,14 +218,52 @@ class _HistoricoBadgesPageState extends State<HistoricoBadgesPage> {
           'badge_atribuido',
           {
             'id_badge_atribuido':
-                b['id_badge_atribuido'] ?? b['id'] ?? 0,
+                b['id_badge_atribuido'] ??
+                b['id'] ??
+                0,
+
             'id_badge_modelo':
-                b['id_badge_modelo'] ?? b['id'] ?? 0,
+                b['id_badge_modelo'] ??
+                b['id'] ??
+                0,
+
+            'nome':
+                b['nome'] ??
+                b['nome_badge'] ??
+                'Badge',
+
+            'descricao':
+                b['descricao'] ??
+                b[
+                  'descricao_badge_modelo'
+                ] ??
+                '',
+
+            'pontos':
+                _converterInteiro(
+              b['pontos'],
+            ),
+
+            'imagem':
+                b['imagem'] ??
+                b['imagem_url'],
+
+            'imagem_url':
+                b['imagem_url'] ??
+                b['imagem'],
+
             'data_atribuicao':
-                b['data_atribuicao']?.toString(),
+                b['data_atribuicao']
+                    ?.toString(),
+
             'data_validade':
-                b['data_validade']?.toString(),
+                b['data_validade']
+                    ?.toString(),
+
             'estado_badge_atribuido':
+                b[
+                  'estado_badge_atribuido'
+                ] ??
                 'Conquistado',
           },
         );

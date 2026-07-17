@@ -1091,47 +1091,113 @@ class ApiService {
           ) ||
           pontosExtraLinha > 0;
 
-      if (!badgesAgrupados.containsKey(badgeId)) {
+      if (
+        !badgesAgrupados.containsKey(
+          badgeId,
+        )
+      ) {
         badgesAgrupados[badgeId] = {
-          ...linha,
+          'id':
+              linha['id'] ??
+              linha['id_badge_modelo'],
 
-          'id': badgeId,
+          'id_badge_modelo':
+              linha['id_badge_modelo'] ??
+              linha['id'],
 
-          'id_badge_modelo': linha['id_badge_modelo'] ?? badgeId,
+          'id_badge_atribuido':
+              linha['id_badge_atribuido'],
 
-          'nome': linha['nome'] ?? linha['nome_badge'] ?? 'Badge',
+          'nome':
+              linha['nome'] ??
+              linha['nome_badge'],
+
+          'nome_badge':
+              linha['nome_badge'] ??
+              linha['nome'],
 
           'descricao':
-              linha['descricao'] ?? linha['descricao_badge_modelo'] ?? '',
+              linha['descricao'] ??
+              linha[
+                'descricao_badge_modelo'
+              ],
 
-          'pontos': _converterInteiro(linha['pontos']),
+          'descricao_badge_modelo':
+              linha[
+                'descricao_badge_modelo'
+              ] ??
+              linha['descricao'],
 
-          'imagem_url':
-              linha['imagem_url'] ?? linha['imagem'] ?? linha['url_imagem'],
+          'pontos':
+              linha['pontos'] ?? 0,
 
-          'imagem':
-              linha['imagem_url'] ?? linha['imagem'] ?? linha['url_imagem'],
-
-          'ganhou_bonus': ganhouBonusLinha,
-
-          'premio_atribuido': ganhouBonusLinha,
-
-          'pontos_extra': pontosExtraLinha,
-
-          'pontos_bonus': pontosExtraLinha,
-
-          'requisitos': <Map<String, dynamic>>[],
-
-          'tipo_badge':
-              linha['tipo_badge'] ?? linha['tipoBadge'] ?? linha['tipo'],
+          'id_nivel':
+              linha['id_nivel'],
 
           'nome_nivel':
-              linha['nome_nivel'] ?? linha['nomeNivel'] ?? linha['nivel'],
+              linha['nome_nivel'],
 
-          'codigo_nivel':
-              linha['codigo_nivel'] ??
-              linha['codigoNivel'] ??
-              linha['letra_nivel'],
+          'data_atribuicao':
+              linha['data_atribuicao'],
+
+          'data_validade':
+              linha['data_validade'],
+
+          'estado_badge_atribuido':
+              linha[
+                'estado_badge_atribuido'
+              ],
+
+          /*
+          * Campos da imagem que estavam
+          * a ser perdidos no agrupamento.
+          */
+          'imagem':
+              linha['imagem'] ??
+              linha['imagem_url'] ??
+              linha['url_imagem'] ??
+              linha['imagem_badge'],
+
+          'imagem_url':
+              linha['imagem_url'] ??
+              linha['imagem'] ??
+              linha['url_imagem'] ??
+              linha['imagem_badge'],
+
+          'url_imagem':
+              linha['url_imagem'] ??
+              linha['imagem_url'] ??
+              linha['imagem'],
+
+          'imagem_badge':
+              linha['imagem_badge'] ??
+              linha['imagem_url'] ??
+              linha['imagem'],
+
+          'ganhou_bonus':
+              linha['ganhou_bonus'] ??
+              false,
+
+          'premio_atribuido':
+              linha['premio_atribuido'] ??
+              false,
+
+          'pontos_extra':
+              linha['pontos_extra'] ??
+              linha['pontos_bonus'] ??
+              0,
+
+          'pontos_bonus':
+              linha['pontos_bonus'] ??
+              linha['pontos_extra'] ??
+              0,
+
+          'tipo_badge':
+              linha['tipo_badge'] ??
+              linha['tipo'],
+
+          'requisitos':
+              <Map<String, dynamic>>[],
         };
       } else {
         final badgeAtual = badgesAgrupados[badgeId]!;
