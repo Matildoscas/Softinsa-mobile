@@ -56,11 +56,8 @@ class StatusCandidaturaDetalhePage extends StatelessWidget {
       };
     } on SocketException {
       // TESTE: fallback offline pela BD local desativado apenas no detalhe de status.
-      // Se estiver sem internet, a página usa apenas o payload já em memória.
-      return {
-        'candidatura': candidatura,
-        'requisitos': const <Map<String, dynamic>>[],
-      };
+      // Sem internet, não mostrar payload antigo para evitar estado enganador.
+      return null;
     }
   }
 
@@ -551,11 +548,87 @@ class StatusCandidaturaDetalhePage extends StatelessWidget {
     return FutureBuilder<Map<String, dynamic>?>(
       future: _detalheFuture,
       builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Scaffold(
+            backgroundColor: Color(0xFFF7F7F7),
+            body: Center(
+              child: CircularProgressIndicator(color: Color(0xFF4470AF)),
+            ),
+          );
+        }
+
+        if (snapshot.hasError) {
+          return Scaffold(
+            backgroundColor: const Color(0xFFF7F7F7),
+            body: SafeArea(
+              child: Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(
+                        Icons.error_outline,
+                        color: Color(0xFF991B1B),
+                        size: 28,
+                      ),
+                      const SizedBox(height: 10),
+                      const Text(
+                        'Não foi possível atualizar o detalhe da candidatura.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                      const SizedBox(height: 12),
+                      TextButton(
+                        onPressed: () => Navigator.pop(context),
+                        child: const Text('Voltar'),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          );
+        }
+
         final detalhe = snapshot.data;
-        final candidaturaDetalhe =
-            detalhe != null && detalhe['candidatura'] is Map
-            ? Map<String, dynamic>.from(detalhe['candidatura'] as Map)
-            : Map<String, dynamic>.from(candidatura);
+        if (detalhe == null || detalhe['candidatura'] is! Map) {
+          return Scaffold(
+            backgroundColor: const Color(0xFFF7F7F7),
+            body: SafeArea(
+              child: Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(
+                        Icons.wifi_off_outlined,
+                        color: Color(0xFF475569),
+                        size: 28,
+                      ),
+                      const SizedBox(height: 10),
+                      const Text(
+                        'Sem dados atualizados para mostrar no detalhe.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                      const SizedBox(height: 12),
+                      TextButton(
+                        onPressed: () => Navigator.pop(context),
+                        child: const Text('Voltar'),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          );
+        }
+
+        final candidaturaDetalhe = Map<String, dynamic>.from(
+          detalhe['candidatura'] as Map,
+        );
         final requisitos = detalhe != null && detalhe['requisitos'] is List
             ? (detalhe['requisitos'] as List)
             : const [];
