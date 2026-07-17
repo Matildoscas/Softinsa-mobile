@@ -9,7 +9,7 @@ class StatusCandidaturaDetalhePage extends StatelessWidget {
   final Map<String, dynamic> candidatura;
   final Future<Map<String, dynamic>?> _detalheFuture;
 
-  const StatusCandidaturaDetalhePage({
+  StatusCandidaturaDetalhePage({
     super.key,
     required this.userData,
     required this.candidatura,
@@ -516,7 +516,7 @@ class StatusCandidaturaDetalhePage extends StatelessWidget {
       future: _detalheFuture,
       builder: (context, snapshot) {
         final detalhe = snapshot.data;
-        final candidaturaCompleta = <String, dynamic>{
+        final candidaturaDetalhe = <String, dynamic>{
           ...candidatura,
           if (detalhe != null && detalhe['candidatura'] is Map)
             ...Map<String, dynamic>.from(detalhe['candidatura'] as Map),
@@ -524,34 +524,33 @@ class StatusCandidaturaDetalhePage extends StatelessWidget {
         final requisitos = detalhe != null && detalhe['requisitos'] is List
             ? (detalhe['requisitos'] as List)
             : const [];
-        final candidatura = candidaturaCompleta;
         final nome =
-            candidatura['nome_badge']?.toString() ??
-            candidatura['nome']?.toString() ??
+            candidaturaDetalhe['nome_badge']?.toString() ??
+            candidaturaDetalhe['nome']?.toString() ??
             'Badge';
         final estadoRaw =
-            candidatura['estado_geral']?.toString() ??
-            candidatura['estado_final']?.toString() ??
-            candidatura['estado_candidatura_pedido']?.toString() ??
+            candidaturaDetalhe['estado_geral']?.toString() ??
+            candidaturaDetalhe['estado_final']?.toString() ??
+            candidaturaDetalhe['estado_candidatura_pedido']?.toString() ??
             '-';
-        final faseRaw = candidatura['fase_geral']?.toString() ?? '-';
+        final faseRaw = candidaturaDetalhe['fase_geral']?.toString() ?? '-';
         final coresEstado = _coresEstado(estadoRaw);
         final idBadge = _idBadge();
         final idCandidatura = _idCandidatura();
         final idUtilizador = _idUtilizador();
         final int totalEvidencias = _valorContagem([
-          candidatura['total_evidencias'],
+          candidaturaDetalhe['total_evidencias'],
           requisitos.length,
-          candidatura['numero_requisitos'],
-          candidatura['requisitos'] is List
-              ? (candidatura['requisitos'] as List).length
+          candidaturaDetalhe['numero_requisitos'],
+          candidaturaDetalhe['requisitos'] is List
+              ? (candidaturaDetalhe['requisitos'] as List).length
               : null,
         ]);
         final int evidenciasTm = _valorContagem([
-          candidatura['evidencias_decididas_tm'],
+          candidaturaDetalhe['evidencias_decididas_tm'],
         ]);
         final int evidenciasSll = _valorContagem([
-          candidatura['evidencias_decididas_sll'],
+          candidaturaDetalhe['evidencias_decididas_sll'],
         ]);
         final bool podeContinuar =
             !_candidaturaEstaFinalizada && idUtilizador > 0 && idBadge != null;
@@ -651,7 +650,9 @@ class StatusCandidaturaDetalhePage extends StatelessWidget {
                     _linhaInfo('ID do badge', idBadge?.toString() ?? '-'),
                     _linhaInfo(
                       'Submissão',
-                      _formatarData(candidatura['data_submissao']?.toString()),
+                      _formatarData(
+                        candidaturaDetalhe['data_submissao']?.toString(),
+                      ),
                     ),
                     _linhaInfo('Estado geral', estadoRaw),
                     _linhaInfo('Fase geral', faseRaw),
@@ -708,31 +709,31 @@ class StatusCandidaturaDetalhePage extends StatelessWidget {
                     const SizedBox(height: 12),
                     _linhaTimeline(
                       'Submissão',
-                      candidatura['data_submissao']?.toString(),
+                      candidaturaDetalhe['data_submissao']?.toString(),
                     ),
                     _linhaTimeline(
                       'Receção pelo Talent Manager',
-                      candidatura['data_rececao_tm']?.toString(),
+                      candidaturaDetalhe['data_rececao_tm']?.toString(),
                     ),
                     _linhaTimeline(
                       'Conclusão pelo Talent Manager',
-                      candidatura['data_conclusao_tm']?.toString(),
+                      candidaturaDetalhe['data_conclusao_tm']?.toString(),
                     ),
                     _linhaTimeline(
                       'Receção pelo Service Line Leader',
-                      candidatura['data_rececao_sll']?.toString(),
+                      candidaturaDetalhe['data_rececao_sll']?.toString(),
                     ),
                     _linhaTimeline(
                       'Conclusão pelo Service Line Leader',
-                      candidatura['data_conclusao_sll']?.toString(),
+                      candidaturaDetalhe['data_conclusao_sll']?.toString(),
                     ),
                     _linhaTimeline(
                       'Avaliação final pelo Service Line Leader',
-                      candidatura['data_avaliacao_sll']?.toString(),
+                      candidaturaDetalhe['data_avaliacao_sll']?.toString(),
                     ),
                     _linhaTimeline(
                       'Entrada em histórico',
-                      candidatura['data_entrada_historico']?.toString(),
+                      candidaturaDetalhe['data_entrada_historico']?.toString(),
                     ),
                   ],
                 ),
