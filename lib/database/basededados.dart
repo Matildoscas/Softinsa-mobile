@@ -150,12 +150,12 @@ class Basededados {
     required String coluna,
     required String definicao,
   }) async {
-    final colunas = await db.rawQuery('PRAGMA table_info(' + tabela + ')');
+    final colunas = await db.rawQuery('PRAGMA table_info($tabela)');
     final existe = colunas.any((item) => item['name']?.toString() == coluna);
 
     if (!existe) {
       await db.execute(
-        'ALTER TABLE ' + tabela + ' ADD COLUMN ' + coluna + ' ' + definicao,
+        'ALTER TABLE $tabela ADD COLUMN $coluna $definicao',
       );
     }
   }

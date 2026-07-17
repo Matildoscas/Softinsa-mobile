@@ -732,7 +732,7 @@ class StatusCandidaturaDetalhePage extends StatelessWidget {
         final candidaturaDetalhe = _normalizarCandidatura(
           Map<String, dynamic>.from(detalhe['candidatura'] as Map),
         );
-        final requisitos = detalhe != null && detalhe['requisitos'] is List
+        final requisitos = detalhe['requisitos'] is List
             ? (detalhe['requisitos'] as List)
             : const [];
         final nome =
