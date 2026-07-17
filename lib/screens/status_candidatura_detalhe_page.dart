@@ -14,19 +14,19 @@ class StatusCandidaturaDetalhePage extends StatelessWidget {
     required this.userData,
     required this.candidatura,
   }) : _detalheFuture = ApiService().getStatusCandidaturaDetalheConsultor(
-          int.tryParse(
-                (userData['id_utilizador'] ??
-                        userData['ID_UTILIZADOR'] ??
-                        userData['id'] ??
-                        '')
-                    .toString(),
-              ) ??
-              0,
-          int.tryParse(
-                (candidatura['id_candidatura_pedido'] ?? '').toString(),
-              ) ??
-              0,
-        );
+         int.tryParse(
+               (userData['id_utilizador'] ??
+                       userData['ID_UTILIZADOR'] ??
+                       userData['id'] ??
+                       '')
+                   .toString(),
+             ) ??
+             0,
+         int.tryParse(
+               (candidatura['id_candidatura_pedido'] ?? '').toString(),
+             ) ??
+             0,
+       );
 
   String _removerAcentos(String texto) {
     return texto
@@ -563,329 +563,338 @@ class StatusCandidaturaDetalhePage extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-              GestureDetector(
-                onTap: () => Navigator.pop(context),
-                child: const Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.arrow_back, size: 20, color: Color(0xFF4470AF)),
-                    SizedBox(width: 6),
-                    Text(
-                      'Voltar',
-                      style: TextStyle(color: Color(0xFF4470AF), fontSize: 14),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 16),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(
-                    color: const Color(0xFF4470AF).withOpacity(0.18),
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.04),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      nome,
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
+                  GestureDetector(
+                    onTap: () => Navigator.pop(context),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        _buildChip(
-                          _formatarEstadoHumano(estadoRaw),
-                          coresEstado['fundo'] ?? const Color(0xFFE5E7EB),
-                          coresEstado['texto'] ?? const Color(0xFF475569),
-                          coresEstado['borda'] ?? Colors.transparent,
+                        Icon(
+                          Icons.arrow_back,
+                          size: 20,
+                          color: Color(0xFF4470AF),
                         ),
-                        if (faseRaw != '-')
-                          _buildChip(
-                            faseRaw,
-                            const Color(0xFFEFF6FF),
-                            const Color(0xFF1D4ED8),
-                            const Color(0xFFDBEAFE),
+                        SizedBox(width: 6),
+                        Text(
+                          'Voltar',
+                          style: TextStyle(
+                            color: Color(0xFF4470AF),
+                            fontSize: 14,
                           ),
-                        if (_candidaturaEstaFinalizada)
-                          _buildChip(
-                            _candidaturaEstaRejeitada
-                                ? 'Finalizada por rejeição'
-                                : _candidaturaEstaObtida
-                                ? 'Finalizada com aprovação'
-                                : 'Finalizada',
-                            _candidaturaEstaRejeitada
-                                ? const Color(0xFFFEE2E2)
-                                : const Color(0xFFDCFCE7),
-                            _candidaturaEstaRejeitada
-                                ? const Color(0xFF991B1B)
-                                : const Color(0xFF166534),
-                            _candidaturaEstaRejeitada
-                                ? const Color(0xFFFECACA)
-                                : const Color(0xFFBBF7D0),
-                          ),
+                        ),
                       ],
                     ),
-                    const SizedBox(height: 14),
-                    _linhaInfo(
-                      'ID da candidatura',
-                      idCandidatura?.toString() ?? '-',
+                  ),
+                  const SizedBox(height: 16),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: const Color(0xFF4470AF).withOpacity(0.18),
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.04),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
                     ),
-                    _linhaInfo('ID do badge', idBadge?.toString() ?? '-'),
-                    _linhaInfo(
-                      'Submissão',
-                      _formatarData(
-                        candidaturaDetalhe['data_submissao']?.toString(),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          nome,
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: [
+                            _buildChip(
+                              _formatarEstadoHumano(estadoRaw),
+                              coresEstado['fundo'] ?? const Color(0xFFE5E7EB),
+                              coresEstado['texto'] ?? const Color(0xFF475569),
+                              coresEstado['borda'] ?? Colors.transparent,
+                            ),
+                            if (faseRaw != '-')
+                              _buildChip(
+                                faseRaw,
+                                const Color(0xFFEFF6FF),
+                                const Color(0xFF1D4ED8),
+                                const Color(0xFFDBEAFE),
+                              ),
+                            if (_candidaturaEstaFinalizada)
+                              _buildChip(
+                                _candidaturaEstaRejeitada
+                                    ? 'Finalizada por rejeição'
+                                    : _candidaturaEstaObtida
+                                    ? 'Finalizada com aprovação'
+                                    : 'Finalizada',
+                                _candidaturaEstaRejeitada
+                                    ? const Color(0xFFFEE2E2)
+                                    : const Color(0xFFDCFCE7),
+                                _candidaturaEstaRejeitada
+                                    ? const Color(0xFF991B1B)
+                                    : const Color(0xFF166534),
+                                _candidaturaEstaRejeitada
+                                    ? const Color(0xFFFECACA)
+                                    : const Color(0xFFBBF7D0),
+                              ),
+                          ],
+                        ),
+                        const SizedBox(height: 14),
+                        _linhaInfo(
+                          'ID da candidatura',
+                          idCandidatura?.toString() ?? '-',
+                        ),
+                        _linhaInfo('ID do badge', idBadge?.toString() ?? '-'),
+                        _linhaInfo(
+                          'Submissão',
+                          _formatarData(
+                            candidaturaDetalhe['data_submissao']?.toString(),
+                          ),
+                        ),
+                        _linhaInfo('Estado geral', estadoRaw),
+                        _linhaInfo('Fase geral', faseRaw),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: const Color(0xFF4470AF).withOpacity(0.18),
                       ),
                     ),
-                    _linhaInfo('Estado geral', estadoRaw),
-                    _linhaInfo('Fase geral', faseRaw),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 16),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(
-                    color: const Color(0xFF4470AF).withOpacity(0.18),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Estado da candidatura',
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        _stepper(),
+                      ],
+                    ),
                   ),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Estado da candidatura',
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.bold,
+                  const SizedBox(height: 16),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: const Color(0xFF4470AF).withOpacity(0.18),
                       ),
                     ),
-                    const SizedBox(height: 12),
-                    _stepper(),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 16),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(
-                    color: const Color(0xFF4470AF).withOpacity(0.18),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Linha temporal',
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        _linhaTimeline(
+                          'Submissão',
+                          candidaturaDetalhe['data_submissao']?.toString(),
+                        ),
+                        _linhaTimeline(
+                          'Receção pelo Talent Manager',
+                          candidaturaDetalhe['data_rececao_tm']?.toString(),
+                        ),
+                        _linhaTimeline(
+                          'Conclusão pelo Talent Manager',
+                          candidaturaDetalhe['data_conclusao_tm']?.toString(),
+                        ),
+                        _linhaTimeline(
+                          'Receção pelo Service Line Leader',
+                          candidaturaDetalhe['data_rececao_sll']?.toString(),
+                        ),
+                        _linhaTimeline(
+                          'Conclusão pelo Service Line Leader',
+                          candidaturaDetalhe['data_conclusao_sll']?.toString(),
+                        ),
+                        _linhaTimeline(
+                          'Avaliação final pelo Service Line Leader',
+                          candidaturaDetalhe['data_avaliacao_sll']?.toString(),
+                        ),
+                        _linhaTimeline(
+                          'Entrada em histórico',
+                          candidaturaDetalhe['data_entrada_historico']
+                              ?.toString(),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Linha temporal',
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.bold,
+                  const SizedBox(height: 16),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: const Color(0xFF4470AF).withOpacity(0.18),
                       ),
                     ),
-                    const SizedBox(height: 12),
-                    _linhaTimeline(
-                      'Submissão',
-                      candidaturaDetalhe['data_submissao']?.toString(),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Resumo dos requisitos',
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        _linhaInfo(
+                          'Evidências TM',
+                          '$evidenciasTm/${totalEvidencias > 0 ? totalEvidencias : '-'}',
+                        ),
+                        _linhaInfo(
+                          'Evidências SLL',
+                          '$evidenciasSll/${totalEvidencias > 0 ? totalEvidencias : '-'}',
+                        ),
+                      ],
                     ),
-                    _linhaTimeline(
-                      'Receção pelo Talent Manager',
-                      candidaturaDetalhe['data_rececao_tm']?.toString(),
-                    ),
-                    _linhaTimeline(
-                      'Conclusão pelo Talent Manager',
-                      candidaturaDetalhe['data_conclusao_tm']?.toString(),
-                    ),
-                    _linhaTimeline(
-                      'Receção pelo Service Line Leader',
-                      candidaturaDetalhe['data_rececao_sll']?.toString(),
-                    ),
-                    _linhaTimeline(
-                      'Conclusão pelo Service Line Leader',
-                      candidaturaDetalhe['data_conclusao_sll']?.toString(),
-                    ),
-                    _linhaTimeline(
-                      'Avaliação final pelo Service Line Leader',
-                      candidaturaDetalhe['data_avaliacao_sll']?.toString(),
-                    ),
-                    _linhaTimeline(
-                      'Entrada em histórico',
-                      candidaturaDetalhe['data_entrada_historico']?.toString(),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 16),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(
-                    color: const Color(0xFF4470AF).withOpacity(0.18),
                   ),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Resumo dos requisitos',
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.bold,
+                  if (_candidaturaEstaRejeitada) ...[
+                    const SizedBox(height: 16),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFFF1F2),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: const Color(0xFFFECACA)),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Motivo da rejeição',
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF991B1B),
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            _motivoRejeicaoTexto(),
+                            style: const TextStyle(
+                              fontSize: 12,
+                              height: 1.45,
+                              color: Color(0xFF7F1D1D),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                    const SizedBox(height: 12),
-                    _linhaInfo(
-                      'Evidências TM',
-                      '$evidenciasTm/${totalEvidencias > 0 ? totalEvidencias : '-'}',
-                    ),
-                    _linhaInfo(
-                      'Evidências SLL',
-                      '$evidenciasSll/${totalEvidencias > 0 ? totalEvidencias : '-'}',
-                    ),
                   ],
-                ),
-              ),
-              if (_candidaturaEstaRejeitada) ...[
-                const SizedBox(height: 16),
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFFFF1F2),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: const Color(0xFFFECACA)),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                  const SizedBox(height: 18),
+                  Row(
                     children: [
-                      const Text(
-                        'Motivo da rejeição',
-                        style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF991B1B),
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: const Color(0xFF4470AF),
+                            side: const BorderSide(
+                              color: Color(0xFF4470AF),
+                              width: 1.4,
+                            ),
+                            shape: const StadiumBorder(),
+                            padding: const EdgeInsets.symmetric(vertical: 13),
+                          ),
+                          onPressed: idBadge == null || idUtilizador <= 0
+                              ? null
+                              : () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) => BadgeDetalhe(
+                                        userId: idUtilizador,
+                                        badgeId: idBadge,
+                                      ),
+                                    ),
+                                  );
+                                },
+                          icon: const Icon(
+                            Icons.workspace_premium_outlined,
+                            size: 18,
+                          ),
+                          label: const Text(
+                            'Ver badge',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
                         ),
                       ),
-                      const SizedBox(height: 8),
-                      Text(
-                        _motivoRejeicaoTexto(),
-                        style: const TextStyle(
-                          fontSize: 12,
-                          height: 1.45,
-                          color: Color(0xFF7F1D1D),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: _candidaturaEstaRejeitada
+                                ? const Color(0xFFDC2626)
+                                : const Color(0xFF4470AF),
+                            foregroundColor: Colors.white,
+                            shape: const StadiumBorder(),
+                            padding: const EdgeInsets.symmetric(vertical: 13),
+                            elevation: 0,
+                          ),
+                          onPressed: podeContinuar
+                              ? () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) => SubmeterBadge(
+                                        userId: idUtilizador,
+                                        badgeId: idBadge!,
+                                      ),
+                                    ),
+                                  );
+                                }
+                              : null,
+                          icon: const Icon(Icons.upload_file, size: 18),
+                          label: Text(
+                            _candidaturaEstaRejeitada ? 'Reabrir' : 'Continuar',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
                         ),
                       ),
                     ],
                   ),
-                ),
-              ],
-              const SizedBox(height: 18),
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: const Color(0xFF4470AF),
-                        side: const BorderSide(
-                          color: Color(0xFF4470AF),
-                          width: 1.4,
-                        ),
-                        shape: const StadiumBorder(),
-                        padding: const EdgeInsets.symmetric(vertical: 13),
-                      ),
-                      onPressed: idBadge == null || idUtilizador <= 0
-                          ? null
-                          : () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) => BadgeDetalhe(
-                                    userId: idUtilizador,
-                                    badgeId: idBadge,
-                                  ),
-                                ),
-                              );
-                            },
-                      icon: const Icon(
-                        Icons.workspace_premium_outlined,
-                        size: 18,
-                      ),
-                      label: const Text(
-                        'Ver badge',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: _candidaturaEstaRejeitada
-                            ? const Color(0xFFDC2626)
-                            : const Color(0xFF4470AF),
-                        foregroundColor: Colors.white,
-                        shape: const StadiumBorder(),
-                        padding: const EdgeInsets.symmetric(vertical: 13),
-                        elevation: 0,
-                      ),
-                      onPressed: podeContinuar
-                          ? () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) => SubmeterBadge(
-                                    userId: idUtilizador,
-                                    badgeId: idBadge!,
-                                  ),
-                                ),
-                              );
-                            }
-                          : null,
-                      icon: const Icon(Icons.upload_file, size: 18),
-                      label: Text(
-                        _candidaturaEstaRejeitada ? 'Reabrir' : 'Continuar',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  ),
                 ],
               ),
-            ],
+            ),
           ),
-        ),
-      );
+        );
       },
     );
   }
