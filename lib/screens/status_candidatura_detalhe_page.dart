@@ -104,7 +104,14 @@ class StatusCandidaturaDetalhePage extends StatelessWidget {
       return 'Sem estado';
     }
 
-    return textoBase[0].toUpperCase() + textoBase.substring(1).toLowerCase();
+    return textoBase
+        .replaceAll(RegExp(r'\bTM\b'), 'Talent Manager')
+        .replaceAll(RegExp(r'\bSLL\b'), 'Service Line Leader')
+        .toLowerCase()
+        .replaceFirstMapped(
+          RegExp(r'^\w'),
+          (match) => match.group(0)!.toUpperCase(),
+        );
   }
 
   Map<String, Color> _coresEstado(String? estado) {
@@ -866,8 +873,8 @@ class StatusCandidaturaDetalhePage extends StatelessWidget {
                             elevation: 0,
                           ),
                           onPressed: podeContinuar
-                              ? () {
-                                  Navigator.push(
+                              ? () async {
+                                  await Navigator.push(
                                     context,
                                     MaterialPageRoute(
                                       builder: (_) => SubmeterBadge(
@@ -876,6 +883,19 @@ class StatusCandidaturaDetalhePage extends StatelessWidget {
                                       ),
                                     ),
                                   );
+
+                                  if (context.mounted) {
+                                    Navigator.pushReplacement(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (_) =>
+                                            StatusCandidaturaDetalhePage(
+                                              userData: userData,
+                                              candidatura: candidaturaDetalhe,
+                                            ),
+                                      ),
+                                    );
+                                  }
                                 }
                               : null,
                           icon: const Icon(Icons.upload_file, size: 18),

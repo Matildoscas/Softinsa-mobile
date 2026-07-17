@@ -97,7 +97,14 @@ class _StatusCandidaturasPageState extends State<StatusCandidaturasPage> {
       return 'Sem estado';
     }
 
-    return textoBase[0].toUpperCase() + textoBase.substring(1).toLowerCase();
+    return textoBase
+        .replaceAll(RegExp(r'\bTM\b'), 'Talent Manager')
+        .replaceAll(RegExp(r'\bSLL\b'), 'Service Line Leader')
+        .toLowerCase()
+        .replaceFirstMapped(
+          RegExp(r'^\w'),
+          (match) => match.group(0)!.toUpperCase(),
+        );
   }
 
   Map<String, Color> _coresEstado(String? estado) {
@@ -208,14 +215,6 @@ class _StatusCandidaturasPageState extends State<StatusCandidaturasPage> {
       return 'REJEITADA';
     }
 
-    if (_candidaturaEstaObtida(item)) {
-      return 'APROVADA';
-    }
-
-    if (_candidaturaEstaDesistida(item)) {
-      return 'DESISTIDA';
-    }
-
     return item['estado_geral']?.toString() ??
         item['estado_final']?.toString() ??
         '-';
@@ -224,14 +223,6 @@ class _StatusCandidaturasPageState extends State<StatusCandidaturasPage> {
   String _faseGeralVisivel(Map<String, dynamic> item) {
     if (_candidaturaEstaRejeitada(item)) {
       return 'REJEITADA';
-    }
-
-    if (_candidaturaEstaObtida(item)) {
-      return 'HISTORICO';
-    }
-
-    if (_candidaturaEstaDesistida(item)) {
-      return 'DESISTIDA';
     }
 
     return item['fase_geral']?.toString() ?? '-';
