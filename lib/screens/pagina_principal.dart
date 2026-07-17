@@ -403,16 +403,6 @@ class _HomePageState extends ConsumerState<HomePage>
               provider.learningPaths,
             );
 
-            final int pontosDashboard =
-                _converterInteiro(
-              provider.dashboard[
-                'total_pontos'
-              ] ??
-              provider.dashboard[
-                'pontos_atuais'
-              ],
-            );
-
             final int pontosCalculados =
                 listaConquistados.fold(
               0,
@@ -421,30 +411,10 @@ class _HomePageState extends ConsumerState<HomePage>
             );
 
             final int pontosAtuais =
-              pontosDashboard > 0
-              ? pontosDashboard
-              : pontosCalculados;
+              pontosCalculados;
 
-            final int totalDashboard =
-                int.tryParse(
-                  (
-                    provider.dashboard[
-                          'total_badges'
-                        ] ??
-                    provider.dashboard[
-                          'badges_conquistas_total'
-                        ] ??
-                    0
-                  ).toString(),
-                ) ??
-                0;
-
-            // Se o dashboard não devolver o contador,
-            // utiliza o tamanho da lista conquistada.
             final int totalBadgesObtidos =
-                totalDashboard > 0
-                ? totalDashboard
-                : listaConquistados.length;
+                listaConquistados.length;
 
             return Column(
               children: [

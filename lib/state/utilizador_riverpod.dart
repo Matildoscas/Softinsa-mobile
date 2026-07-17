@@ -262,8 +262,15 @@ class UtilizadorNotifier extends StateNotifier<UtilizadorState> {
   Future<Map<String, dynamic>> _carregarDashboardLocal(int userId) async {
     try {
       final dadosLocais = await _dbLocal.listarTabela('consultor');
+      final resumoBadges = await _calcularResumoBadgesCache(userId);
+
       if (dadosLocais.isEmpty) {
-        return <String, dynamic>{};
+        return {
+          'total_pontos': resumoBadges['total_pontos'] ?? 0,
+          'total_badges': resumoBadges['total_badges'] ?? 0,
+          'ranking': 'N/A',
+          'offline': true,
+        };
       }
 
       final meuConsultor = dadosLocais.firstWhere(
@@ -272,8 +279,14 @@ class UtilizadorNotifier extends StateNotifier<UtilizadorState> {
       );
 
       return {
-        'total_pontos': meuConsultor['pontos_atuais'] ?? 0,
-        'total_badges': meuConsultor['badges_conquistas_total'] ?? 0,
+        'total_pontos':
+            (resumoBadges['total_pontos'] ?? 0) > 0
+                ? resumoBadges['total_pontos']
+                : (meuConsultor['pontos_atuais'] ?? 0),
+        'total_badges':
+            (resumoBadges['total_badges'] ?? 0) > 0
+                ? resumoBadges['total_badges']
+                : (meuConsultor['badges_conquistas_total'] ?? 0),
         'ranking': meuConsultor['progresso_nivel'] ?? 'N/A',
         'id_areas': meuConsultor['id_areas'],
         'offline': true,
@@ -368,7 +381,7 @@ class UtilizadorNotifier extends StateNotifier<UtilizadorState> {
 
       return badges;
     } catch (_) {
-      return _carregarBadgesAtribuidosDoCache(
+      final badgesFiltrados = await _carregarBadgesAtribuidosDoCache(
         userId: userId,
         estadosValidos: const [
           'Conquistado',
@@ -383,6 +396,57 @@ class UtilizadorNotifier extends StateNotifier<UtilizadorState> {
           'COMPLETO',
         ],
       );
+
+      if (badgesFiltrados.isNotEmpty) {
+        return badgesFiltrados;
+      }
+
+      return _carregarBadgesUtilizadorCacheSemFiltro(
+        userId: userId,
+      );
+    }
+  }
+
+  Future<Map<String, int>> _calcularResumoBadgesCache(int userId) async {
+    try {
+      await _ensureTabelaCacheBadgesUtilizador();
+      final db = await _dbLocal.database;
+
+      final rows = await db.query(
+        'cache_badges_utilizador',
+        where: 'id_utilizador = ?',
+        whereArgs: [userId],
+      );
+
+      int totalPontos = 0;
+      final ids = <String>{};
+
+      for (final row in rows) {
+        final id = (row['id_badge_modelo'] ?? '').toString();
+        if (id.isNotEmpty) {
+          ids.add(id);
+        }
+
+        final pontosBase = int.tryParse((row['pontos'] ?? 0).toString()) ?? 0;
+        int pontosExtra = int.tryParse((row['pontos_extra'] ?? 0).toString()) ?? 0;
+        final bool ganhouBonus = (row['ganhou_bonus'] ?? 0) == 1 || (row['premio_atribuido'] ?? 0) == 1;
+
+        if (ganhouBonus && pontosExtra == 0 && pontosBase > 0) {
+          pontosExtra = pontosBase;
+        }
+
+        totalPontos += pontosBase + pontosExtra;
+      }
+
+      return {
+        'total_pontos': totalPontos,
+        'total_badges': ids.length,
+      };
+    } catch (_) {
+      return {
+        'total_pontos': 0,
+        'total_badges': 0,
+      };
     }
   }
 
@@ -713,6 +777,48 @@ class UtilizadorNotifier extends StateNotifier<UtilizadorState> {
       }).toList();
 
       return normalized;
+    } catch (_) {
+      return <Map<String, dynamic>>[];
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> _carregarBadgesUtilizadorCacheSemFiltro({
+    required int userId,
+  }) async {
+    try {
+      await _ensureTabelaCacheBadgesUtilizador();
+      final db = await _dbLocal.database;
+
+      final rows = await db.query(
+        'cache_badges_utilizador',
+        where: 'id_utilizador = ?',
+        whereArgs: [userId],
+      );
+
+      return rows.map((row) {
+        return <String, dynamic>{
+          'id_badge_atribuido': row['id_badge_atribuido'],
+          'id_badge_modelo': row['id_badge_modelo'],
+          'id': row['id_badge_modelo'],
+          'nome': row['nome_badge'] ?? 'Badge',
+          'nome_badge': row['nome_badge'] ?? 'Badge',
+          'descricao': row['descricao_badge'] ?? '',
+          'descricao_badge_modelo': row['descricao_badge'] ?? '',
+          'pontos': row['pontos'] ?? 0,
+          'id_nivel': row['id_nivel'],
+          'imagem_url': row['imagem_url'],
+          'imagem': row['imagem_url'],
+          'pontos_extra': row['pontos_extra'] ?? 0,
+          'pontos_bonus': row['pontos_extra'] ?? 0,
+          'ganhou_bonus': (row['ganhou_bonus'] ?? 0) == 1,
+          'premio_atribuido': (row['premio_atribuido'] ?? 0) == 1,
+          'estado_badge_atribuido': row['estado_badge_atribuido'],
+          'data_atribuicao': row['data_atribuicao'],
+          'data_validade': row['data_validade'],
+          'tipo_badge': row['tipo_badge'],
+          'offline': true,
+        };
+      }).toList();
     } catch (_) {
       return <Map<String, dynamic>>[];
     }

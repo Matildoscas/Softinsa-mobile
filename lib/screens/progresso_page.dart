@@ -325,6 +325,10 @@ class _ProgressoPageState extends State<ProgressoPage> {
         ) ??
         0;
 
+    if (idNivel == 5) {
+      return true;
+    }
+
     /*
     * Fallback antigo:
     * só usa id_nivel 5 se não houver informação melhor.
@@ -335,37 +339,6 @@ class _ProgressoPageState extends State<ProgressoPage> {
       codigoNivel.isEmpty &&
       nomeNivel.isEmpty
     ) {
-      return true;
-    }
-
-    return false;
-  }
-
-  bool _isBadgeComum(
-    Map<String, dynamic> badge,
-  ) {
-    if (_isBadgeEspecial(badge)) {
-      return false;
-    }
-
-    final int idNivel =
-        int.tryParse(
-          badge['id_nivel']?.toString() ?? '',
-        ) ??
-        0;
-
-    if (idNivel >= 1 && idNivel <= 4) {
-      return true;
-    }
-
-    final String tipo =
-        _normalizarTexto(
-      badge['tipo_badge'] ??
-          badge['tipoBadge'] ??
-          badge['tipo'],
-    );
-
-    if (tipo == 'COMUM' || tipo == 'NORMAL') {
       return true;
     }
 
@@ -941,24 +914,6 @@ class _ProgressoPageState extends State<ProgressoPage> {
 
     // 3. PROCESSAMENTO DE CÁLCULO E MÉTRICAS (Lógica original otimizada e preservada)
     // Soma os pontos de todos os badges conquistados.
-    final Map<String, dynamic>
-        dadosDashboard =
-        dashboardRaw['dashboard']
-                is Map
-            ? Map<String, dynamic>.from(
-                dashboardRaw['dashboard'],
-              )
-            : dashboardRaw;
-
-    final int pontosDashboard =
-        _converterInteiro(
-      dadosDashboard['pontos_atuais'] ??
-          dadosDashboard['total_pontos'],
-    );
-
-    final bool dashboardTemPontos =
-        pontosDashboard > 0;
-
     final int pontosCalculados =
         obtidosRaw.fold<int>(
       0,
@@ -970,9 +925,7 @@ class _ProgressoPageState extends State<ProgressoPage> {
     );
 
     final int pontosTotalCalc =
-        dashboardTemPontos
-            ? pontosDashboard
-            : pontosCalculados;
+    pontosCalculados;
 
     int _idBadge(
       Map<String, dynamic> badge,
@@ -1008,7 +961,7 @@ class _ProgressoPageState extends State<ProgressoPage> {
         if (id > 0) {
           idsEspeciaisObtidos.add(id);
         }
-      } else if (_isBadgeComum(badge)) {
+      } else {
         comunsObtidos++;
       }
     }
@@ -1063,7 +1016,7 @@ class _ProgressoPageState extends State<ProgressoPage> {
 
       if (especial) {
         especiaisTotal++;
-      } else if (_isBadgeComum(badge)) {
+      } else {
         comunsTotal++;
       }
     }

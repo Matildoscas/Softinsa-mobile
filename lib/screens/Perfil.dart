@@ -674,16 +674,6 @@ class _PerfilPageState extends ConsumerState<PerfilPage> {
     // Consome o estado global para obter os dados atualizados do dashboard.
     final userProvider = ref.watch(utilizadorStateProvider);
 
-    final int pontosDashboard =
-        _converterInteiro(
-      userProvider.dashboard[
-            'total_pontos'
-          ] ??
-          userProvider.dashboard[
-            'pontos_atuais'
-          ],
-    );
-
     final int pontosCalculados =
         badgesConquistados.fold(
       0,
@@ -701,26 +691,10 @@ class _PerfilPageState extends ConsumerState<PerfilPage> {
     );
 
     final int pontosAtuais =
-        pontosDashboard > 0
-            ? (pontosCalculados > pontosDashboard
-                ? pontosCalculados
-                : pontosDashboard)
-            : pontosCalculados;
-
-    final int totalDashboard =
-        _converterInteiro(
-      userProvider.dashboard[
-            'total_badges'
-          ] ??
-          userProvider.dashboard[
-            'badges_conquistas_total'
-          ],
-    );
+      pontosCalculados;
 
     final int totalBadgesObtidos =
-        totalDashboard > 0
-            ? totalDashboard
-            : badgesConquistados.length;
+      badgesConquistados.length;
     
     final String nome = userProvider.dashboard.isNotEmpty 
         ? (userProvider.dashboard['nome_completo'] ?? widget.userData['nome_completo'] ?? 'Utilizador')
