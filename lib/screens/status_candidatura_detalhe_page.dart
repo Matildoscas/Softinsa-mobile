@@ -788,7 +788,7 @@ class StatusCandidaturaDetalhePage extends StatelessWidget {
                       ],
                     ),
                   ),
-                  if (_candidaturaEstaRejeitada) ...[
+                  if (_candidaturaEstaRejeitada(candidaturaDetalhe)) ...[
                     const SizedBox(height: 16),
                     Container(
                       width: double.infinity,
@@ -866,7 +866,8 @@ class StatusCandidaturaDetalhePage extends StatelessWidget {
                       Expanded(
                         child: ElevatedButton.icon(
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: _candidaturaEstaRejeitada
+                            backgroundColor:
+                                _candidaturaEstaRejeitada(candidaturaDetalhe)
                                 ? const Color(0xFFDC2626)
                                 : const Color(0xFF4470AF),
                             foregroundColor: Colors.white,
@@ -902,7 +903,9 @@ class StatusCandidaturaDetalhePage extends StatelessWidget {
                               : null,
                           icon: const Icon(Icons.upload_file, size: 18),
                           label: Text(
-                            _candidaturaEstaRejeitada ? 'Reabrir' : 'Continuar',
+                            _candidaturaEstaRejeitada(candidaturaDetalhe)
+                                ? 'Reabrir'
+                                : 'Continuar',
                             style: const TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.bold,
