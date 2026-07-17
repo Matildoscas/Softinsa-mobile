@@ -25,6 +25,7 @@ import '../services/api_service.dart';
 import '../database/basededados.dart'; // Import central do SQFlite para login offline
 import 'register.dart';
 import 'pagina_principal.dart';
+import 'recuperar_password.dart';
 import '../services/notification_service.dart';
 import '../services/offline_sync_service.dart';
 import 'package:firebase_analytics/firebase_analytics.dart';
@@ -71,6 +72,27 @@ class _LogPageState extends State<LogPage> {
   String _gerarHashPassword(String email, String password) {
     final payload = email.trim().toLowerCase() + '::' + password;
     return sha256.convert(utf8.encode(payload)).toString();
+  }
+
+  bool _isConsultor(Map<String, dynamic> user) {
+    bool _textoIndicaConsultor(dynamic valor) {
+      return valor != null && valor.toString().toLowerCase().contains('consultor');
+    }
+
+    if (user['consultor'] == true || user['is_consultor'] == true) {
+      return true;
+    }
+
+    final camposTexto = [
+      user['tipo_utilizador'],
+      user['tipo'],
+      user['perfil'],
+      user['role'],
+      user['cargo'],
+      user['nome_tipo_utilizador'],
+    ];
+
+    return camposTexto.any(_textoIndicaConsultor);
   }
 
   // =========================================================================
@@ -127,6 +149,17 @@ class _LogPageState extends State<LogPage> {
         // Cria uma cópia tipada do objeto do utilizador devolvido pela API.
         final Map<String, dynamic> user =
         Map<String, dynamic>.from(response['user']);
+
+        if (!_isConsultor(user)) {
+          setState(() => _isLoading = false);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              backgroundColor: Colors.red,
+              content: Text('A app mobile está disponível apenas para contas de consultor.'),
+            ),
+          );
+          return;
+        }
 
         // Token JWT usado nos pedidos protegidos seguintes.
         final String tokenRecebido = response['token']?.toString() ?? '';
@@ -282,6 +315,22 @@ class _LogPageState extends State<LogPage> {
       setState(() => _isLoading = false);
 
       if (contaLocalEncontrada.isNotEmpty) {
+        final localConsultores = await _dbLocal.listarTabela('consultor');
+        final contaEhConsultor = localConsultores.any(
+          (c) => c['id_utilizador']?.toString() ==
+              contaLocalEncontrada['id_utilizador']?.toString(),
+        );
+
+        if (!contaEhConsultor) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              backgroundColor: Colors.red,
+              content: Text('A app mobile está disponível apenas para contas de consultor.'),
+            ),
+          );
+          return;
+        }
+
         // Valida a password contra a cópia local.
         final hashLocal = contaLocalEncontrada['password_hash']?.toString() ?? '';
         final hashInput = _gerarHashPassword(emailInput, passwordInput);
@@ -426,6 +475,29 @@ class _LogPageState extends State<LogPage> {
                               filled: true,
                               fillColor: const Color(0xFFF7F7F7),
                               border: const OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(12))),
+                            ),
+                          ),
+                          Align(
+                            alignment: Alignment.centerRight,
+                            child: TextButton(
+                              onPressed: _isLoading
+                                  ? null
+                                  : () {
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (context) =>
+                                              const RecuperarPasswordPage(),
+                                        ),
+                                      );
+                                    },
+                              child: const Text(
+                                "Esqueci-me da password",
+                                style: TextStyle(
+                                  color: azulFocado,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
                             ),
                           ),
                           const SizedBox(height: 24),

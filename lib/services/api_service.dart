@@ -432,6 +432,168 @@ class ApiService {
     }
   }
 
+  Future<Map<String, dynamic>> pedirCodigoRecuperacaoPassword(
+    String email,
+  ) async {
+    final url = Uri.parse('$baseUrl/auth/forgot-password/request');
+
+    try {
+      final response = await http
+          .post(
+            url,
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json',
+            },
+            body: jsonEncode({'email': email.trim().toLowerCase()}),
+          )
+          .timeout(const Duration(seconds: 30));
+
+      final dynamic decoded = jsonDecode(response.body);
+      final data = decoded is Map<String, dynamic>
+          ? decoded
+          : <String, dynamic>{};
+
+      if (response.statusCode == 200 && data['success'] == true) {
+        return {
+          'success': true,
+          'message':
+              data['message']?.toString() ?? 'Código enviado por email.',
+        };
+      }
+
+      return {
+        'success': false,
+        'message':
+            data['error']?.toString() ??
+            data['message']?.toString() ??
+            'Não foi possível enviar o código.',
+      };
+    } on TimeoutException {
+      return {
+        'success': false,
+        'message': 'A operação expirou. Tenta novamente.',
+      };
+    } catch (e) {
+      return {
+        'success': false,
+        'message': 'Sem ligação ao servidor. Erro: $e',
+      };
+    }
+  }
+
+  Future<Map<String, dynamic>> validarCodigoRecuperacaoPassword({
+    required String email,
+    required String codigo,
+  }) async {
+    final url = Uri.parse('$baseUrl/auth/forgot-password/verify');
+
+    try {
+      final response = await http
+          .post(
+            url,
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json',
+            },
+            body: jsonEncode({
+              'email': email.trim().toLowerCase(),
+              'codigo': codigo.trim(),
+            }),
+          )
+          .timeout(const Duration(seconds: 30));
+
+      final dynamic decoded = jsonDecode(response.body);
+      final data = decoded is Map<String, dynamic>
+          ? decoded
+          : <String, dynamic>{};
+
+      if (response.statusCode == 200 && data['success'] == true) {
+        return {
+          'success': true,
+          'message':
+              data['message']?.toString() ??
+              'Código válido. Pode definir a nova password.',
+        };
+      }
+
+      return {
+        'success': false,
+        'message':
+            data['error']?.toString() ??
+            data['message']?.toString() ??
+            'Código inválido.',
+      };
+    } on TimeoutException {
+      return {
+        'success': false,
+        'message': 'A operação expirou. Tenta novamente.',
+      };
+    } catch (e) {
+      return {
+        'success': false,
+        'message': 'Sem ligação ao servidor. Erro: $e',
+      };
+    }
+  }
+
+  Future<Map<String, dynamic>> redefinirPasswordComCodigo({
+    required String email,
+    required String codigo,
+    required String novaPassword,
+  }) async {
+    final url = Uri.parse('$baseUrl/auth/forgot-password/reset');
+
+    try {
+      final response = await http
+          .post(
+            url,
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json',
+            },
+            body: jsonEncode({
+              'email': email.trim().toLowerCase(),
+              'codigo': codigo.trim(),
+              'nova_password': novaPassword,
+            }),
+          )
+          .timeout(const Duration(seconds: 30));
+
+      final dynamic decoded = jsonDecode(response.body);
+      final data = decoded is Map<String, dynamic>
+          ? decoded
+          : <String, dynamic>{};
+
+      if (response.statusCode == 200 && data['success'] == true) {
+        return {
+          'success': true,
+          'message':
+              data['message']?.toString() ??
+              'Password redefinida com sucesso.',
+        };
+      }
+
+      return {
+        'success': false,
+        'message':
+            data['error']?.toString() ??
+            data['message']?.toString() ??
+            'Não foi possível redefinir a password.',
+      };
+    } on TimeoutException {
+      return {
+        'success': false,
+        'message': 'A operação expirou. Tenta novamente.',
+      };
+    } catch (e) {
+      return {
+        'success': false,
+        'message': 'Sem ligação ao servidor. Erro: $e',
+      };
+    }
+  }
+
   // =========================================================================
   // REGISTO
   // Envia os dados do novo utilizador para POST /auth/register.
