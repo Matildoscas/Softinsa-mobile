@@ -153,61 +153,54 @@ class StatusCandidaturaDetalhePage extends StatelessWidget {
     };
   }
 
-  bool _candidaturaTemRejeicaoEmEvidencias() {
-    return (int.tryParse(
-                  (candidatura['evidencias_rejeitadas_tm'] ?? 0).toString(),
-                ) ??
+  bool _candidaturaTemRejeicaoEmEvidencias(Map<String, dynamic> item) {
+    return (int.tryParse((item['evidencias_rejeitadas_tm'] ?? 0).toString()) ??
                 0) >
             0 ||
-        (int.tryParse(
-                  (candidatura['evidencias_rejeitadas_sll'] ?? 0).toString(),
-                ) ??
+        (int.tryParse((item['evidencias_rejeitadas_sll'] ?? 0).toString()) ??
                 0) >
             0;
   }
 
-  bool get _candidaturaEstaDesistida {
+  bool _candidaturaEstaDesistida(Map<String, dynamic> item) {
     final estado = _normalizarEstado(
-      candidatura['estado_geral']?.toString() ??
-          candidatura['estado_final']?.toString(),
+      item['estado_geral']?.toString() ?? item['estado_final']?.toString(),
     );
-    final fase = _normalizarEstado(candidatura['fase_geral']?.toString());
+    final fase = _normalizarEstado(item['fase_geral']?.toString());
     return estado.contains('DESIST') ||
         fase.contains('DESIST') ||
         estado.contains('CANCEL') ||
         fase.contains('CANCEL');
   }
 
-  bool get _candidaturaEstaRejeitada {
-    if (_candidaturaEstaDesistida) {
+  bool _candidaturaEstaRejeitada(Map<String, dynamic> item) {
+    if (_candidaturaEstaDesistida(item)) {
       return false;
     }
 
-    if (_candidaturaTemRejeicaoEmEvidencias()) {
+    if (_candidaturaTemRejeicaoEmEvidencias(item)) {
       return true;
     }
 
     final estado = _normalizarEstado(
-      candidatura['estado_geral']?.toString() ??
-          candidatura['estado_final']?.toString(),
+      item['estado_geral']?.toString() ?? item['estado_final']?.toString(),
     );
-    final fase = _normalizarEstado(candidatura['fase_geral']?.toString());
+    final fase = _normalizarEstado(item['fase_geral']?.toString());
     return estado.contains('REJEIT') ||
         estado.contains('RECUS') ||
         fase.contains('REJEIT') ||
         fase.contains('RECUS');
   }
 
-  bool get _candidaturaEstaObtida {
-    if (_candidaturaEstaDesistida || _candidaturaEstaRejeitada) {
+  bool _candidaturaEstaObtida(Map<String, dynamic> item) {
+    if (_candidaturaEstaDesistida(item) || _candidaturaEstaRejeitada(item)) {
       return false;
     }
 
     final estado = _normalizarEstado(
-      candidatura['estado_geral']?.toString() ??
-          candidatura['estado_final']?.toString(),
+      item['estado_geral']?.toString() ?? item['estado_final']?.toString(),
     );
-    final fase = _normalizarEstado(candidatura['fase_geral']?.toString());
+    final fase = _normalizarEstado(item['fase_geral']?.toString());
     return estado.contains('APROV') &&
         (estado.contains('FINAL') ||
             fase.contains('HISTORICO') ||
@@ -215,18 +208,18 @@ class StatusCandidaturaDetalhePage extends StatelessWidget {
             fase.contains('CONCLUID'));
   }
 
-  bool get _candidaturaEstaFinalizada =>
-      _candidaturaEstaDesistida ||
-      _candidaturaEstaRejeitada ||
-      _candidaturaEstaObtida;
+  bool _candidaturaEstaFinalizada(Map<String, dynamic> item) =>
+      _candidaturaEstaDesistida(item) ||
+      _candidaturaEstaRejeitada(item) ||
+      _candidaturaEstaObtida(item);
 
-  int get _etapaCandidatura {
+  int _etapaCandidatura(Map<String, dynamic> item) {
     final estado = _normalizarEstado(
-      candidatura['estado_geral']?.toString() ??
-          candidatura['estado_final']?.toString() ??
-          candidatura['estado_candidatura_pedido']?.toString(),
+      item['estado_geral']?.toString() ??
+          item['estado_final']?.toString() ??
+          item['estado_candidatura_pedido']?.toString(),
     );
-    final fase = _normalizarEstado(candidatura['fase_geral']?.toString());
+    final fase = _normalizarEstado(item['fase_geral']?.toString());
 
     if (estado.contains('REJEIT') ||
         estado.contains('RECUS') ||
@@ -277,12 +270,12 @@ class StatusCandidaturaDetalhePage extends StatelessWidget {
     return 0;
   }
 
-  String _motivoRejeicaoTexto() {
+  String _motivoRejeicaoTexto(Map<String, dynamic> item) {
     final texto =
         [
-              candidatura['comentarios_tm'],
-              candidatura['motivo_estado_final'],
-              candidatura['comentarios_sll'],
+              item['comentarios_tm'],
+              item['motivo_estado_final'],
+              item['comentarios_sll'],
             ]
             .map((e) => e?.toString().trim() ?? '')
             .firstWhere((e) => e.isNotEmpty, orElse: () => '');
@@ -387,10 +380,10 @@ class StatusCandidaturaDetalhePage extends StatelessWidget {
     );
   }
 
-  Widget _stepper() {
-    final etapaAtiva = _etapaCandidatura;
-    final bool finalRejeitada = _candidaturaEstaRejeitada;
-    final bool finalAprovada = _candidaturaEstaObtida;
+  Widget _stepper(Map<String, dynamic> item) {
+    final etapaAtiva = _etapaCandidatura(item);
+    final bool finalRejeitada = _candidaturaEstaRejeitada(item);
+    final bool finalAprovada = _candidaturaEstaObtida(item);
 
     final passos = [
       (
@@ -427,7 +420,7 @@ class StatusCandidaturaDetalhePage extends StatelessWidget {
         final ativo = etapaAtiva == passoNumero;
         final concluido =
             etapaAtiva > passoNumero ||
-            (passoNumero == 4 && _candidaturaEstaFinalizada);
+            (passoNumero == 4 && _candidaturaEstaFinalizada(item));
 
         return Row(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -463,7 +456,7 @@ class StatusCandidaturaDetalhePage extends StatelessWidget {
                   Container(
                     width: 2,
                     height: 34,
-                    color: concluido || _candidaturaEstaFinalizada
+                    color: concluido || _candidaturaEstaFinalizada(item)
                         ? passo.$3.withOpacity(0.5)
                         : Colors.grey.shade300,
                   ),
@@ -542,8 +535,15 @@ class StatusCandidaturaDetalhePage extends StatelessWidget {
             '-';
         final faseRaw = candidaturaDetalhe['fase_geral']?.toString() ?? '-';
         final coresEstado = _coresEstado(estadoRaw);
-        final idBadge = _idBadge();
-        final idCandidatura = _idCandidatura();
+        final idBadge = int.tryParse(
+          (candidaturaDetalhe['id_badge_modelo'] ??
+                  candidaturaDetalhe['id'] ??
+                  '')
+              .toString(),
+        );
+        final idCandidatura = int.tryParse(
+          (candidaturaDetalhe['id_candidatura_pedido'] ?? '').toString(),
+        );
         final idUtilizador = _idUtilizador();
         final int totalEvidencias = _valorContagem([
           candidaturaDetalhe['total_evidencias'],
@@ -560,7 +560,9 @@ class StatusCandidaturaDetalhePage extends StatelessWidget {
           candidaturaDetalhe['evidencias_decididas_sll'],
         ]);
         final bool podeContinuar =
-            !_candidaturaEstaFinalizada && idUtilizador > 0 && idBadge != null;
+            !_candidaturaEstaFinalizada(candidaturaDetalhe) &&
+            idUtilizador > 0 &&
+            idBadge != null;
 
         return Scaffold(
           backgroundColor: const Color(0xFFF7F7F7),
@@ -637,20 +639,20 @@ class StatusCandidaturaDetalhePage extends StatelessWidget {
                                 const Color(0xFF1D4ED8),
                                 const Color(0xFFDBEAFE),
                               ),
-                            if (_candidaturaEstaFinalizada)
+                            if (_candidaturaEstaFinalizada(candidaturaDetalhe))
                               _buildChip(
-                                _candidaturaEstaRejeitada
+                                _candidaturaEstaRejeitada(candidaturaDetalhe)
                                     ? 'Finalizada por rejeição'
-                                    : _candidaturaEstaObtida
+                                    : _candidaturaEstaObtida(candidaturaDetalhe)
                                     ? 'Finalizada com aprovação'
                                     : 'Finalizada',
-                                _candidaturaEstaRejeitada
+                                _candidaturaEstaRejeitada(candidaturaDetalhe)
                                     ? const Color(0xFFFEE2E2)
                                     : const Color(0xFFDCFCE7),
-                                _candidaturaEstaRejeitada
+                                _candidaturaEstaRejeitada(candidaturaDetalhe)
                                     ? const Color(0xFF991B1B)
                                     : const Color(0xFF166534),
-                                _candidaturaEstaRejeitada
+                                _candidaturaEstaRejeitada(candidaturaDetalhe)
                                     ? const Color(0xFFFECACA)
                                     : const Color(0xFFBBF7D0),
                               ),
@@ -695,7 +697,7 @@ class StatusCandidaturaDetalhePage extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(height: 12),
-                        _stepper(),
+                        _stepper(candidaturaDetalhe),
                       ],
                     ),
                   ),
@@ -809,7 +811,7 @@ class StatusCandidaturaDetalhePage extends StatelessWidget {
                           ),
                           const SizedBox(height: 8),
                           Text(
-                            _motivoRejeicaoTexto(),
+                            _motivoRejeicaoTexto(candidaturaDetalhe),
                             style: const TextStyle(
                               fontSize: 12,
                               height: 1.45,
@@ -879,7 +881,7 @@ class StatusCandidaturaDetalhePage extends StatelessWidget {
                                     MaterialPageRoute(
                                       builder: (_) => SubmeterBadge(
                                         userId: idUtilizador,
-                                        badgeId: idBadge!,
+                                        badgeId: idBadge,
                                       ),
                                     ),
                                   );
