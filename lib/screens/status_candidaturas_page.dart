@@ -3,6 +3,7 @@ import 'package:sqflite/sqflite.dart';
 
 import '../database/basededados.dart';
 import '../services/api_service.dart';
+import 'status_candidatura_detalhe_page.dart';
 
 class StatusCandidaturasPage extends StatefulWidget {
   final Map<String, dynamic> userData;
@@ -473,144 +474,209 @@ class _StatusCandidaturasPageState extends State<StatusCandidaturasPage> {
                       ? 'Finalizada'
                       : 'Em processo';
 
-                  return Container(
-                    margin: const EdgeInsets.only(bottom: 10),
-                    padding: const EdgeInsets.all(14),
-                    decoration: BoxDecoration(
-                      color: cardBackground,
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(color: cardBorder),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.03),
-                          blurRadius: 6,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Expanded(
-                              child: Column(
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(14),
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => StatusCandidaturaDetalhePage(
+                                userData: widget.userData,
+                                candidatura: item,
+                              ),
+                            ),
+                          );
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.all(14),
+                          decoration: BoxDecoration(
+                            color: cardBackground,
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(color: cardBorder),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.03),
+                                blurRadius: 6,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text(
-                                    nome,
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 14,
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          nome,
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 14,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          resumoEstado,
+                                          style: TextStyle(
+                                            fontSize: 11,
+                                            color: cores['texto'],
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    resumoEstado,
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      color: cores['texto'],
-                                      fontWeight: FontWeight.w600,
-                                    ),
+                                  const SizedBox(width: 10),
+                                  Icon(
+                                    Icons.chevron_right,
+                                    color: cores['texto'] ?? _azul,
+                                    size: 22,
                                   ),
                                 ],
                               ),
-                            ),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 10,
-                                vertical: 6,
+                              const SizedBox(height: 8),
+                              Wrap(
+                                spacing: 8,
+                                runSpacing: 8,
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 10,
+                                      vertical: 6,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: cores['fundo'],
+                                      borderRadius: BorderRadius.circular(20),
+                                      border: Border.all(
+                                        color:
+                                            cores['borda'] ??
+                                            Colors.transparent,
+                                      ),
+                                    ),
+                                    child: Text(
+                                      _formatarEstadoHumano(estadoRaw),
+                                      style: TextStyle(
+                                        color: cores['texto'],
+                                        fontWeight: FontWeight.w600,
+                                        fontSize: 11,
+                                      ),
+                                    ),
+                                  ),
+                                  if (faseRaw != '-')
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 10,
+                                        vertical: 6,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: obtida
+                                            ? const Color(0xFFF0FDF4)
+                                            : rejeitada
+                                            ? const Color(0xFFFFF1F2)
+                                            : desistida
+                                            ? const Color(0xFFF8FAFC)
+                                            : const Color(0xFFEFF6FF),
+                                        borderRadius: BorderRadius.circular(20),
+                                        border: Border.all(
+                                          color: obtida
+                                              ? const Color(0xFFBBF7D0)
+                                              : rejeitada
+                                              ? const Color(0xFFFECACA)
+                                              : desistida
+                                              ? const Color(0xFFE2E8F0)
+                                              : const Color(0xFFDBEAFE),
+                                        ),
+                                      ),
+                                      child: Text(
+                                        faseRaw,
+                                        style: TextStyle(
+                                          color: obtida
+                                              ? const Color(0xFF166534)
+                                              : rejeitada
+                                              ? const Color(0xFF991B1B)
+                                              : desistida
+                                              ? const Color(0xFF475569)
+                                              : const Color(0xFF1D4ED8),
+                                          fontWeight: FontWeight.w600,
+                                          fontSize: 11,
+                                        ),
+                                      ),
+                                    ),
+                                ],
                               ),
-                              decoration: BoxDecoration(
-                                color: cores['fundo'],
-                                borderRadius: BorderRadius.circular(20),
-                                border: Border.all(
-                                  color: cores['borda'] ?? Colors.transparent,
-                                ),
-                              ),
-                              child: Text(
-                                _formatarEstadoHumano(estadoRaw),
+                              const SizedBox(height: 10),
+                              Text(
+                                'Submetida em ${_formatarData(item['data_submissao']?.toString())}',
                                 style: TextStyle(
-                                  color: cores['texto'],
-                                  fontWeight: FontWeight.w600,
+                                  color: Colors.grey.shade600,
                                   fontSize: 11,
                                 ),
                               ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
-                          children: [
-                            if (faseRaw != '-')
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 10,
-                                  vertical: 6,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: obtida
-                                      ? const Color(0xFFF0FDF4)
-                                      : rejeitada
-                                      ? const Color(0xFFFFF1F2)
-                                      : desistida
-                                      ? const Color(0xFFF8FAFC)
-                                      : const Color(0xFFEFF6FF),
-                                  borderRadius: BorderRadius.circular(20),
-                                  border: Border.all(
-                                    color: obtida
-                                        ? const Color(0xFFBBF7D0)
-                                        : rejeitada
-                                        ? const Color(0xFFFECACA)
-                                        : desistida
-                                        ? const Color(0xFFE2E8F0)
-                                        : const Color(0xFFDBEAFE),
+                              if (finalizada) ...[
+                                const SizedBox(height: 6),
+                                Text(
+                                  rejeitada
+                                      ? 'A candidatura foi rejeitada e pode ter sido reaberta noutra submissão.'
+                                      : obtida
+                                      ? 'A candidatura terminou com aprovação final.'
+                                      : 'A candidatura já não está em processo ativo.',
+                                  style: TextStyle(
+                                    color: cores['texto'],
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w500,
                                   ),
                                 ),
-                                child: Text(
-                                  faseRaw,
-                                  style: TextStyle(
-                                    color: obtida
-                                        ? const Color(0xFF166534)
-                                        : rejeitada
-                                        ? const Color(0xFF991B1B)
-                                        : desistida
-                                        ? const Color(0xFF475569)
-                                        : const Color(0xFF1D4ED8),
-                                    fontWeight: FontWeight.w600,
-                                    fontSize: 11,
+                              ],
+                              const SizedBox(height: 12),
+                              Align(
+                                alignment: Alignment.centerRight,
+                                child: TextButton.icon(
+                                  onPressed: () {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (_) =>
+                                            StatusCandidaturaDetalhePage(
+                                              userData: widget.userData,
+                                              candidatura: item,
+                                            ),
+                                      ),
+                                    );
+                                  },
+                                  style: TextButton.styleFrom(
+                                    foregroundColor: const Color(0xFF4470AF),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 10,
+                                      vertical: 8,
+                                    ),
+                                    visualDensity: VisualDensity.compact,
+                                  ),
+                                  icon: const Icon(
+                                    Icons.chevron_right,
+                                    size: 18,
+                                  ),
+                                  label: const Text(
+                                    'Ver detalhe',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w700,
+                                    ),
                                   ),
                                 ),
                               ),
-                          ],
-                        ),
-                        const SizedBox(height: 10),
-                        Text(
-                          'Submetida em ${_formatarData(item['data_submissao']?.toString())}',
-                          style: TextStyle(
-                            color: Colors.grey.shade600,
-                            fontSize: 11,
+                            ],
                           ),
                         ),
-                        if (finalizada) ...[
-                          const SizedBox(height: 6),
-                          Text(
-                            rejeitada
-                                ? 'A candidatura foi rejeitada e pode ter sido reaberta noutra submissão.'
-                                : obtida
-                                ? 'A candidatura terminou com aprovação final.'
-                                : 'A candidatura já não está em processo ativo.',
-                            style: TextStyle(
-                              color: cores['texto'],
-                              fontSize: 11,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ],
-                      ],
+                      ),
                     ),
                   );
                 },
