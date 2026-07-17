@@ -736,10 +736,20 @@ class ApiService {
     int userId,
   ) async {
     try {
-      final uri = Uri.parse(
-        '$baseUrl/candidaturas/$userId/status-candidaturas',
+      final uri = Uri.parse('$baseUrl/candidaturas/$userId/status-candidaturas')
+          .replace(
+            queryParameters: {
+              't': DateTime.now().millisecondsSinceEpoch.toString(),
+            },
+          );
+      final response = await http.get(
+        uri,
+        headers: {
+          ..._headers,
+          'Cache-Control': 'no-cache',
+          'Pragma': 'no-cache',
+        },
       );
-      final response = await http.get(uri, headers: _headers);
 
       if (response.statusCode == 200) {
         final dynamic decoded = jsonDecode(response.body);
@@ -1237,10 +1247,22 @@ class ApiService {
     int candidaturaId,
   ) async {
     try {
-      final uri = Uri.parse(
-        '$baseUrl/candidaturas/$userId/status-candidaturas/$candidaturaId',
+      final uri =
+          Uri.parse(
+            '$baseUrl/candidaturas/$userId/status-candidaturas/$candidaturaId',
+          ).replace(
+            queryParameters: {
+              't': DateTime.now().millisecondsSinceEpoch.toString(),
+            },
+          );
+      final response = await http.get(
+        uri,
+        headers: {
+          ..._headers,
+          'Cache-Control': 'no-cache',
+          'Pragma': 'no-cache',
+        },
       );
-      final response = await http.get(uri, headers: _headers);
 
       if (response.statusCode == 200) {
         final decoded = jsonDecode(response.body);

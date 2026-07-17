@@ -723,11 +723,10 @@ class StatusCandidaturaDetalhePage extends StatelessWidget {
       future: _detalheFuture,
       builder: (context, snapshot) {
         final detalhe = snapshot.data;
-        final candidaturaDetalhe = <String, dynamic>{
-          ...candidatura,
-          if (detalhe != null && detalhe['candidatura'] is Map)
-            ...Map<String, dynamic>.from(detalhe['candidatura'] as Map),
-        };
+        final candidaturaDetalhe =
+            detalhe != null && detalhe['candidatura'] is Map
+            ? Map<String, dynamic>.from(detalhe['candidatura'] as Map)
+            : Map<String, dynamic>.from(candidatura);
         final requisitos = detalhe != null && detalhe['requisitos'] is List
             ? (detalhe['requisitos'] as List)
             : const [];
