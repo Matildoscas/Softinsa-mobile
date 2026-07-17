@@ -29,7 +29,6 @@ import 'lembretes_page.dart';
 import 'informacoes_badge.dart';
 import 'definicoes_page.dart';
 import 'progresso_page.dart';
-import 'status_candidaturas_page.dart';
 import 'dart:async';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'timeline_profissional_page.dart';
@@ -682,29 +681,6 @@ class _HomePageState extends ConsumerState<HomePage>
                             },
                             icon: const Icon(Icons.timeline),
                             label: const Text('Timeline profissional'),
-                          ),
-
-                          const SizedBox(height: 10),
-
-                          ElevatedButton.icon(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.white,
-                              foregroundColor: const Color(0xFF4470AF),
-                              shape: const StadiumBorder(),
-                              elevation: 4,
-                            ),
-                            onPressed: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) => StatusCandidaturasPage(
-                                    userData: widget.userData,
-                                  ),
-                                ),
-                              );
-                            },
-                            icon: const Icon(Icons.rule_folder_outlined),
-                            label: const Text('Status de candidaturas'),
                           ),
 
                           const SizedBox(
