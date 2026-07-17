@@ -497,9 +497,37 @@ class _CatalogoBadgesPageState extends State<CatalogoBadgesPage>
         'numero_requisitos': int.tryParse((badge['numero_requisitos'] ?? 0).toString()) ?? 0,
         'pontos': int.tryParse((badge['pontos'] ?? 0).toString()) ?? 0,
         'tempo_expiracao': badge['tempo_expiracao']?.toString(),
+        'tipo_badge': badge['tipo_badge'] ?? badge['tipo']?.toString(),
         'imagem_url': badge['imagem_url'] ?? badge['imagem']?.toString() ?? badge['url_imagem']?.toString(),
         'imagem': null,
       });
+
+      final requisitosBadge = badge['requisitos'];
+      if (requisitosBadge is List) {
+        for (int idx = 0; idx < requisitosBadge.length; idx++) {
+          final req = requisitosBadge[idx];
+          if (req is! Map) {
+            continue;
+          }
+
+          final mapaReq = Map<String, dynamic>.from(req);
+
+          final int idReq = int.tryParse(
+                (mapaReq['id_requisitos'] ?? mapaReq['id_requisito'] ?? '').toString(),
+              ) ??
+              (idBadgeModelo * 1000 + idx + 1);
+
+          await _dbLocal.salvarRegisto('requisitos', {
+            'id_requisitos': idReq,
+            'id_badge_modelo': idBadgeModelo,
+            'id_utilizador': null,
+            'nome_requisito': mapaReq['nome_requisito'] ?? mapaReq['nome'] ?? mapaReq['titulo'] ?? 'Requisito',
+            'titulo': mapaReq['titulo'] ?? mapaReq['nome_requisito'] ?? mapaReq['nome'] ?? 'Requisito',
+            'descricao_requisito': mapaReq['descricao_requisito'] ?? mapaReq['descricao'] ?? '',
+            'tipo_requisito': mapaReq['tipo_requisito']?.toString(),
+          });
+        }
+      }
     }
   }
 

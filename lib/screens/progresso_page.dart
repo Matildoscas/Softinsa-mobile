@@ -838,6 +838,10 @@ class _ProgressoPageState extends State<ProgressoPage> {
       todosBadgesRaw = await _apiService.getTodosBadges();
       obtidosRaw = await _apiService.getBadgesConquistados(userId);
 
+      await _guardarCatalogoBadgesCache(
+        todosBadgesRaw,
+      );
+
       await _guardarLearningPathsUtilizadorCache(
         userId,
         progressoRaw,
@@ -901,7 +905,13 @@ class _ProgressoPageState extends State<ProgressoPage> {
         'id': e['id_badge_modelo'],
         'id_nivel': e['id_nivel'],
         'pontos': e['pontos'],
+        'nome': e['nome_badge'],
+        'nome_badge': e['nome_badge'],
+        'descricao': e['descricao_badge_modelo'],
+        'descricao_badge_modelo': e['descricao_badge_modelo'],
         'tipo_badge': e['tipo_badge'],
+        'imagem_url': e['imagem_url'] ?? e['imagem'],
+        'imagem': e['imagem_url'] ?? e['imagem'],
       }).toList();
 
       obtidosRaw = List<Map<String, dynamic>>.from(localAtribuidos);
@@ -1073,6 +1083,64 @@ class _ProgressoPageState extends State<ProgressoPage> {
         PRIMARY KEY (id_utilizador, id_badge_modelo, id_badge_atribuido)
       )
     ''');
+  }
+
+  Future<void> _guardarCatalogoBadgesCache(
+    List<Map<String, dynamic>> badges,
+  ) async {
+    for (final badge in badges) {
+      final idBadgeModelo =
+          int.tryParse((badge['id'] ?? badge['id_badge_modelo'] ?? 0).toString()) ?? 0;
+
+      if (idBadgeModelo == 0) {
+        continue;
+      }
+
+      await _dbLocal.salvarRegisto('badge_modelo', {
+        'id_badge_modelo': idBadgeModelo,
+        'id_serviceline': int.tryParse((badge['id_serviceline'] ?? 0).toString()),
+        'id_areas': int.tryParse((badge['id_areas'] ?? 0).toString()),
+        'id_nivel': int.tryParse((badge['id_nivel'] ?? 0).toString()),
+        'id_utilizador': null,
+        'nome_badge': badge['nome_badge'] ?? badge['nome'] ?? 'Badge',
+        'descricao_badge_modelo': badge['descricao_badge_modelo'] ?? badge['descricao'] ?? '',
+        'data_criacao_badge_modelo': badge['data_criacao_badge_modelo']?.toString(),
+        'estado_badge_modelo': badge['estado_badge_modelo'] ?? 'ATIVO',
+        'numero_requisitos': int.tryParse((badge['numero_requisitos'] ?? 0).toString()) ?? 0,
+        'pontos': int.tryParse((badge['pontos'] ?? 0).toString()) ?? 0,
+        'tempo_expiracao': badge['tempo_expiracao']?.toString(),
+        'tipo_badge': badge['tipo_badge'] ?? badge['tipo']?.toString(),
+        'imagem_url': badge['imagem_url'] ?? badge['imagem']?.toString() ?? badge['url_imagem']?.toString(),
+        'imagem': null,
+      });
+
+      final requisitosBadge = badge['requisitos'];
+      if (requisitosBadge is List) {
+        for (int idx = 0; idx < requisitosBadge.length; idx++) {
+          final req = requisitosBadge[idx];
+          if (req is! Map) {
+            continue;
+          }
+
+          final mapaReq = Map<String, dynamic>.from(req);
+
+          final int idReq = int.tryParse(
+                (mapaReq['id_requisitos'] ?? mapaReq['id_requisito'] ?? '').toString(),
+              ) ??
+              (idBadgeModelo * 1000 + idx + 1);
+
+          await _dbLocal.salvarRegisto('requisitos', {
+            'id_requisitos': idReq,
+            'id_badge_modelo': idBadgeModelo,
+            'id_utilizador': null,
+            'nome_requisito': mapaReq['nome_requisito'] ?? mapaReq['nome'] ?? mapaReq['titulo'] ?? 'Requisito',
+            'titulo': mapaReq['titulo'] ?? mapaReq['nome_requisito'] ?? mapaReq['nome'] ?? 'Requisito',
+            'descricao_requisito': mapaReq['descricao_requisito'] ?? mapaReq['descricao'] ?? '',
+            'tipo_requisito': mapaReq['tipo_requisito']?.toString(),
+          });
+        }
+      }
+    }
   }
 
   Future<void> _ensureTabelaLearningPathsUtilizador() async {

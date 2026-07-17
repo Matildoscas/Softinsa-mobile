@@ -314,6 +314,107 @@ class _BadgeDetalheState extends State<BadgeDetalhe>
     super.dispose();
   }
 
+  Future<void> _guardarCatalogoLocal(
+    List<Map<String, dynamic>> badges,
+  ) async {
+    for (final badge in badges) {
+      final idBadgeModelo =
+          int.tryParse((badge['id'] ?? badge['id_badge_modelo'] ?? 0).toString()) ?? 0;
+
+      if (idBadgeModelo == 0) {
+        continue;
+      }
+
+      await _dbLocal.salvarRegisto('badge_modelo', {
+        'id_badge_modelo': idBadgeModelo,
+        'id_serviceline': int.tryParse((badge['id_serviceline'] ?? 0).toString()),
+        'id_areas': int.tryParse((badge['id_areas'] ?? 0).toString()),
+        'id_nivel': int.tryParse((badge['id_nivel'] ?? 0).toString()),
+        'id_utilizador': null,
+        'nome_badge': badge['nome_badge'] ?? badge['nome'] ?? 'Badge',
+        'descricao_badge_modelo': badge['descricao_badge_modelo'] ?? badge['descricao'] ?? '',
+        'data_criacao_badge_modelo': badge['data_criacao_badge_modelo']?.toString(),
+        'estado_badge_modelo': badge['estado_badge_modelo'] ?? 'ATIVO',
+        'numero_requisitos': int.tryParse((badge['numero_requisitos'] ?? 0).toString()) ?? 0,
+        'pontos': int.tryParse((badge['pontos'] ?? 0).toString()) ?? 0,
+        'tempo_expiracao': badge['tempo_expiracao']?.toString(),
+        'tipo_badge': badge['tipo_badge'] ?? badge['tipo']?.toString(),
+        'imagem_url': badge['imagem_url'] ?? badge['imagem']?.toString() ?? badge['url_imagem']?.toString(),
+        'imagem': null,
+      });
+
+      final requisitosBadge = badge['requisitos'];
+      if (requisitosBadge is List) {
+        for (int idx = 0; idx < requisitosBadge.length; idx++) {
+          final req = requisitosBadge[idx];
+          if (req is! Map) {
+            continue;
+          }
+
+          final mapaReq = Map<String, dynamic>.from(req);
+
+          final int idReq = int.tryParse(
+                (mapaReq['id_requisitos'] ?? mapaReq['id_requisito'] ?? '').toString(),
+              ) ??
+              (idBadgeModelo * 1000 + idx + 1);
+
+          await _dbLocal.salvarRegisto('requisitos', {
+            'id_requisitos': idReq,
+            'id_badge_modelo': idBadgeModelo,
+            'id_utilizador': null,
+            'nome_requisito': mapaReq['nome_requisito'] ?? mapaReq['nome'] ?? mapaReq['titulo'] ?? 'Requisito',
+            'titulo': mapaReq['titulo'] ?? mapaReq['nome_requisito'] ?? mapaReq['nome'] ?? 'Requisito',
+            'descricao_requisito': mapaReq['descricao_requisito'] ?? mapaReq['descricao'] ?? '',
+            'tipo_requisito': mapaReq['tipo_requisito']?.toString(),
+          });
+        }
+      }
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> _carregarConquistadosLocal() async {
+    try {
+      final db = await _dbLocal.database;
+      final rows = await db.query(
+        'cache_badges_utilizador',
+        where: 'id_utilizador = ?',
+        whereArgs: [widget.userId],
+      );
+
+      if (rows.isNotEmpty) {
+        return rows.map((row) {
+          return <String, dynamic>{
+            'id': row['id_badge_modelo'],
+            'id_badge_modelo': row['id_badge_modelo'],
+            'id_badge_atribuido': row['id_badge_atribuido'],
+            'data_atribuicao': row['data_atribuicao'],
+            'pontos': row['pontos'] ?? 0,
+            'ganhou_bonus': (row['ganhou_bonus'] ?? 0) == 1,
+            'premio_atribuido': (row['premio_atribuido'] ?? 0) == 1,
+            'pontos_extra': row['pontos_extra'] ?? 0,
+            'pontos_bonus': row['pontos_extra'] ?? 0,
+          };
+        }).toList();
+      }
+    } catch (_) {}
+
+    final localAtribuidos = await _dbLocal.listarTabela('badge_atribuido');
+
+    return localAtribuidos
+        .map(
+          (e) => <String, dynamic>{
+            'id': e['id_badge_modelo'],
+            'id_badge_modelo': e['id_badge_modelo'],
+            'data_atribuicao': e['data_atribuicao'],
+            'ganhou_bonus': false,
+            'premio_atribuido': false,
+            'pontos_extra': 0,
+            'pontos_bonus': 0,
+          },
+        )
+        .toList();
+  }
+
   // =========================================================================
   // CARREGAR DETALHE
   //
@@ -336,6 +437,8 @@ class _BadgeDetalheState extends State<BadgeDetalhe>
       todos = await _apiService.getTodosBadges();
       obtidos = await _apiService.getBadgesConquistados(widget.userId);
 
+      await _guardarCatalogoLocal(todos);
+
       try {
         final notificacoes = await _apiService.getNotifications(widget.userId);
         certificadoDisponivel = notificacoes.firstWhere(
@@ -352,46 +455,22 @@ class _BadgeDetalheState extends State<BadgeDetalhe>
       
       // 2. FALLBACK: Carrega o modelo de cache local do SQLite se falhar a internet
       final localModelos = await _dbLocal.listarTabela('badge_modelo');
-      final localAtribuidos = await _dbLocal.listarTabela('badge_atribuido');
 
       todos = localModelos.map((e) => {
         'id': e['id_badge_modelo'],
+        'id_badge_modelo': e['id_badge_modelo'],
         'nome': e['nome_badge'],
+        'nome_badge': e['nome_badge'],
         'descricao': e['descricao_badge_modelo'],
+        'descricao_badge_modelo': e['descricao_badge_modelo'],
         'pontos': e['pontos'],
-        'id_nivel': e['id_nivel']
+        'id_nivel': e['id_nivel'],
+        'tipo_badge': e['tipo_badge'],
+        'imagem_url': e['imagem_url'] ?? e['imagem'],
+        'imagem': e['imagem_url'] ?? e['imagem'],
       }).toList();
 
-      obtidos = localAtribuidos
-      .map(
-        (e) => <String, dynamic>{
-          'id':
-              e['id_badge_modelo'],
-
-          'id_badge_modelo':
-              e['id_badge_modelo'],
-
-          'data_atribuicao':
-              e['data_atribuicao'],
-
-          'ganhou_bonus':
-              e['ganhou_bonus'] ??
-              false,
-
-          'premio_atribuido':
-              e['premio_atribuido'] ??
-              false,
-
-          'pontos_extra':
-              e['pontos_extra'] ??
-              0,
-
-          'pontos_bonus':
-              e['pontos_bonus'] ??
-              0,
-        },
-      )
-      .toList();
+      obtidos = await _carregarConquistadosLocal();
     }
 
     // ── IDENTIFICAÇÃO DO BADGE PRINCIPAL ─────────────────────────────
