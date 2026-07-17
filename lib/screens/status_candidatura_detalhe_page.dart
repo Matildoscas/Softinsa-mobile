@@ -1,9 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:sqflite/sqflite.dart';
 
-import '../database/basededados.dart';
 import '../services/api_service.dart';
 import 'informacoes_badge.dart';
 import 'submeter_badges.dart';
@@ -57,181 +55,12 @@ class StatusCandidaturaDetalhePage extends StatelessWidget {
         'requisitos': const <Map<String, dynamic>>[],
       };
     } on SocketException {
-      final db = await Basededados().database;
-
-      final pedidoRows = await db.query(
-        'candidatura_pedido',
-        where: 'id_candidatura_pedido = ? AND id_utilizador = ?',
-        whereArgs: [idCandidatura, idUtilizador],
-        limit: 1,
-      );
-
-      if (pedidoRows.isEmpty) {
-        return {
-          'candidatura': candidatura,
-          'requisitos': const <Map<String, dynamic>>[],
-        };
-      }
-
-      final pedido = Map<String, dynamic>.from(pedidoRows.first);
-      final int idBadge =
-          int.tryParse(
-            (pedido['id_badge_modelo'] ?? candidatura['id_badge_modelo'] ?? 0)
-                .toString(),
-          ) ??
-          0;
-
-      Map<String, dynamic> cache = <String, dynamic>{};
-      try {
-        final cacheRows = await db.query(
-          'cache_status_candidaturas',
-          where: 'id_utilizador = ? AND id_candidatura_pedido = ?',
-          whereArgs: [idUtilizador, idCandidatura],
-          limit: 1,
-        );
-        if (cacheRows.isNotEmpty) {
-          cache = Map<String, dynamic>.from(cacheRows.first);
-        }
-      } catch (_) {}
-
-      final tmRows = await db.query(
-        'candidatura_tm',
-        where: 'id_candidatura_pedido = ?',
-        whereArgs: [idCandidatura],
-        orderBy: 'id_candidatura_tm DESC',
-        limit: 1,
-      );
-      final tm = tmRows.isNotEmpty
-          ? Map<String, dynamic>.from(tmRows.first)
-          : <String, dynamic>{};
-
-      Map<String, dynamic> sll = <String, dynamic>{};
-      final idTm = tm['id_candidatura_tm'];
-      if (idTm != null) {
-        final sllRows = await db.query(
-          'candidatura_sll',
-          where: 'id_candidatura_tm = ?',
-          whereArgs: [idTm],
-          orderBy: 'id_candidatura_sll DESC',
-          limit: 1,
-        );
-        if (sllRows.isNotEmpty) {
-          sll = Map<String, dynamic>.from(sllRows.first);
-        }
-      }
-
-      Map<String, dynamic> historico = <String, dynamic>{};
-      final idSll = sll['id_candidatura_sll'];
-      if (idSll != null) {
-        final historicoRows = await db.query(
-          'candidatura_historico',
-          where: 'id_candidatura_sll = ?',
-          whereArgs: [idSll],
-          orderBy: 'id_candidatura_historico DESC',
-          limit: 1,
-        );
-        if (historicoRows.isNotEmpty) {
-          historico = Map<String, dynamic>.from(historicoRows.first);
-        }
-      }
-
-      final evidenciasCount =
-          Sqflite.firstIntValue(
-            await db.rawQuery(
-              'SELECT COUNT(*) as total FROM evidencias WHERE id_candidatura_pedido = ?',
-              [idCandidatura],
-            ),
-          ) ??
-          0;
-
-      Map<String, dynamic> badge = <String, dynamic>{};
-      if (idBadge > 0) {
-        final badgeRows = await db.query(
-          'badge_modelo',
-          where: 'id_badge_modelo = ?',
-          whereArgs: [idBadge],
-          limit: 1,
-        );
-        if (badgeRows.isNotEmpty) {
-          badge = Map<String, dynamic>.from(badgeRows.first);
-        }
-      }
-
-      List<Map<String, dynamic>> requisitos = <Map<String, dynamic>>[];
-      if (idBadge > 0) {
-        final reqRows = await db.query(
-          'requisitos',
-          where: 'id_badge_modelo = ?',
-          whereArgs: [idBadge],
-          orderBy: 'id_requisitos ASC',
-        );
-        requisitos = reqRows.map((e) => Map<String, dynamic>.from(e)).toList();
-      }
-
-      final candidaturaOffline = <String, dynamic>{
-        ...candidatura,
-        ...pedido,
-        ...cache,
-        'id_candidatura_pedido': idCandidatura,
-        'id_badge_modelo': idBadge > 0
-            ? idBadge
-            : candidatura['id_badge_modelo'],
-        'id_utilizador': idUtilizador,
-        'nome_badge':
-            cache['nome_badge'] ??
-            badge['nome_badge'] ??
-            candidatura['nome_badge'] ??
-            candidatura['nome'],
-        'data_submissao':
-            pedido['data_submisao'] ??
-            pedido['data_submissao'] ??
-            candidatura['data_submissao'],
-        'estado_candidatura_pedido':
-            pedido['estado_candidatura_pedido'] ??
-            candidatura['estado_candidatura_pedido'],
-        'estado_geral':
-            cache['estado_geral'] ??
-            candidatura['estado_geral'] ??
-            pedido['estado_candidatura_pedido'],
-        'fase_geral': cache['fase_geral'] ?? candidatura['fase_geral'],
-        'estado_final':
-            historico['estado_final'] ??
-            cache['estado_final'] ??
-            candidatura['estado_final'],
-        'data_rececao_tm': tm['data_rececao_tm'],
-        'data_conclusao_tm': tm['data_conclusao_tm'],
-        'comentarios_tm': cache['comentarios_tm'] ?? tm['comentarios_tm'],
-        'data_rececao_sll': sll['data_rececao_sll'],
-        'data_conclusao_sll':
-            sll['data_conclusao_sll'] ?? sll['data_concluao_sll'],
-        'comentarios_sll': cache['comentarios_sll'] ?? sll['comentarios_sll'],
-        'data_avaliacao_sll': historico['data_avaliacao_sll'],
-        'data_entrada_historico': historico['data_entrada_historico'],
-        'motivo_estado_final':
-            cache['motivo_estado_final'] ?? historico['motivo_estado_final'],
-        'total_evidencias':
-            int.tryParse(
-              (cache['total_evidencias'] ?? evidenciasCount).toString(),
-            ) ??
-            evidenciasCount,
-        'evidencias_decididas_tm':
-            int.tryParse((cache['evidencias_decididas_tm'] ?? 0).toString()) ??
-            0,
-        'evidencias_decididas_sll':
-            int.tryParse((cache['evidencias_decididas_sll'] ?? 0).toString()) ??
-            0,
-        'evidencias_rejeitadas_tm':
-            int.tryParse((cache['evidencias_rejeitadas_tm'] ?? 0).toString()) ??
-            0,
-        'evidencias_rejeitadas_sll':
-            int.tryParse(
-              (cache['evidencias_rejeitadas_sll'] ?? 0).toString(),
-            ) ??
-            0,
-        'offline': true,
+      // TESTE: fallback offline pela BD local desativado apenas no detalhe de status.
+      // Se estiver sem internet, a página usa apenas o payload já em memória.
+      return {
+        'candidatura': candidatura,
+        'requisitos': const <Map<String, dynamic>>[],
       };
-
-      return {'candidatura': candidaturaOffline, 'requisitos': requisitos};
     }
   }
 
