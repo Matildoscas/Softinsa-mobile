@@ -27,7 +27,7 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 
 // Converte o ID do nível para A, B, C, D ou E.
 String obterNivel(dynamic idNivel) {
-  final int? nivel = int.tryParse(idNivel.toString());
+  final int? nivel = _normalizarIdNivel(idNivel);
   switch (nivel) {
     case 1: return 'A';
     case 2: return 'B';
@@ -36,6 +36,35 @@ String obterNivel(dynamic idNivel) {
     case 5: return 'E';
     default: return '-';
   }
+}
+
+int? _normalizarIdNivel(dynamic valor) {
+  if (valor == null) {
+    return null;
+  }
+
+  final texto = valor.toString().trim();
+  if (texto.isEmpty) {
+    return null;
+  }
+
+  final numero = int.tryParse(texto);
+  if (numero != null && numero >= 1 && numero <= 5) {
+    return numero;
+  }
+
+  final upper = texto.toUpperCase();
+  if (upper == 'A' || upper == 'INICIANTE' || upper == 'JUNIOR' || upper == 'JÚNIOR') return 1;
+  if (upper == 'B' || upper == 'INTERMEDIO' || upper == 'INTERMÉDIO') return 2;
+  if (upper == 'C' || upper == 'AVANCADO' || upper == 'AVANÇADO' || upper == 'SENIOR' || upper == 'SÉNIOR') return 3;
+  if (upper == 'D' || upper == 'EXPERT' || upper == 'ESPECIALISTA') return 4;
+  if (upper == 'E' || upper == 'MASTER' || upper == 'LIDER DE CONHECIMENTO' || upper == 'LÍDER DE CONHECIMENTO' || upper == 'LEADER OF KNOWLEDGE') return 5;
+
+  if (upper.startsWith('NIVEL ') || upper.startsWith('NÍVEL ')) {
+    return _normalizarIdNivel(upper.split(' ').last);
+  }
+
+  return null;
 }
 
 class _BadgeBonusInfo {
@@ -249,11 +278,29 @@ class _MeusBadgesPageState extends State<MeusBadgesPage>
     );
   }
 
+  int? _resolverIdNivelBadge(Map<String, dynamic> badge) {
+    final candidatos = [
+      badge['id_nivel'],
+      badge['codigo_nivel'],
+      badge['nivel'],
+      badge['nome_nivel'],
+    ];
+
+    for (final valor in candidatos) {
+      final nivel = _normalizarIdNivel(valor);
+      if (nivel != null) {
+        return nivel;
+      }
+    }
+
+    return null;
+  }
+
   // Extrai os níveis existentes nos badges conquistados.
   // Remove níveis repetidos e ordena a lista.
   void _extrairNiveis() {
     niveis = meusBadges
-        .map((b) => obterNivel(b['id_nivel']))
+        .map((b) => obterNivel(_resolverIdNivelBadge(b)))
         .where((n) => n != '-')
         .toSet()
         .toList()
@@ -279,7 +326,7 @@ class _MeusBadgesPageState extends State<MeusBadgesPage>
           descricao.contains(pesquisa.toLowerCase());
 
       final matchNivel =
-          filtroNivel == null || obterNivel(b['id_nivel']) == filtroNivel;
+          filtroNivel == null || obterNivel(_resolverIdNivelBadge(b)) == filtroNivel;
 
       return matchPesquisa && matchNivel;
     }).toList();
@@ -456,7 +503,7 @@ class _MeusBadgesPageState extends State<MeusBadgesPage>
       'id_badge_modelo': idBadgeModelo,
       'id_serviceline': int.tryParse((badge['id_serviceline'] ?? 0).toString()),
       'id_areas': int.tryParse((badge['id_areas'] ?? 0).toString()),
-      'id_nivel': int.tryParse((badge['id_nivel'] ?? 0).toString()),
+      'id_nivel': _resolverIdNivelBadge(badge),
       'id_utilizador': userId,
       'nome_badge': badge['nome_badge'] ?? badge['nome'] ?? 'Badge',
       'descricao_badge_modelo': badge['descricao_badge_modelo'] ?? badge['descricao'] ?? '',
@@ -492,7 +539,7 @@ class _MeusBadgesPageState extends State<MeusBadgesPage>
         'nome_badge': badge['nome_badge'] ?? badge['nome'] ?? 'Badge',
         'descricao_badge': badge['descricao_badge_modelo'] ?? badge['descricao'] ?? '',
         'pontos': int.tryParse((badge['pontos'] ?? 0).toString()) ?? 0,
-        'id_nivel': int.tryParse((badge['id_nivel'] ?? 0).toString()) ?? 0,
+        'id_nivel': _resolverIdNivelBadge(badge),
         'imagem_url': badge['imagem_url'] ?? badge['imagem']?.toString(),
         'pontos_extra': pontosExtra,
         'ganhou_bonus': ganhouBonus,
@@ -556,7 +603,7 @@ class _MeusBadgesPageState extends State<MeusBadgesPage>
           'descricao': descricao,
           'descricao_badge_modelo': descricao,
           'pontos': pontosBase,
-          'id_nivel': row['id_nivel'] ?? modelo['id_nivel'],
+          'id_nivel': _normalizarIdNivel(row['id_nivel']) ?? _normalizarIdNivel(modelo['id_nivel']),
           'imagem_url': imagem,
           'imagem': imagem,
           'pontos_extra': pontosExtra,
@@ -939,6 +986,11 @@ Widget build(BuildContext context) {
         badge['url_imagem']
             ?.toString();
 
+    final int? idNivelBadge =
+      _resolverIdNivelBadge(
+      badge,
+    );
+
     final _BadgeBonusInfo bonus =
         _obterBonusBadge(
       badge,
@@ -1256,9 +1308,7 @@ Widget build(BuildContext context) {
                         ],
 
                         if (
-                          badge[
-                            'id_nivel'
-                          ] !=
+                          idNivelBadge !=
                           null
                         ) ...[
                           const SizedBox(
@@ -1290,7 +1340,7 @@ Widget build(BuildContext context) {
                             ),
                             child: Text(
                               'Nível '
-                              '${obterNivel(badge['id_nivel'])}',
+                              '${obterNivel(idNivelBadge)}',
                               style:
                                   TextStyle(
                                 fontSize:
