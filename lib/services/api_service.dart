@@ -767,7 +767,53 @@ class ApiService {
 
       if (response.statusCode == 200) {
         final dynamic decoded = jsonDecode(response.body);
-        return _extrairListaMap(decoded);
+
+        if (decoded is List) {
+          return decoded
+              .whereType<Map>()
+              .map((e) => Map<String, dynamic>.from(e))
+              .toList();
+        }
+
+        if (decoded is Map<String, dynamic>) {
+          // Formato principal do backend do consultor web/mobile.
+          final candidaturas = decoded['candidaturas'];
+          if (candidaturas is List) {
+            return candidaturas
+                .whereType<Map>()
+                .map((e) => Map<String, dynamic>.from(e))
+                .toList();
+          }
+
+          // Fallback para payloads agrupados por estado.
+          final List<Map<String, dynamic>> agregadas = [];
+          const chavesAgrupadas = [
+            'em_processo',
+            'emProcesso',
+            'finalizadas',
+            'concluidas',
+            'concluidos',
+          ];
+
+          for (final chave in chavesAgrupadas) {
+            final valor = decoded[chave];
+            if (valor is List) {
+              agregadas.addAll(
+                valor
+                    .whereType<Map>()
+                    .map((e) => Map<String, dynamic>.from(e)),
+              );
+            }
+          }
+
+          if (agregadas.isNotEmpty) {
+            return agregadas;
+          }
+
+          return _extrairListaMap(decoded);
+        }
+
+        return <Map<String, dynamic>>[];
       }
 
       throw Exception(

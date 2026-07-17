@@ -46,6 +46,9 @@ class SubmeterBadge extends StatefulWidget {
 // Estado do formulário: badge, descrição, ficheiro e submissão.
 class _SubmeterBadgeState extends State<SubmeterBadge> {
   static const Color _azul = Color(0xFF4470AF);
+  static const String _descricaoPadraoSubmissao =
+      'Submissao de candidatura enviada pela aplicacao mobile com evidencias por requisito. '
+      'Os anexos submetidos descrevem a execucao da atividade e o cumprimento dos criterios do badge.';
   bool _autorizaPublicacaoBadge = false;
   bool _autorizaAnalytics = false;
 
@@ -61,10 +64,6 @@ class _SubmeterBadgeState extends State<SubmeterBadge> {
       requisitos = [];
 
   bool isLoading = true;
-
-  final TextEditingController
-      _descricaoController =
-      TextEditingController();
 
   /*
   * Cada requisito tem a sua própria
@@ -421,12 +420,10 @@ class _SubmeterBadgeState extends State<SubmeterBadge> {
   void initState() {
     super.initState();
     _carregarBadge();
-    _descricaoController.addListener(() => setState(() {}));
   }
 
   @override
   void dispose() {
-    _descricaoController.dispose();
     _linkedinController.dispose();
     super.dispose();
   }
@@ -625,15 +622,6 @@ class _SubmeterBadgeState extends State<SubmeterBadge> {
     });
   }
 
-  // Número atual de caracteres escritos na descrição.
-  int get _charCount =>
-      _descricaoController.text
-          .trim()
-          .length;
-
-  bool get _descricaoValida =>
-      _charCount >= 100;
-
   String _chaveRequisito(
     Map<String, dynamic> requisito,
     int index,
@@ -691,7 +679,6 @@ class _SubmeterBadgeState extends State<SubmeterBadge> {
   }
 
   bool get _podeSubmeter =>
-      _descricaoValida &&
       _todosRequisitosComFicheiro;
 
   int get _totalFicheiros {
@@ -707,11 +694,6 @@ class _SubmeterBadgeState extends State<SubmeterBadge> {
   }
 
   String get _mensagemValidacao {
-    if (!_descricaoValida) {
-      return 'A descrição necessita de ter '
-          'pelo menos 100 caracteres.';
-    }
-
     if (requisitos.isEmpty) {
       return 'Este badge não possui '
           'requisitos disponíveis.';
@@ -929,9 +911,7 @@ class _SubmeterBadgeState extends State<SubmeterBadge> {
       return;
     }
 
-    final String descricaoTexto =
-        _descricaoController.text
-            .trim();
+    final String descricaoTexto = _descricaoPadraoSubmissao;
 
     final List<Map<String, dynamic>>
         evidencias = [];
@@ -1536,53 +1516,6 @@ class _SubmeterBadgeState extends State<SubmeterBadge> {
                                     Expanded(child: Text("E - Líder Mestre", style: TextStyle(fontSize: 11, color: Colors.grey.shade600, height: 1.4))),
                                   ],
                                 )
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-
-                          // CAIXA DE TEXTO DA DESCRIÇÃO
-                          Container(
-                            padding: const EdgeInsets.all(16),
-                            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: _azul.withOpacity(0.3))),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Row(
-                                  children: [
-                                    Icon(Icons.description_outlined, size: 18, color: _azul),
-                                    SizedBox(width: 6),
-                                    Text(
-                                      'Descrição da candidatura',
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 15,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 12),
-                                TextField(
-                                  controller: _descricaoController,
-                                  minLines: 4,
-                                  maxLines: 7,
-                                  maxLength: 1000,
-                                  enabled: !_submetido,
-                                  decoration: InputDecoration(
-                                    hintText: "Descreva de forma detalhada o projeto, tarefas executadas e de que forma aplicou os conhecimentos desta Service Line...",
-                                    hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 13),
-                                    filled: true,
-                                    fillColor: const Color(0xFFF7F7F7),
-                                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-                                    contentPadding: const EdgeInsets.all(14),
-                                  ),
-                                  style: const TextStyle(fontSize: 13),
-                                ),
-                                const SizedBox(height: 8),
-                                Text(
-                                  "Mínimo 100 caracteres ($_charCount/100)",
-                                  style: TextStyle(fontSize: 12, color: _descricaoValida ? const Color(0xFF2E7D32) : Colors.orange.shade800, fontWeight: FontWeight.w500),
-                                ),
                               ],
                             ),
                           ),

@@ -335,6 +335,47 @@ class _BadgeDetalheState extends State<BadgeDetalhe>
     };
   }
 
+  Map<String, Color> _coresNivelBadge(int? idNivel) {
+    switch (idNivel) {
+      case 1:
+        return {
+          'fundo': const Color(0xFFEEF7FF),
+          'borda': const Color(0xFFBFDBFE),
+          'texto': const Color(0xFF1D4ED8),
+        };
+      case 2:
+        return {
+          'fundo': const Color(0xFFF0FDF4),
+          'borda': const Color(0xFFBBF7D0),
+          'texto': const Color(0xFF15803D),
+        };
+      case 3:
+        return {
+          'fundo': const Color(0xFFFFF7ED),
+          'borda': const Color(0xFFFED7AA),
+          'texto': const Color(0xFFC2410C),
+        };
+      case 4:
+        return {
+          'fundo': const Color(0xFFFAF5FF),
+          'borda': const Color(0xFFE9D5FF),
+          'texto': const Color(0xFF7E22CE),
+        };
+      case 5:
+        return {
+          'fundo': const Color(0xFFFFF8E1),
+          'borda': const Color(0xFFF0D36B),
+          'texto': const Color(0xFF9A6B00),
+        };
+      default:
+        return {
+          'fundo': const Color(0xFFEFF6FF),
+          'borda': const Color(0xFFDBEAFE),
+          'texto': const Color(0xFF4470AF),
+        };
+    }
+  }
+
   Future<void> _ensureTabelaStatusCandidaturasCache() async {
     final db = await _dbLocal.database;
     await db.execute('''
@@ -932,8 +973,9 @@ class _BadgeDetalheState extends State<BadgeDetalhe>
     final nome = badge!['nome'] ?? badge!['nome_badge'] ?? '';
     final descricao = badge!['descricao'] ?? badge!['descricao_badge_modelo'] ?? '';
     final pontos = int.tryParse(badge!['points']?.toString() ?? badge!['pontos']?.toString() ?? '0') ?? 0;
-    final nivelId = badge!['id_nivel']; 
-    final letraNivelReal = obterNivel(nivelId); 
+    final nivelId = badge!['id_nivel'];
+    final int? nivelIdInteiro = int.tryParse((nivelId ?? '').toString());
+    final Map<String, Color> coresNivel = _coresNivelBadge(nivelIdInteiro);
     final _BadgeBonusInfo bonus =
         _obterBonusBadge(
       progresso ??
@@ -1129,17 +1171,13 @@ class _BadgeDetalheState extends State<BadgeDetalhe>
 
                                         color: bonusAtivo
                                             ? douradoClaro
-                                            : const Color(
-                                                0xFFEFF6FF,
-                                              ),
+                                            : (coresNivel['fundo'] ?? const Color(0xFFEFF6FF)),
 
                                         border:
                                             Border.all(
                                           color: bonusAtivo
                                               ? dourado
-                                              : const Color(
-                                                  0xFFDBEAFE,
-                                                ),
+                                              : (coresNivel['borda'] ?? const Color(0xFFDBEAFE)),
 
                                           width: bonusAtivo
                                               ? 1.5
@@ -1802,6 +1840,9 @@ class _BadgeDetalheState extends State<BadgeDetalhe>
     final bool conquistadoRel =
         b['conquistado'] == true;
 
+    final int? nivelRel = int.tryParse((b['id_nivel'] ?? '').toString());
+    final Map<String, Color> coresNivelRel = _coresNivelBadge(nivelRel);
+
     final double? progressRel =
         double.tryParse(
       b['progress']?.toString() ??
@@ -2011,17 +2052,13 @@ class _BadgeDetalheState extends State<BadgeDetalhe>
 
                           color: bonusAtivo
                               ? douradoClaro
-                              : const Color(
-                                  0xFFEAF0FA,
-                                ),
+                              : (coresNivelRel['fundo'] ?? const Color(0xFFEAF0FA)),
 
                           border:
                               Border.all(
                             color: bonusAtivo
                                 ? dourado
-                                : const Color(
-                                    0xFFDBEAFE,
-                                  ),
+                                : (coresNivelRel['borda'] ?? const Color(0xFFDBEAFE)),
                           ),
                         ),
                         child: BadgeImage(
