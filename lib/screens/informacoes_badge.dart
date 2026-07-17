@@ -30,25 +30,99 @@ Map<String, dynamic>? certificadoDisponivel;
 
 // Converte o ID numérico do nível para a respetiva letra.
 String obterNivel(dynamic idNivel) {
-  switch (int.tryParse(idNivel.toString())) {
-    case 1: return 'A';
-    case 2: return 'B';
-    case 3: return 'C';
-    case 4: return 'D';
-    case 5: return 'E';
-    default: return '-';
+  switch (_normalizarIdNivel(idNivel)) {
+    case 1:
+      return 'A';
+    case 2:
+      return 'B';
+    case 3:
+      return 'C';
+    case 4:
+      return 'D';
+    case 5:
+      return 'E';
+    default:
+      return '-';
   }
+}
+
+int? _normalizarIdNivel(dynamic valor) {
+  if (valor == null) {
+    return null;
+  }
+
+  final texto = valor.toString().trim();
+  if (texto.isEmpty) {
+    return null;
+  }
+
+  final numero = int.tryParse(texto);
+  if (numero != null && numero >= 1 && numero <= 5) {
+    return numero;
+  }
+
+  final upper = texto.toUpperCase();
+  if (upper == 'A' ||
+      upper == 'INICIANTE' ||
+      upper == 'JUNIOR' ||
+      upper == 'JÚNIOR')
+    return 1;
+  if (upper == 'B' || upper == 'INTERMEDIO' || upper == 'INTERMÉDIO') return 2;
+  if (upper == 'C' ||
+      upper == 'AVANCADO' ||
+      upper == 'AVANÇADO' ||
+      upper == 'SENIOR' ||
+      upper == 'SÉNIOR')
+    return 3;
+  if (upper == 'D' || upper == 'EXPERT' || upper == 'ESPECIALISTA') return 4;
+  if (upper == 'E' ||
+      upper == 'MASTER' ||
+      upper == 'LIDER DE CONHECIMENTO' ||
+      upper == 'LÍDER DE CONHECIMENTO' ||
+      upper == 'LEADER OF KNOWLEDGE')
+    return 5;
+
+  if (upper.startsWith('NIVEL ') || upper.startsWith('NÍVEL ')) {
+    return _normalizarIdNivel(upper.split(' ').last);
+  }
+
+  return null;
+}
+
+int? _resolverIdNivelBadge(Map<String, dynamic> badge) {
+  final candidatos = [
+    badge['id_nivel'],
+    badge['codigo_nivel'],
+    badge['nivel'],
+    badge['nome_nivel'],
+    badge['descricao_nivel'],
+  ];
+
+  for (final valor in candidatos) {
+    final nivel = _normalizarIdNivel(valor);
+    if (nivel != null) {
+      return nivel;
+    }
+  }
+
+  return null;
 }
 
 // Faz a conversão inversa: letra do nível para ID numérico.
 int obterIdNivel(String letra) {
   switch (letra) {
-    case 'A': return 1;
-    case 'B': return 2;
-    case 'C': return 3;
-    case 'D': return 4;
-    case 'E': return 5;
-    default: return 1;
+    case 'A':
+      return 1;
+    case 'B':
+      return 2;
+    case 'C':
+      return 3;
+    case 'D':
+      return 4;
+    case 'E':
+      return 5;
+    default:
+      return 1;
   }
 }
 
@@ -60,9 +134,9 @@ Color obterCorNivel(String letraNivel) {
     case 'B':
     case 'C':
     case 'D':
-      return const Color(0xFF2E7D32); 
+      return const Color(0xFF2E7D32);
     case 'E':
-      return const Color.fromARGB(255, 213, 181, 21); 
+      return const Color.fromARGB(255, 213, 181, 21);
     default:
       return Colors.grey;
   }
@@ -72,10 +146,7 @@ class _BadgeBonusInfo {
   final bool ganhouBonus;
   final int pontosExtra;
 
-  const _BadgeBonusInfo({
-    required this.ganhouBonus,
-    required this.pontosExtra,
-  });
+  const _BadgeBonusInfo({required this.ganhouBonus, required this.pontosExtra});
 }
 
 // Página de detalhe identificada por userId e badgeId.
@@ -83,11 +154,7 @@ class BadgeDetalhe extends StatefulWidget {
   final int userId;
   final int badgeId;
 
-  const BadgeDetalhe({
-    super.key,
-    required this.userId,
-    required this.badgeId,
-  });
+  const BadgeDetalhe({super.key, required this.userId, required this.badgeId});
 
   @override
   State<BadgeDetalhe> createState() => _BadgeDetalheState();
@@ -110,15 +177,13 @@ class _BadgeDetalheState extends State<BadgeDetalhe>
   List<Map<String, dynamic>> requisitos = [];
   bool loading = true;
   bool descricaoExpandida = false;
-  
+
   // Estado para controlar qual o nível que o utilizador está a inspecionar ativamente
   String nivelVisualizado = 'A';
 
   static const Color _azul = Color(0xFF4470AF);
 
-  int _converterInteiro(
-    dynamic valor,
-  ) {
+  int _converterInteiro(dynamic valor) {
     if (valor == null) {
       return 0;
     }
@@ -131,18 +196,12 @@ class _BadgeDetalheState extends State<BadgeDetalhe>
       return valor.round();
     }
 
-    return int.tryParse(
-          valor.toString(),
-        ) ??
-        double.tryParse(
-          valor.toString(),
-        )?.round() ??
+    return int.tryParse(valor.toString()) ??
+        double.tryParse(valor.toString())?.round() ??
         0;
   }
 
-  bool _converterBooleano(
-    dynamic valor,
-  ) {
+  bool _converterBooleano(dynamic valor) {
     if (valor is bool) {
       return valor;
     }
@@ -151,58 +210,29 @@ class _BadgeDetalheState extends State<BadgeDetalhe>
       return valor == 1;
     }
 
-    final String texto =
-        valor
-            ?.toString()
-            .trim()
-            .toLowerCase() ??
-        '';
+    final String texto = valor?.toString().trim().toLowerCase() ?? '';
 
-    return [
-      'true',
-      't',
-      '1',
-      'sim',
-      'yes',
-    ].contains(texto);
+    return ['true', 't', '1', 'sim', 'yes'].contains(texto);
   }
 
-  _BadgeBonusInfo _obterBonusBadge(
-    Map<String, dynamic> dados,
-  ) {
-    final int pontosExtra1 =
-        _converterInteiro(
-      dados['pontos_extra'],
-    );
+  _BadgeBonusInfo _obterBonusBadge(Map<String, dynamic> dados) {
+    final int pontosExtra1 = _converterInteiro(dados['pontos_extra']);
 
-    final int pontosExtra2 =
-        _converterInteiro(
-      dados['pontos_bonus'],
-    );
+    final int pontosExtra2 = _converterInteiro(dados['pontos_bonus']);
 
-    final int pontosExtra =
-        pontosExtra1 > pontosExtra2
-            ? pontosExtra1
-            : pontosExtra2;
+    final int pontosExtra = pontosExtra1 > pontosExtra2
+        ? pontosExtra1
+        : pontosExtra2;
 
     final bool ganhouBonus =
-        _converterBooleano(
-          dados['ganhou_bonus'],
-        ) ||
-        _converterBooleano(
-          dados['premio_atribuido'],
-        ) ||
+        _converterBooleano(dados['ganhou_bonus']) ||
+        _converterBooleano(dados['premio_atribuido']) ||
         pontosExtra > 0;
 
-    return _BadgeBonusInfo(
-      ganhouBonus: ganhouBonus,
-      pontosExtra: pontosExtra,
-    );
+    return _BadgeBonusInfo(ganhouBonus: ganhouBonus, pontosExtra: pontosExtra);
   }
 
-  String? _obterImagemBadge(
-    Map<String, dynamic> dados,
-  ) {
+  String? _obterImagemBadge(Map<String, dynamic> dados) {
     final possibilidades = [
       dados['imagem_url'],
       dados['imagem'],
@@ -211,14 +241,9 @@ class _BadgeDetalheState extends State<BadgeDetalhe>
     ];
 
     for (final imagem in possibilidades) {
-      final String valor =
-          imagem?.toString().trim() ??
-          '';
+      final String valor = imagem?.toString().trim() ?? '';
 
-      if (
-        valor.isNotEmpty &&
-        valor != 'null'
-      ) {
+      if (valor.isNotEmpty && valor != 'null') {
         return valor;
       }
     }
@@ -315,24 +340,26 @@ class _BadgeDetalheState extends State<BadgeDetalhe>
       };
     }
 
-    if (valor.contains('REJEIT') || valor.contains('RECUS') || valor.contains('CANCEL') || valor.contains('DESIST')) {
+    if (valor.contains('REJEIT') ||
+        valor.contains('RECUS') ||
+        valor.contains('CANCEL') ||
+        valor.contains('DESIST')) {
       return {
         'texto': const Color(0xFF991B1B),
         'borda': const Color(0xFFFECACA),
       };
     }
 
-    if (valor.contains('AGUARDA') || valor.contains('PEND') || valor.contains('VALID')) {
+    if (valor.contains('AGUARDA') ||
+        valor.contains('PEND') ||
+        valor.contains('VALID')) {
       return {
         'texto': const Color(0xFF92400E),
         'borda': const Color(0xFFFDE68A),
       };
     }
 
-    return {
-      'texto': const Color(0xFF475569),
-      'borda': const Color(0xFFCBD5E1),
-    };
+    return {'texto': const Color(0xFF475569), 'borda': const Color(0xFFCBD5E1)};
   }
 
   Map<String, Color> _coresNivelBadge(int? idNivel) {
@@ -408,31 +435,34 @@ class _BadgeDetalheState extends State<BadgeDetalhe>
 
     for (int idx = 0; idx < candidaturas.length; idx++) {
       final c = candidaturas[idx];
-      final idBadge = int.tryParse((c['id_badge_modelo'] ?? c['id'] ?? 0).toString()) ?? 0;
+      final idBadge =
+          int.tryParse((c['id_badge_modelo'] ?? c['id'] ?? 0).toString()) ?? 0;
       if (idBadge <= 0) {
         continue;
       }
 
-      final idCandidatura = int.tryParse((c['id_candidatura_pedido'] ?? '').toString()) ?? (idx + 1);
+      final idCandidatura =
+          int.tryParse((c['id_candidatura_pedido'] ?? '').toString()) ??
+          (idx + 1);
 
-      await db.insert(
-        'cache_status_candidaturas',
-        {
-          'id_utilizador': userId,
-          'id_candidatura_pedido': idCandidatura,
-          'id_badge_modelo': idBadge,
-          'estado_geral': c['estado_geral']?.toString() ?? c['estado_validacao']?.toString(),
-          'fase_geral': c['fase_geral']?.toString(),
-          'estado_final': c['estado_final']?.toString(),
-          'estado_candidatura_pedido': c['estado_candidatura_pedido']?.toString(),
-          'data_submissao': c['data_submissao']?.toString() ?? c['data_submisao']?.toString(),
-        },
-        conflictAlgorithm: ConflictAlgorithm.replace,
-      );
+      await db.insert('cache_status_candidaturas', {
+        'id_utilizador': userId,
+        'id_candidatura_pedido': idCandidatura,
+        'id_badge_modelo': idBadge,
+        'estado_geral':
+            c['estado_geral']?.toString() ?? c['estado_validacao']?.toString(),
+        'fase_geral': c['fase_geral']?.toString(),
+        'estado_final': c['estado_final']?.toString(),
+        'estado_candidatura_pedido': c['estado_candidatura_pedido']?.toString(),
+        'data_submissao':
+            c['data_submissao']?.toString() ?? c['data_submisao']?.toString(),
+      }, conflictAlgorithm: ConflictAlgorithm.replace);
     }
   }
 
-  Future<List<Map<String, dynamic>>> _carregarStatusCandidaturasCache(int userId) async {
+  Future<List<Map<String, dynamic>>> _carregarStatusCandidaturasCache(
+    int userId,
+  ) async {
     await _ensureTabelaStatusCandidaturasCache();
     final db = await _dbLocal.database;
 
@@ -487,58 +517,35 @@ class _BadgeDetalheState extends State<BadgeDetalhe>
 
     carregar();
 
-    _onMessageSubscription =
-        FirebaseMessaging.onMessage.listen(
-      (_) {
-        _atualizarDetalheEmTempoReal(
-          origem: 'push_foreground',
-        );
-      },
-    );
+    _onMessageSubscription = FirebaseMessaging.onMessage.listen((_) {
+      _atualizarDetalheEmTempoReal(origem: 'push_foreground');
+    });
 
-    _onMessageOpenedSubscription =
-        FirebaseMessaging.onMessageOpenedApp.listen(
-      (_) {
-        _atualizarDetalheEmTempoReal(
-          origem: 'push_aberta',
-        );
-      },
-    );
+    _onMessageOpenedSubscription = FirebaseMessaging.onMessageOpenedApp.listen((
+      _,
+    ) {
+      _atualizarDetalheEmTempoReal(origem: 'push_aberta');
+    });
 
-    FirebaseMessaging.instance
-        .getInitialMessage()
-        .then((message) {
+    FirebaseMessaging.instance.getInitialMessage().then((message) {
       if (message != null) {
-        _atualizarDetalheEmTempoReal(
-          origem: 'push_inicial',
-        );
+        _atualizarDetalheEmTempoReal(origem: 'push_inicial');
       }
     });
 
-    _refreshTimer = Timer.periodic(
-      const Duration(seconds: 30),
-      (_) {
-        _atualizarDetalheEmTempoReal(
-          origem: 'timer_30s',
-        );
-      },
-    );
+    _refreshTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+      _atualizarDetalheEmTempoReal(origem: 'timer_30s');
+    });
   }
 
   @override
-  void didChangeAppLifecycleState(
-    AppLifecycleState state,
-  ) {
+  void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
-      _atualizarDetalheEmTempoReal(
-        origem: 'app_resumed',
-      );
+      _atualizarDetalheEmTempoReal(origem: 'app_resumed');
     }
   }
 
-  Future<void> _atualizarDetalheEmTempoReal({
-    required String origem,
-  }) async {
+  Future<void> _atualizarDetalheEmTempoReal({required String origem}) async {
     if (_aAtualizarTempoReal || !mounted) {
       return;
     }
@@ -546,15 +553,11 @@ class _BadgeDetalheState extends State<BadgeDetalhe>
     try {
       _aAtualizarTempoReal = true;
 
-      debugPrint(
-        '[TEMPO REAL DETALHE BADGE] Atualizar por: $origem',
-      );
+      debugPrint('[TEMPO REAL DETALHE BADGE] Atualizar por: $origem');
 
       await carregar();
     } catch (e) {
-      debugPrint(
-        '[TEMPO REAL DETALHE BADGE] Erro: $e',
-      );
+      debugPrint('[TEMPO REAL DETALHE BADGE] Erro: $e');
     } finally {
       _aAtualizarTempoReal = false;
     }
@@ -569,12 +572,13 @@ class _BadgeDetalheState extends State<BadgeDetalhe>
     super.dispose();
   }
 
-  Future<void> _guardarCatalogoLocal(
-    List<Map<String, dynamic>> badges,
-  ) async {
+  Future<void> _guardarCatalogoLocal(List<Map<String, dynamic>> badges) async {
     for (final badge in badges) {
       final idBadgeModelo =
-          int.tryParse((badge['id'] ?? badge['id_badge_modelo'] ?? 0).toString()) ?? 0;
+          int.tryParse(
+            (badge['id'] ?? badge['id_badge_modelo'] ?? 0).toString(),
+          ) ??
+          0;
 
       if (idBadgeModelo == 0) {
         continue;
@@ -582,19 +586,27 @@ class _BadgeDetalheState extends State<BadgeDetalhe>
 
       await _dbLocal.salvarRegisto('badge_modelo', {
         'id_badge_modelo': idBadgeModelo,
-        'id_serviceline': int.tryParse((badge['id_serviceline'] ?? 0).toString()),
+        'id_serviceline': int.tryParse(
+          (badge['id_serviceline'] ?? 0).toString(),
+        ),
         'id_areas': int.tryParse((badge['id_areas'] ?? 0).toString()),
         'id_nivel': int.tryParse((badge['id_nivel'] ?? 0).toString()),
         'id_utilizador': null,
         'nome_badge': badge['nome_badge'] ?? badge['nome'] ?? 'Badge',
-        'descricao_badge_modelo': badge['descricao_badge_modelo'] ?? badge['descricao'] ?? '',
-        'data_criacao_badge_modelo': badge['data_criacao_badge_modelo']?.toString(),
+        'descricao_badge_modelo':
+            badge['descricao_badge_modelo'] ?? badge['descricao'] ?? '',
+        'data_criacao_badge_modelo': badge['data_criacao_badge_modelo']
+            ?.toString(),
         'estado_badge_modelo': badge['estado_badge_modelo'] ?? 'ATIVO',
-        'numero_requisitos': int.tryParse((badge['numero_requisitos'] ?? 0).toString()) ?? 0,
+        'numero_requisitos':
+            int.tryParse((badge['numero_requisitos'] ?? 0).toString()) ?? 0,
         'pontos': int.tryParse((badge['pontos'] ?? 0).toString()) ?? 0,
         'tempo_expiracao': badge['tempo_expiracao']?.toString(),
         'tipo_badge': badge['tipo_badge'] ?? badge['tipo']?.toString(),
-        'imagem_url': badge['imagem_url'] ?? badge['imagem']?.toString() ?? badge['url_imagem']?.toString(),
+        'imagem_url':
+            badge['imagem_url'] ??
+            badge['imagem']?.toString() ??
+            badge['url_imagem']?.toString(),
         'imagem': null,
       });
 
@@ -608,8 +620,10 @@ class _BadgeDetalheState extends State<BadgeDetalhe>
 
           final mapaReq = Map<String, dynamic>.from(req);
 
-          final int idReq = int.tryParse(
-                (mapaReq['id_requisitos'] ?? mapaReq['id_requisito'] ?? '').toString(),
+          final int idReq =
+              int.tryParse(
+                (mapaReq['id_requisitos'] ?? mapaReq['id_requisito'] ?? '')
+                    .toString(),
               ) ??
               (idBadgeModelo * 1000 + idx + 1);
 
@@ -617,9 +631,18 @@ class _BadgeDetalheState extends State<BadgeDetalhe>
             'id_requisitos': idReq,
             'id_badge_modelo': idBadgeModelo,
             'id_utilizador': null,
-            'nome_requisito': mapaReq['nome_requisito'] ?? mapaReq['nome'] ?? mapaReq['titulo'] ?? 'Requisito',
-            'titulo': mapaReq['titulo'] ?? mapaReq['nome_requisito'] ?? mapaReq['nome'] ?? 'Requisito',
-            'descricao_requisito': mapaReq['descricao_requisito'] ?? mapaReq['descricao'] ?? '',
+            'nome_requisito':
+                mapaReq['nome_requisito'] ??
+                mapaReq['nome'] ??
+                mapaReq['titulo'] ??
+                'Requisito',
+            'titulo':
+                mapaReq['titulo'] ??
+                mapaReq['nome_requisito'] ??
+                mapaReq['nome'] ??
+                'Requisito',
+            'descricao_requisito':
+                mapaReq['descricao_requisito'] ?? mapaReq['descricao'] ?? '',
             'tipo_requisito': mapaReq['tipo_requisito']?.toString(),
           });
         }
@@ -686,13 +709,19 @@ class _BadgeDetalheState extends State<BadgeDetalhe>
     List<Map<String, dynamic>> statusCandidaturas = [];
 
     // Função local que aceita vários nomes possíveis para o ID do badge.
-    int getId(Map b) => int.tryParse((b['id'] ?? b['id_badge_modelo'] ?? b['id_badge'] ?? '').toString()) ?? -1;
+    int getId(Map b) =>
+        int.tryParse(
+          (b['id'] ?? b['id_badge_modelo'] ?? b['id_badge'] ?? '').toString(),
+        ) ??
+        -1;
 
     try {
       // 1. Tenta carregar tudo em tempo real através do servidor (HTTP)
       todos = await _apiService.getTodosBadges();
       obtidos = await _apiService.getBadgesConquistados(widget.userId);
-      statusCandidaturas = await _apiService.getStatusCandidaturasConsultor(widget.userId);
+      statusCandidaturas = await _apiService.getStatusCandidaturasConsultor(
+        widget.userId,
+      );
       await _guardarStatusCandidaturasCache(widget.userId, statusCandidaturas);
 
       await _guardarCatalogoLocal(todos);
@@ -703,33 +732,41 @@ class _BadgeDetalheState extends State<BadgeDetalhe>
           (c) => c['id_badge_modelo'].toString() == widget.badgeId.toString(),
           orElse: () => <String, dynamic>{},
         );
-        if (certificadoDisponivel?.isEmpty ?? true) certificadoDisponivel = null;
+        if (certificadoDisponivel?.isEmpty ?? true)
+          certificadoDisponivel = null;
       } catch (_) {
         certificadoDisponivel = null;
       }
-
     } catch (e) {
-      debugPrint("Modo Offline Ativo no Detalhe do Badge: Buscando no SQFlite... ($e)");
-      
+      debugPrint(
+        "Modo Offline Ativo no Detalhe do Badge: Buscando no SQFlite... ($e)",
+      );
+
       // 2. FALLBACK: Carrega o modelo de cache local do SQLite se falhar a internet
       final localModelos = await _dbLocal.listarTabela('badge_modelo');
 
-      todos = localModelos.map((e) => {
-        'id': e['id_badge_modelo'],
-        'id_badge_modelo': e['id_badge_modelo'],
-        'nome': e['nome_badge'],
-        'nome_badge': e['nome_badge'],
-        'descricao': e['descricao_badge_modelo'],
-        'descricao_badge_modelo': e['descricao_badge_modelo'],
-        'pontos': e['pontos'],
-        'id_nivel': e['id_nivel'],
-        'tipo_badge': e['tipo_badge'],
-        'imagem_url': e['imagem_url'] ?? e['imagem'],
-        'imagem': e['imagem_url'] ?? e['imagem'],
-      }).toList();
+      todos = localModelos
+          .map(
+            (e) => {
+              'id': e['id_badge_modelo'],
+              'id_badge_modelo': e['id_badge_modelo'],
+              'nome': e['nome_badge'],
+              'nome_badge': e['nome_badge'],
+              'descricao': e['descricao_badge_modelo'],
+              'descricao_badge_modelo': e['descricao_badge_modelo'],
+              'pontos': e['pontos'],
+              'id_nivel': e['id_nivel'],
+              'tipo_badge': e['tipo_badge'],
+              'imagem_url': e['imagem_url'] ?? e['imagem'],
+              'imagem': e['imagem_url'] ?? e['imagem'],
+            },
+          )
+          .toList();
 
       obtidos = await _carregarConquistadosLocal();
-      statusCandidaturas = await _carregarStatusCandidaturasCache(widget.userId);
+      statusCandidaturas = await _carregarStatusCandidaturasCache(
+        widget.userId,
+      );
     }
 
     // ── IDENTIFICAÇÃO DO BADGE PRINCIPAL ─────────────────────────────
@@ -740,7 +777,7 @@ class _BadgeDetalheState extends State<BadgeDetalhe>
 
     // Configura o nível visualizado inicial baseado no nível real do badge
     if (badgeEncontrado.isNotEmpty) {
-      nivelVisualizado = obterNivel(badgeEncontrado['id_nivel']);
+      nivelVisualizado = obterNivel(_resolverIdNivelBadge(badgeEncontrado));
     }
 
     // ── PROGRESSO DO UTILIZADOR ─────────────────────
@@ -756,9 +793,12 @@ class _BadgeDetalheState extends State<BadgeDetalhe>
 
     // ── BADGES RELACIONADOS ─────────────────────────
     final relacionados = todos
-        .where((b) =>
-            b['id_nivel']?.toString() == badgeEncontrado['id_nivel']?.toString() &&
-            getId(b) != widget.badgeId)
+        .where(
+          (b) =>
+              b['id_nivel']?.toString() ==
+                  badgeEncontrado['id_nivel']?.toString() &&
+              getId(b) != widget.badgeId,
+        )
         .take(5)
         .map((b) {
           final ob = obtidos.firstWhere(
@@ -769,38 +809,26 @@ class _BadgeDetalheState extends State<BadgeDetalhe>
           return {
             ...b,
 
-            'conquistado':
-                ob.isNotEmpty,
+            'conquistado': ob.isNotEmpty,
 
-            'progress':
-                ob['progress'] != null
-                    ? double.tryParse(
-                        ob['progress']
-                            .toString(),
-                      )
-                    : null,
+            'progress': ob['progress'] != null
+                ? double.tryParse(ob['progress'].toString())
+                : null,
 
-            'data_conquista':
-                ob['data_atribuicao'] ??
-                ob['data_conquista'],
+            'data_conquista': ob['data_atribuicao'] ?? ob['data_conquista'],
 
-            'data_atribuicao':
-                ob['data_atribuicao'],
+            'data_atribuicao': ob['data_atribuicao'],
 
             /*
             * Dados do desafio.
             */
-            'ganhou_bonus':
-                ob['ganhou_bonus'],
+            'ganhou_bonus': ob['ganhou_bonus'],
 
-            'premio_atribuido':
-                ob['premio_atribuido'],
+            'premio_atribuido': ob['premio_atribuido'],
 
-            'pontos_extra':
-                ob['pontos_extra'],
+            'pontos_extra': ob['pontos_extra'],
 
-            'pontos_bonus':
-                ob['pontos_bonus'],
+            'pontos_bonus': ob['pontos_bonus'],
           };
         })
         .toList();
@@ -809,7 +837,9 @@ class _BadgeDetalheState extends State<BadgeDetalhe>
       setState(() {
         badge = badgeEncontrado.isNotEmpty ? badgeEncontrado : null;
         progresso = progressoEncontrado.isNotEmpty ? progressoEncontrado : null;
-        candidaturaStatus = candidaturaStatusEncontrada.isNotEmpty ? candidaturaStatusEncontrada : null;
+        candidaturaStatus = candidaturaStatusEncontrada.isNotEmpty
+            ? candidaturaStatusEncontrada
+            : null;
         badgesRelacionados = relacionados;
         loading = false;
       });
@@ -834,17 +864,27 @@ class _BadgeDetalheState extends State<BadgeDetalhe>
     if (rawRequisitos is List) {
       reqs = rawRequisitos
           .map((item) => Map<String, dynamic>.from(item))
-          .where((r) => r['id_nivel']?.toString() == alvoNivelId.toString() || rawRequisitos.length <= 5)
+          .where(
+            (r) =>
+                r['id_nivel']?.toString() == alvoNivelId.toString() ||
+                rawRequisitos.length <= 5,
+          )
           .toList();
     } else {
       // Lê requisitos da tabela local oficial para fallback offline.
       final todosReqsLocais = await _dbLocal.listarTabela('requisitos');
       reqs = todosReqsLocais
-          .where((r) => r['id_badge_modelo'].toString() == widget.badgeId.toString())
-          .map((r) => {
-                'titulo': r['nome_requisito'] ?? 'REQ', 
-                'nome': r['descricao_requisito'] ?? 'Sem descrição cadastrada localmente.'
-              })
+          .where(
+            (r) => r['id_badge_modelo'].toString() == widget.badgeId.toString(),
+          )
+          .map(
+            (r) => {
+              'titulo': r['nome_requisito'] ?? 'REQ',
+              'nome':
+                  r['descricao_requisito'] ??
+                  'Sem descrição cadastrada localmente.',
+            },
+          )
           .toList();
     }
 
@@ -884,9 +924,7 @@ class _BadgeDetalheState extends State<BadgeDetalhe>
     if (!conquistado) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text(
-            'Só é possível partilhar badges já conquistados.',
-          ),
+          content: Text('Só é possível partilhar badges já conquistados.'),
           backgroundColor: Colors.orange,
         ),
       );
@@ -901,9 +939,9 @@ class _BadgeDetalheState extends State<BadgeDetalhe>
     * Troca pelo domínio/rota real do teu frontend web.
     */
     final String urlBadgePublico =
-      'https://softinsa-web.onrender.com/galeria-badges'
-      '${widget.userId}/'
-      '${widget.badgeId}';
+        'https://softinsa-web.onrender.com/galeria-badges'
+        '${widget.userId}/'
+        '${widget.badgeId}';
 
     final Uri linkedInUrl = Uri.parse(
       'https://www.linkedin.com/sharing/share-offsite/'
@@ -919,9 +957,7 @@ class _BadgeDetalheState extends State<BadgeDetalhe>
       if (!abriu && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text(
-              'Não foi possível abrir o LinkedIn.',
-            ),
+            content: Text('Não foi possível abrir o LinkedIn.'),
             backgroundColor: Colors.red,
           ),
         );
@@ -931,9 +967,7 @@ class _BadgeDetalheState extends State<BadgeDetalhe>
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
-            'Erro ao abrir o LinkedIn: $e',
-          ),
+          content: Text('Erro ao abrir o LinkedIn: $e'),
           backgroundColor: Colors.red,
         ),
       );
@@ -957,122 +991,98 @@ class _BadgeDetalheState extends State<BadgeDetalhe>
     if (loading) {
       return const Scaffold(
         backgroundColor: Color(0xFFF7F7F7),
-        body: Center(child: CircularProgressIndicator(color: Color(0xFF4470AF))),
+        body: Center(
+          child: CircularProgressIndicator(color: Color(0xFF4470AF)),
+        ),
       );
     }
 
     if (badge == null) {
       return const Scaffold(
         backgroundColor: Color(0xFFF7F7F7),
-        body: SafeArea(
-          child: Center(child: Text("Badge não encontrado")),
-        ),
+        body: SafeArea(child: Center(child: Text("Badge não encontrado"))),
       );
     }
 
     final nome = badge!['nome'] ?? badge!['nome_badge'] ?? '';
-    final descricao = badge!['descricao'] ?? badge!['descricao_badge_modelo'] ?? '';
-    final pontos = int.tryParse(badge!['points']?.toString() ?? badge!['pontos']?.toString() ?? '0') ?? 0;
-    final nivelId = badge!['id_nivel'];
-    final int? nivelIdInteiro = int.tryParse((nivelId ?? '').toString());
+    final descricao =
+        badge!['descricao'] ?? badge!['descricao_badge_modelo'] ?? '';
+    final pontos =
+        int.tryParse(
+          badge!['points']?.toString() ?? badge!['pontos']?.toString() ?? '0',
+        ) ??
+        0;
+    final int? nivelIdInteiro = _resolverIdNivelBadge(badge!);
     final Map<String, Color> coresNivel = _coresNivelBadge(nivelIdInteiro);
-    final _BadgeBonusInfo bonus =
-        _obterBonusBadge(
-      progresso ??
-          const <String, dynamic>{},
+    final _BadgeBonusInfo bonus = _obterBonusBadge(
+      progresso ?? const <String, dynamic>{},
     );
 
-    final bool bonusAtivo =
-        conquistado &&
-        bonus.ganhouBonus;
+    final bool bonusAtivo = conquistado && bonus.ganhouBonus;
 
-    final int pontosExtra =
-        bonus.pontosExtra;
+    final int pontosExtra = bonus.pontosExtra;
 
-    final int totalObtido =
-        pontos + pontosExtra;
+    final int totalObtido = pontos + pontosExtra;
 
-    final String? imagemUrl =
-        _obterImagemBadge(
-      badge!,
-    );
+    final String? imagemUrl = _obterImagemBadge(badge!);
 
-    const Color dourado =
-        Color(0xFFD4A017);
+    const Color dourado = Color(0xFFD4A017);
 
-    const Color douradoEscuro =
-        Color(0xFF9A6B00);
+    const Color douradoEscuro = Color(0xFF9A6B00);
 
-    const Color douradoClaro =
-        Color(0xFFFFF7D6);
+    const Color douradoClaro = Color(0xFFFFF7D6);
 
-    const Color fundoDourado =
-        Color(0xFFFFFDF4);
+    const Color fundoDourado = Color(0xFFFFFDF4);
 
     String estadoTexto;
     Color estadoCor;
 
     final String estadoCandidatura =
-      candidaturaStatus?['estado_geral']?.toString() ??
-      candidaturaStatus?['estado_final']?.toString() ??
-      candidaturaStatus?['estado_candidatura_pedido']?.toString() ??
-      '';
+        candidaturaStatus?['estado_geral']?.toString() ??
+        candidaturaStatus?['estado_final']?.toString() ??
+        candidaturaStatus?['estado_candidatura_pedido']?.toString() ??
+        '';
 
-    final String estadoNormalizado =
-      _normalizarEstado(estadoCandidatura);
+    final String estadoNormalizado = _normalizarEstado(estadoCandidatura);
+
+    final bool candidaturaFinalizada =
+        estadoNormalizado.contains('REJEIT') ||
+        estadoNormalizado.contains('RECUS') ||
+        estadoNormalizado.contains('DESIST') ||
+        estadoNormalizado.contains('CANCEL') ||
+        estadoNormalizado.contains('FINAL');
 
     final bool temCandidatura =
-      candidaturaStatus != null;
+        candidaturaStatus != null && !candidaturaFinalizada;
 
     final bool candidaturaEmValidacao =
-      estadoNormalizado.contains('AGUARDA') ||
-      estadoNormalizado.contains('PEND') ||
-      estadoNormalizado.contains('VALID') ||
-      estadoNormalizado.contains('EM_VALIDACAO');
+        estadoNormalizado.contains('AGUARDA') ||
+        estadoNormalizado.contains('PEND') ||
+        estadoNormalizado.contains('VALID') ||
+        estadoNormalizado.contains('EM_VALIDACAO');
 
-    final coresEstadoCandidatura =
-      _coresEstadoCandidatura(
-      estadoCandidatura,
-    );
+    final coresEstadoCandidatura = _coresEstadoCandidatura(estadoCandidatura);
 
     if (conquistado) {
-      final String data =
-          _formatarData(
-        dataConquista,
-      );
+      final String data = _formatarData(dataConquista);
 
-      estadoTexto =
-          data.isNotEmpty
-              ? 'Conquistado em $data'
-              : 'Conquistado';
+      estadoTexto = data.isNotEmpty ? 'Conquistado em $data' : 'Conquistado';
 
-      estadoCor =
-          bonusAtivo
-              ? douradoEscuro
-              : const Color(
-                  0xFF2E7D32,
-                );
+      estadoCor = bonusAtivo ? douradoEscuro : const Color(0xFF2E7D32);
     } else if (temCandidatura) {
-      estadoTexto = _formatarEstadoHumano(
-        estadoCandidatura,
-      );
+      estadoTexto = _formatarEstadoHumano(estadoCandidatura);
 
       estadoCor = coresEstadoCandidatura['texto'] ?? _azul;
-    } else if (
-      progressoValor != null &&
-      progressoValor! > 0
-    ) {
+    } else if (progressoValor != null && progressoValor! > 0) {
       estadoTexto =
           'Em progresso '
           '(${(progressoValor! * 100).toStringAsFixed(0)}%)';
 
       estadoCor = _azul;
     } else {
-      estadoTexto =
-          'Por Conquistar';
+      estadoTexto = 'Por Conquistar';
 
-      estadoCor =
-          Colors.grey;
+      estadoCor = Colors.grey;
     }
 
     return Scaffold(
@@ -1096,7 +1106,10 @@ class _BadgeDetalheState extends State<BadgeDetalhe>
                           children: [
                             Icon(Icons.arrow_back, size: 20, color: _azul),
                             SizedBox(width: 6),
-                            Text("Voltar", style: TextStyle(color: _azul, fontSize: 14)),
+                            Text(
+                              "Voltar",
+                              style: TextStyle(color: _azul, fontSize: 14),
+                            ),
                           ],
                         ),
                       ),
@@ -1105,52 +1118,34 @@ class _BadgeDetalheState extends State<BadgeDetalhe>
 
                     // CARD DO BADGE
                     Padding(
-                      padding:
-                          const EdgeInsets.symmetric(
-                        horizontal: 16,
-                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
                       child: Column(
                         children: [
                           Row(
-                            crossAxisAlignment:
-                                CrossAxisAlignment.start,
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Container(
                                 width: 160,
-                                padding:
-                                    const EdgeInsets.all(
-                                  20,
-                                ),
-                                decoration:
-                                    BoxDecoration(
+                                padding: const EdgeInsets.all(20),
+                                decoration: BoxDecoration(
                                   color: bonusAtivo
                                       ? fundoDourado
                                       : Colors.white,
 
-                                  borderRadius:
-                                      BorderRadius.circular(
-                                    16,
-                                  ),
+                                  borderRadius: BorderRadius.circular(16),
 
                                   border: Border.all(
                                     color: bonusAtivo
                                         ? dourado
-                                        : _azul.withOpacity(
-                                            0.3,
-                                          ),
+                                        : _azul.withOpacity(0.3),
 
-                                    width: bonusAtivo
-                                        ? 2
-                                        : 1,
+                                    width: bonusAtivo ? 2 : 1,
                                   ),
 
                                   boxShadow: bonusAtivo
                                       ? [
                                           BoxShadow(
-                                            color: dourado
-                                                .withOpacity(
-                                              0.15,
-                                            ),
+                                            color: dourado.withOpacity(0.15),
                                             blurRadius: 9,
                                             spreadRadius: 1,
                                           ),
@@ -1160,96 +1155,67 @@ class _BadgeDetalheState extends State<BadgeDetalhe>
                                 child: Column(
                                   children: [
                                     Container(
-                                      padding:
-                                          const EdgeInsets.all(
-                                        3,
-                                      ),
-                                      decoration:
-                                          BoxDecoration(
-                                        shape:
-                                            BoxShape.circle,
+                                      padding: const EdgeInsets.all(3),
+                                      decoration: BoxDecoration(
+                                        shape: BoxShape.circle,
 
                                         color: bonusAtivo
                                             ? douradoClaro
-                                            : (coresNivel['fundo'] ?? const Color(0xFFEFF6FF)),
+                                            : (coresNivel['fundo'] ??
+                                                  const Color(0xFFEFF6FF)),
 
-                                        border:
-                                            Border.all(
+                                        border: Border.all(
                                           color: bonusAtivo
                                               ? dourado
-                                              : (coresNivel['borda'] ?? const Color(0xFFDBEAFE)),
+                                              : (coresNivel['borda'] ??
+                                                    const Color(0xFFDBEAFE)),
 
-                                          width: bonusAtivo
-                                              ? 1.5
-                                              : 1,
+                                          width: bonusAtivo ? 1.5 : 1,
                                         ),
                                       ),
                                       child: BadgeImage(
-                                        imageUrl:
-                                            imagemUrl,
+                                        imageUrl: imagemUrl,
                                         size: 60,
                                       ),
                                     ),
 
-                                    const SizedBox(
-                                      height: 10,
-                                    ),
+                                    const SizedBox(height: 10),
 
                                     Text(
                                       nome,
-                                      textAlign:
-                                          TextAlign.center,
-                                      style:
-                                          const TextStyle(
-                                        fontWeight:
-                                            FontWeight.bold,
+                                      textAlign: TextAlign.center,
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
                                         fontSize: 13,
                                       ),
                                     ),
 
                                     if (bonusAtivo) ...[
-                                      const SizedBox(
-                                        height: 8,
-                                      ),
+                                      const SizedBox(height: 8),
 
                                       Container(
-                                        padding:
-                                            const EdgeInsets
-                                                .symmetric(
+                                        padding: const EdgeInsets.symmetric(
                                           horizontal: 8,
                                           vertical: 3,
                                         ),
-                                        decoration:
-                                            BoxDecoration(
-                                          color:
-                                              douradoClaro,
+                                        decoration: BoxDecoration(
+                                          color: douradoClaro,
 
-                                          borderRadius:
-                                              BorderRadius
-                                                  .circular(
+                                          borderRadius: BorderRadius.circular(
                                             20,
                                           ),
 
-                                          border:
-                                              Border.all(
-                                            color:
-                                                const Color(
-                                              0xFFF0D36B,
-                                            ),
+                                          border: Border.all(
+                                            color: const Color(0xFFF0D36B),
                                           ),
                                         ),
-                                        child:
-                                            const Text(
+                                        child: const Text(
                                           'Desafio concluído',
-                                          textAlign:
-                                              TextAlign.center,
-                                          style:
-                                              TextStyle(
+                                          textAlign: TextAlign.center,
+                                          style: TextStyle(
                                             fontSize: 9,
-                                            fontWeight:
-                                                FontWeight.bold,
-                                            color:
-                                                douradoEscuro,
+                                            fontWeight: FontWeight.bold,
+                                            color: douradoEscuro,
                                           ),
                                         ),
                                       ),
@@ -1258,52 +1224,36 @@ class _BadgeDetalheState extends State<BadgeDetalhe>
                                 ),
                               ),
 
-                              const SizedBox(
-                                width: 12,
-                              ),
+                              const SizedBox(width: 12),
 
                               Expanded(
                                 child: Column(
                                   crossAxisAlignment:
-                                      CrossAxisAlignment
-                                          .stretch,
+                                      CrossAxisAlignment.stretch,
                                   children: [
                                     Container(
-                                      padding:
-                                          const EdgeInsets
-                                              .symmetric(
+                                      padding: const EdgeInsets.symmetric(
                                         horizontal: 12,
                                         vertical: 10,
                                       ),
-                                      decoration:
-                                          BoxDecoration(
+                                      decoration: BoxDecoration(
                                         color: bonusAtivo
                                             ? fundoDourado
                                             : Colors.white,
 
-                                        borderRadius:
-                                            BorderRadius
-                                                .circular(
-                                          12,
-                                        ),
+                                        borderRadius: BorderRadius.circular(12),
 
-                                        border:
-                                            Border.all(
+                                        border: Border.all(
                                           color: bonusAtivo
                                               ? dourado
-                                              : _azul.withOpacity(
-                                                  0.3,
-                                                ),
+                                              : _azul.withOpacity(0.3),
 
-                                          width: bonusAtivo
-                                              ? 1.5
-                                              : 1,
+                                          width: bonusAtivo ? 1.5 : 1,
                                         ),
                                       ),
                                       child: Column(
                                         crossAxisAlignment:
-                                            CrossAxisAlignment
-                                                .start,
+                                            CrossAxisAlignment.start,
                                         children: [
                                           Row(
                                             children: [
@@ -1311,78 +1261,52 @@ class _BadgeDetalheState extends State<BadgeDetalhe>
                                                 Icons.star,
                                                 color: bonusAtivo
                                                     ? dourado
-                                                    : const Color(
-                                                        0xFFFFC107,
-                                                      ),
+                                                    : const Color(0xFFFFC107),
                                                 size: 18,
                                               ),
 
-                                              const SizedBox(
-                                                width: 6,
-                                              ),
+                                              const SizedBox(width: 6),
 
                                               Text(
                                                 '$pontos pontos',
-                                                style:
-                                                    const TextStyle(
-                                                  fontWeight:
-                                                      FontWeight
-                                                          .bold,
+                                                style: const TextStyle(
+                                                  fontWeight: FontWeight.bold,
                                                   fontSize: 13,
                                                 ),
                                               ),
                                             ],
                                           ),
 
-                                          if (
-                                            bonusAtivo &&
-                                            pontosExtra > 0
-                                          ) ...[
-                                            const SizedBox(
-                                              height: 5,
-                                            ),
+                                          if (bonusAtivo &&
+                                              pontosExtra > 0) ...[
+                                            const SizedBox(height: 5),
 
                                             Text(
                                               '+$pontosExtra '
                                               'pontos extra',
-                                              style:
-                                                  const TextStyle(
-                                                color:
-                                                    douradoEscuro,
+                                              style: const TextStyle(
+                                                color: douradoEscuro,
                                                 fontSize: 11,
-                                                fontWeight:
-                                                    FontWeight
-                                                        .bold,
+                                                fontWeight: FontWeight.bold,
                                               ),
                                             ),
 
-                                            const SizedBox(
-                                              height: 5,
-                                            ),
+                                            const SizedBox(height: 5),
 
                                             Divider(
-                                              color: dourado
-                                                  .withOpacity(
-                                                0.35,
-                                              ),
+                                              color: dourado.withOpacity(0.35),
                                               height: 1,
                                             ),
 
-                                            const SizedBox(
-                                              height: 5,
-                                            ),
+                                            const SizedBox(height: 5),
 
                                             Text(
                                               'Total obtido: '
                                               '$totalObtido pontos',
-                                              style:
-                                                  const TextStyle(
-                                                color:
-                                                    douradoEscuro,
+                                              style: const TextStyle(
+                                                color: douradoEscuro,
                                                 fontSize: 11,
-                                                fontWeight:
-                                                    FontWeight
-                                                        .w600,
+                                                fontWeight: FontWeight.w600,
                                               ),
                                             ),
                                           ],
@@ -1390,90 +1314,60 @@ class _BadgeDetalheState extends State<BadgeDetalhe>
                                       ),
                                     ),
 
-                                    const SizedBox(
-                                      height: 8,
-                                    ),
+                                    const SizedBox(height: 8),
 
                                     Container(
-                                      padding:
-                                          const EdgeInsets
-                                              .symmetric(
+                                      padding: const EdgeInsets.symmetric(
                                         horizontal: 12,
                                         vertical: 10,
                                       ),
-                                      decoration:
-                                          BoxDecoration(
+                                      decoration: BoxDecoration(
                                         color: bonusAtivo
                                             ? fundoDourado
                                             : Colors.white,
 
-                                        borderRadius:
-                                            BorderRadius
-                                                .circular(
-                                          12,
-                                        ),
+                                        borderRadius: BorderRadius.circular(12),
 
-                                        border:
-                                            Border.all(
+                                        border: Border.all(
                                           color: bonusAtivo
                                               ? dourado
-                                              : estadoCor
-                                                  .withOpacity(
-                                                    0.3,
-                                                  ),
+                                              : estadoCor.withOpacity(0.3),
 
-                                          width: bonusAtivo
-                                              ? 1.5
-                                              : 1,
+                                          width: bonusAtivo ? 1.5 : 1,
                                         ),
                                       ),
                                       child: Column(
                                         crossAxisAlignment:
-                                            CrossAxisAlignment
-                                                .start,
+                                            CrossAxisAlignment.start,
                                         children: [
                                           Text(
                                             estadoTexto,
-                                            style:
-                                                TextStyle(
-                                              color:
-                                                  estadoCor,
-                                              fontWeight:
-                                                  FontWeight
-                                                      .w600,
+                                            style: TextStyle(
+                                              color: estadoCor,
+                                              fontWeight: FontWeight.w600,
                                               fontSize: 12,
                                             ),
                                           ),
 
-                                          if (
-                                            (temCandidatura || progressoValor != null) &&
-                                            !conquistado
-                                          ) ...[
-                                            const SizedBox(
-                                              height: 6,
-                                            ),
+                                          if ((temCandidatura ||
+                                                  progressoValor != null) &&
+                                              !conquistado) ...[
+                                            const SizedBox(height: 6),
 
                                             ClipRRect(
                                               borderRadius:
-                                                  BorderRadius
-                                                      .circular(
-                                                8,
-                                              ),
-                                              child:
-                                                  LinearProgressIndicator(
-                                                value:
-                                                    candidaturaEmValidacao
-                                                        ? 0.45
+                                                  BorderRadius.circular(8),
+                                              child: LinearProgressIndicator(
+                                                value: candidaturaEmValidacao
+                                                    ? 0.45
                                                     : (progressoValor ?? 0.0),
-                                                minHeight:
-                                                    6,
+                                                minHeight: 6,
                                                 backgroundColor:
-                                                    Colors.grey
-                                                        .shade200,
-                                                color:
-                                                    temCandidatura
-                                                        ? (coresEstadoCandidatura['texto'] ?? _azul)
-                                                        : _azul,
+                                                    Colors.grey.shade200,
+                                                color: temCandidatura
+                                                    ? (coresEstadoCandidatura['texto'] ??
+                                                          _azul)
+                                                    : _azul,
                                               ),
                                             ),
                                           ],
@@ -1481,11 +1375,17 @@ class _BadgeDetalheState extends State<BadgeDetalhe>
                                           if (temCandidatura) ...[
                                             const SizedBox(height: 6),
                                             Text(
-                                              candidaturaStatus?['fase_geral']?.toString().trim().isNotEmpty == true
+                                              candidaturaStatus?['fase_geral']
+                                                          ?.toString()
+                                                          .trim()
+                                                          .isNotEmpty ==
+                                                      true
                                                   ? 'Fase: ${candidaturaStatus?['fase_geral']}'
                                                   : 'Candidatura registada',
                                               style: TextStyle(
-                                                color: coresEstadoCandidatura['texto'] ?? _azul,
+                                                color:
+                                                    coresEstadoCandidatura['texto'] ??
+                                                    _azul,
                                                 fontSize: 11,
                                                 fontWeight: FontWeight.w500,
                                               ),
@@ -1500,37 +1400,22 @@ class _BadgeDetalheState extends State<BadgeDetalhe>
                             ],
                           ),
 
-                          if (
-                            bonusAtivo &&
-                            pontosExtra > 0
-                          ) ...[
-                            const SizedBox(
-                              height: 12,
-                            ),
+                          if (bonusAtivo && pontosExtra > 0) ...[
+                            const SizedBox(height: 12),
 
                             Container(
                               width: double.infinity,
-                              padding:
-                                  const EdgeInsets.symmetric(
+                              padding: const EdgeInsets.symmetric(
                                 horizontal: 14,
                                 vertical: 9,
                               ),
-                              decoration:
-                                  BoxDecoration(
-                                color:
-                                    douradoClaro,
+                              decoration: BoxDecoration(
+                                color: douradoClaro,
 
-                                borderRadius:
-                                    BorderRadius.circular(
-                                  10,
-                                ),
+                                borderRadius: BorderRadius.circular(10),
 
-                                border:
-                                    Border.all(
-                                  color:
-                                      const Color(
-                                    0xFFF0D36B,
-                                  ),
+                                border: Border.all(
+                                  color: const Color(0xFFF0D36B),
                                 ),
                               ),
                               child: Text(
@@ -1538,17 +1423,12 @@ class _BadgeDetalheState extends State<BadgeDetalhe>
                                 'tempo recorde • '
                                 '+$pontosExtra pontos extra',
 
-                                textAlign:
-                                    TextAlign.center,
+                                textAlign: TextAlign.center,
 
-                                style:
-                                    const TextStyle(
-                                  color:
-                                      douradoEscuro,
-                                  fontSize:
-                                      11,
-                                  fontWeight:
-                                      FontWeight.bold,
+                                style: const TextStyle(
+                                  color: douradoEscuro,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
                                 ),
                               ),
                             ),
@@ -1557,9 +1437,7 @@ class _BadgeDetalheState extends State<BadgeDetalhe>
                       ),
                     ),
 
-                    const SizedBox(
-                      height: 16,
-                    ),
+                    const SizedBox(height: 16),
 
                     // DESCRIÇÃO
                     Padding(
@@ -1575,14 +1453,42 @@ class _BadgeDetalheState extends State<BadgeDetalhe>
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text("Descrição", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                            const Text(
+                              "Descrição",
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 15,
+                              ),
+                            ),
                             const SizedBox(height: 8),
-                            Text(descricao, maxLines: descricaoExpandida ? null : 3, overflow: descricaoExpandida ? TextOverflow.visible : TextOverflow.ellipsis, style: const TextStyle(fontSize: 13, color: Colors.black87)),
+                            Text(
+                              descricao,
+                              maxLines: descricaoExpandida ? null : 3,
+                              overflow: descricaoExpandida
+                                  ? TextOverflow.visible
+                                  : TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 13,
+                                color: Colors.black87,
+                              ),
+                            ),
                             if (descricao.length > 120) ...[
                               const SizedBox(height: 6),
                               GestureDetector(
-                                onTap: () => setState(() => descricaoExpandida = !descricaoExpandida),
-                                child: Text(descricaoExpandida ? "Ver menos" : "Ler mais...", style: const TextStyle(color: _azul, fontSize: 12, fontWeight: FontWeight.w600)),
+                                onTap: () => setState(
+                                  () =>
+                                      descricaoExpandida = !descricaoExpandida,
+                                ),
+                                child: Text(
+                                  descricaoExpandida
+                                      ? "Ver menos"
+                                      : "Ler mais...",
+                                  style: const TextStyle(
+                                    color: _azul,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
                               ),
                             ],
                           ],
@@ -1604,33 +1510,59 @@ class _BadgeDetalheState extends State<BadgeDetalhe>
                               decoration: BoxDecoration(
                                 color: Colors.white,
                                 borderRadius: BorderRadius.circular(16),
-                                border: Border.all(color: _azul.withOpacity(0.3)),
+                                border: Border.all(
+                                  color: _azul.withOpacity(0.3),
+                                ),
                               ),
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  const Text("Nível", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                                  const Text(
+                                    "Nível",
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 15,
+                                    ),
+                                  ),
                                   const SizedBox(height: 12),
                                   Wrap(
                                     spacing: 8,
                                     runSpacing: 8,
                                     children: _todosNiveis.map((n) {
-                                      final isSelecionado = n == nivelVisualizado;
+                                      final isSelecionado =
+                                          n == nivelVisualizado;
                                       final corCirculo = obterCorNivel(n);
 
                                       return InkWell(
-                                        onTap: () => atualizarListaRequisitos(n),
+                                        onTap: () =>
+                                            atualizarListaRequisitos(n),
                                         borderRadius: BorderRadius.circular(18),
                                         child: Container(
                                           width: 36,
                                           height: 36,
                                           decoration: BoxDecoration(
-                                            color: isSelecionado ? corCirculo : Colors.grey.shade100,
+                                            color: isSelecionado
+                                                ? corCirculo
+                                                : Colors.grey.shade100,
                                             shape: BoxShape.circle,
-                                            border: Border.all(color: isSelecionado ? corCirculo : Colors.grey.shade300, width: isSelecionado ? 2 : 1),
+                                            border: Border.all(
+                                              color: isSelecionado
+                                                  ? corCirculo
+                                                  : Colors.grey.shade300,
+                                              width: isSelecionado ? 2 : 1,
+                                            ),
                                           ),
                                           child: Center(
-                                            child: Text(n, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: isSelecionado ? Colors.white : Colors.grey)),
+                                            child: Text(
+                                              n,
+                                              style: TextStyle(
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 13,
+                                                color: isSelecionado
+                                                    ? Colors.white
+                                                    : Colors.grey,
+                                              ),
+                                            ),
                                           ),
                                         ),
                                       );
@@ -1648,45 +1580,99 @@ class _BadgeDetalheState extends State<BadgeDetalhe>
                                 decoration: BoxDecoration(
                                   color: Colors.white,
                                   borderRadius: BorderRadius.circular(16),
-                                  border: Border.all(color: _azul.withOpacity(0.3)),
+                                  border: Border.all(
+                                    color: _azul.withOpacity(0.3),
+                                  ),
                                 ),
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Text("Requisitos (Nível $nivelVisualizado)", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                                    Text(
+                                      "Requisitos (Nível $nivelVisualizado)",
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 14,
+                                      ),
+                                    ),
                                     const SizedBox(height: 12),
                                     if (requisitos.isEmpty)
                                       const Expanded(
                                         child: Center(
                                           child: Text(
-                                            "Sem requisitos cadastrados.", 
-                                            style: TextStyle(fontSize: 11, color: Colors.grey, fontStyle: FontStyle.italic),
+                                            "Sem requisitos cadastrados.",
+                                            style: TextStyle(
+                                              fontSize: 11,
+                                              color: Colors.grey,
+                                              fontStyle: FontStyle.italic,
+                                            ),
                                           ),
                                         ),
                                       )
                                     else
                                       ...requisitos.map((req) {
-                                        final textoCirculo = req['titulo']?.toString() ?? 'REQ';
-                                        final textoFrente = req['nome']?.toString() ?? '';
-                                        
+                                        final textoCirculo =
+                                            req['titulo']?.toString() ?? 'REQ';
+                                        final textoFrente =
+                                            req['nome']?.toString() ?? '';
+
                                         // CORREÇÃO: Tratamento seguro de strings para evitar estouro de índice
-                                        final abreviatura = textoCirculo.length > 3 ? textoCirculo.substring(0, 3) : textoCirculo;
-                                        
+                                        final abreviatura =
+                                            textoCirculo.length > 3
+                                            ? textoCirculo.substring(0, 3)
+                                            : textoCirculo;
+
                                         return Padding(
-                                          padding: const EdgeInsets.only(bottom: 8),
+                                          padding: const EdgeInsets.only(
+                                            bottom: 8,
+                                          ),
                                           child: Container(
-                                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                                            decoration: BoxDecoration(color: Colors.grey.shade50, borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.grey.shade200)),
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 10,
+                                              vertical: 8,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              color: Colors.grey.shade50,
+                                              borderRadius:
+                                                  BorderRadius.circular(12),
+                                              border: Border.all(
+                                                color: Colors.grey.shade200,
+                                              ),
+                                            ),
                                             child: Row(
                                               children: [
                                                 Container(
                                                   width: 26,
                                                   height: 26,
-                                                  decoration: const BoxDecoration(color: Color(0xFFFFC107), shape: BoxShape.circle),
-                                                  child: Center(child: Text(abreviatura, style: const TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: Colors.white))),
+                                                  decoration:
+                                                      const BoxDecoration(
+                                                        color: Color(
+                                                          0xFFFFC107,
+                                                        ),
+                                                        shape: BoxShape.circle,
+                                                      ),
+                                                  child: Center(
+                                                    child: Text(
+                                                      abreviatura,
+                                                      style: const TextStyle(
+                                                        fontSize: 8,
+                                                        fontWeight:
+                                                            FontWeight.bold,
+                                                        color: Colors.white,
+                                                      ),
+                                                    ),
+                                                  ),
                                                 ),
                                                 const SizedBox(width: 8),
-                                                Expanded(child: Text(textoFrente, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600))),
+                                                Expanded(
+                                                  child: Text(
+                                                    textoFrente,
+                                                    style: const TextStyle(
+                                                      fontSize: 11,
+                                                      fontWeight:
+                                                          FontWeight.w600,
+                                                    ),
+                                                  ),
+                                                ),
                                               ],
                                             ),
                                           ),
@@ -1695,7 +1681,7 @@ class _BadgeDetalheState extends State<BadgeDetalhe>
                                   ],
                                 ),
                               ),
-                            )
+                            ),
                           ],
                         ),
                       ),
@@ -1710,16 +1696,56 @@ class _BadgeDetalheState extends State<BadgeDetalhe>
                               children: [
                                 Expanded(
                                   child: OutlinedButton.icon(
-                                    style: OutlinedButton.styleFrom(foregroundColor: Colors.black87, side: const BorderSide(color: Colors.black87, width: 1.5), shape: const StadiumBorder(), padding: const EdgeInsets.symmetric(vertical: 12)),
+                                    style: OutlinedButton.styleFrom(
+                                      foregroundColor: Colors.black87,
+                                      side: const BorderSide(
+                                        color: Colors.black87,
+                                        width: 1.5,
+                                      ),
+                                      shape: const StadiumBorder(),
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 12,
+                                      ),
+                                    ),
                                     onPressed: _partilharNoLinkedIn,
-                                    icon: Container(width: 22, height: 22, decoration: BoxDecoration(color: const Color(0xFF0077B5), borderRadius: BorderRadius.circular(4)), child: const Center(child: Text("in", style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)))),
-                                    label: const Text("Partilhar no LinkedIn", style: TextStyle(fontSize: 12)),
+                                    icon: Container(
+                                      width: 22,
+                                      height: 22,
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFF0077B5),
+                                        borderRadius: BorderRadius.circular(4),
+                                      ),
+                                      child: const Center(
+                                        child: Text(
+                                          "in",
+                                          style: TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                    label: const Text(
+                                      "Partilhar no LinkedIn",
+                                      style: TextStyle(fontSize: 12),
+                                    ),
                                   ),
                                 ),
                                 const SizedBox(width: 10),
                                 Expanded(
                                   child: OutlinedButton.icon(
-                                    style: OutlinedButton.styleFrom(foregroundColor: Colors.black87, side: const BorderSide(color: Colors.black87, width: 1.5), shape: const StadiumBorder(), padding: const EdgeInsets.symmetric(vertical: 12)),
+                                    style: OutlinedButton.styleFrom(
+                                      foregroundColor: Colors.black87,
+                                      side: const BorderSide(
+                                        color: Colors.black87,
+                                        width: 1.5,
+                                      ),
+                                      shape: const StadiumBorder(),
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 12,
+                                      ),
+                                    ),
                                     onPressed: () {
                                       /*
                                       * O histórico pertence normalmente
@@ -1728,36 +1754,26 @@ class _BadgeDetalheState extends State<BadgeDetalhe>
                                       */
                                       final int idHistorico =
                                           int.tryParse(
-                                            (
-                                              progresso?[
-                                                'id_candidatura_historico'
-                                              ] ??
-                                              progresso?[
-                                                'id_historico'
-                                              ] ??
-                                              certificadoDisponivel?[
-                                                'id_candidatura_historico'
-                                              ] ??
-                                              ''
-                                            ).toString(),
+                                            (progresso?['id_candidatura_historico'] ??
+                                                    progresso?['id_historico'] ??
+                                                    certificadoDisponivel?['id_candidatura_historico'] ??
+                                                    '')
+                                                .toString(),
                                           ) ??
                                           0;
 
                                       Navigator.push(
                                         context,
                                         MaterialPageRoute(
-                                          builder: (_) =>
-                                              CertificadoPage(
+                                          builder: (_) => CertificadoPage(
                                             userData: {
-                                              'id_utilizador':
-                                                  widget.userId,
+                                              'id_utilizador': widget.userId,
 
                                               /*
                                               * Identifica exatamente o
                                               * badge selecionado.
                                               */
-                                              'id_badge_modelo':
-                                                  widget.badgeId,
+                                              'id_badge_modelo': widget.badgeId,
 
                                               /*
                                               * Só envia o histórico quando
@@ -1772,7 +1788,10 @@ class _BadgeDetalheState extends State<BadgeDetalhe>
                                       );
                                     },
                                     icon: const Icon(Icons.download, size: 18),
-                                    label: const Text("Obter certificado", style: TextStyle(fontSize: 12)),
+                                    label: const Text(
+                                      "Obter certificado",
+                                      style: TextStyle(fontSize: 12),
+                                    ),
                                   ),
                                 ),
                               ],
@@ -1780,15 +1799,40 @@ class _BadgeDetalheState extends State<BadgeDetalhe>
                           : SizedBox(
                               width: double.infinity,
                               child: ElevatedButton.icon(
-                                style: ElevatedButton.styleFrom(backgroundColor: _azul, foregroundColor: Colors.white, shape: const StadiumBorder(), padding: const EdgeInsets.symmetric(vertical: 14)),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: _azul,
+                                  foregroundColor: Colors.white,
+                                  shape: const StadiumBorder(),
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 14,
+                                  ),
+                                ),
                                 onPressed: () {
                                   Navigator.push(
                                     context,
-                                    MaterialPageRoute(builder: (_) => SubmeterBadge(userId: widget.userId, badgeId: widget.badgeId)),
+                                    MaterialPageRoute(
+                                      builder: (_) => SubmeterBadge(
+                                        userId: widget.userId,
+                                        badgeId: widget.badgeId,
+                                      ),
+                                    ),
                                   );
                                 },
                                 icon: const Icon(Icons.upload_file, size: 18),
-                                label: const Text("Submeter evidências", style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+                                label: Text(
+                                  candidaturaStatus != null
+                                      ? (estadoNormalizado.contains('REJEIT') ||
+                                                estadoNormalizado.contains(
+                                                  'RECUS',
+                                                )
+                                            ? 'Voltar a submeter evidências'
+                                            : 'Continuar candidatura')
+                                      : 'Submeter evidências',
+                                  style: const TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
                               ),
                             ),
                     ),
@@ -1798,10 +1842,23 @@ class _BadgeDetalheState extends State<BadgeDetalhe>
                     if (badgesRelacionados.isNotEmpty) ...[
                       const Padding(
                         padding: EdgeInsets.symmetric(horizontal: 16),
-                        child: Text("Badges Relacionados", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                        child: Text(
+                          "Badges Relacionados",
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 15,
+                          ),
+                        ),
                       ),
-                      Divider(color: Colors.grey.shade300, height: 16, indent: 16, endIndent: 16),
-                      ...badgesRelacionados.map((b) => _badgeRelacionadoCard(b)),
+                      Divider(
+                        color: Colors.grey.shade300,
+                        height: 16,
+                        indent: 16,
+                        endIndent: 16,
+                      ),
+                      ...badgesRelacionados.map(
+                        (b) => _badgeRelacionadoCard(b),
+                      ),
                       const SizedBox(height: 24),
                     ],
                   ],
@@ -1817,11 +1874,18 @@ class _BadgeDetalheState extends State<BadgeDetalhe>
               height: 65,
               child: Container(
                 color: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 10,
+                ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Image.asset('lib/img/logo.png', height: 35, fit: BoxFit.contain),
+                    Image.asset(
+                      'lib/img/logo.png',
+                      height: 35,
+                      fit: BoxFit.contain,
+                    ),
                   ],
                 ),
               ),
@@ -1834,121 +1898,69 @@ class _BadgeDetalheState extends State<BadgeDetalhe>
 
   // Cria o cartão de um badge relacionado.
   // Determina o estado e substitui a página atual pelo novo detalhe.
-  Widget _badgeRelacionadoCard(
-    Map<String, dynamic> b,
-  ) {
-    final bool conquistadoRel =
-        b['conquistado'] == true;
+  Widget _badgeRelacionadoCard(Map<String, dynamic> b) {
+    final bool conquistadoRel = b['conquistado'] == true;
 
     final int? nivelRel = int.tryParse((b['id_nivel'] ?? '').toString());
     final Map<String, Color> coresNivelRel = _coresNivelBadge(nivelRel);
 
-    final double? progressRel =
-        double.tryParse(
-      b['progress']?.toString() ??
-          '',
+    final double? progressRel = double.tryParse(
+      b['progress']?.toString() ?? '',
     );
 
-    final int pontosRel =
-        _converterInteiro(
-      b['points'] ??
-          b['pontos'],
-    );
+    final int pontosRel = _converterInteiro(b['points'] ?? b['pontos']);
 
-    final _BadgeBonusInfo bonus =
-        _obterBonusBadge(
-      b,
-    );
+    final _BadgeBonusInfo bonus = _obterBonusBadge(b);
 
-    final bool bonusAtivo =
-        conquistadoRel &&
-        bonus.ganhouBonus;
+    final bool bonusAtivo = conquistadoRel && bonus.ganhouBonus;
 
-    final int pontosExtra =
-        bonus.pontosExtra;
+    final int pontosExtra = bonus.pontosExtra;
 
-    final int totalObtido =
-        pontosRel + pontosExtra;
+    final int totalObtido = pontosRel + pontosExtra;
 
     final String nome =
-        b['nome']?.toString() ??
-        b['nome_badge']
-            ?.toString() ??
-        'Badge';
+        b['nome']?.toString() ?? b['nome_badge']?.toString() ?? 'Badge';
 
     final String descricao =
-        b['descricao']
-            ?.toString() ??
-        b[
-          'descricao_badge_modelo'
-        ]?.toString() ??
+        b['descricao']?.toString() ??
+        b['descricao_badge_modelo']?.toString() ??
         '';
 
-    final String? imagemUrl =
-        _obterImagemBadge(
-      b,
-    );
+    final String? imagemUrl = _obterImagemBadge(b);
 
-    const Color dourado =
-        Color(0xFFD4A017);
+    const Color dourado = Color(0xFFD4A017);
 
-    const Color douradoEscuro =
-        Color(0xFF9A6B00);
+    const Color douradoEscuro = Color(0xFF9A6B00);
 
-    const Color douradoClaro =
-        Color(0xFFFFF7D6);
+    const Color douradoClaro = Color(0xFFFFF7D6);
 
-    const Color fundoDourado =
-        Color(0xFFFFFDF4);
+    const Color fundoDourado = Color(0xFFFFFDF4);
 
     String estadoTexto;
     Color estadoCor;
 
     if (conquistadoRel) {
-      final String data =
-          _formatarData(
-        b['data_conquista']
-            ?.toString(),
-      );
+      final String data = _formatarData(b['data_conquista']?.toString());
 
-      estadoTexto =
-          data.isNotEmpty
-              ? 'Conquistado em $data'
-              : 'Conquistado';
+      estadoTexto = data.isNotEmpty ? 'Conquistado em $data' : 'Conquistado';
 
-      estadoCor =
-          bonusAtivo
-              ? douradoEscuro
-              : const Color(
-                  0xFF2E7D32,
-                );
-    } else if (
-      progressRel != null &&
-      progressRel > 0
-    ) {
-      estadoTexto =
-          'Em Progresso';
+      estadoCor = bonusAtivo ? douradoEscuro : const Color(0xFF2E7D32);
+    } else if (progressRel != null && progressRel > 0) {
+      estadoTexto = 'Em Progresso';
 
-      estadoCor =
-          _azul;
+      estadoCor = _azul;
     } else {
-      estadoTexto =
-          'Por conquistar';
+      estadoTexto = 'Por conquistar';
 
-      estadoCor =
-          Colors.grey;
+      estadoCor = Colors.grey;
     }
 
     return GestureDetector(
       onTap: () {
         final int id =
             int.tryParse(
-              (
-                b['id'] ??
-                b['id_badge_modelo'] ??
-                b['id_badge'] ??
-                ''
-              ).toString(),
+              (b['id'] ?? b['id_badge_modelo'] ?? b['id_badge'] ?? '')
+                  .toString(),
             ) ??
             -1;
 
@@ -1956,144 +1968,85 @@ class _BadgeDetalheState extends State<BadgeDetalhe>
           Navigator.pushReplacement(
             context,
             MaterialPageRoute(
-              builder: (_) =>
-                  BadgeDetalhe(
-                userId:
-                    widget.userId,
-                badgeId: id,
-              ),
+              builder: (_) => BadgeDetalhe(userId: widget.userId, badgeId: id),
             ),
           );
         }
       },
       child: Container(
-        margin:
-            const EdgeInsets.symmetric(
-          horizontal: 16,
-          vertical: 6,
-        ),
+        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
         decoration: BoxDecoration(
-          color: bonusAtivo
-              ? fundoDourado
-              : Colors.white,
+          color: bonusAtivo ? fundoDourado : Colors.white,
 
-          borderRadius:
-              BorderRadius.circular(
-            14,
-          ),
+          borderRadius: BorderRadius.circular(14),
 
           border: Border.all(
             color: bonusAtivo
                 ? dourado
                 : conquistadoRel
-                    ? const Color(
-                        0xFF2E7D32,
-                      ).withOpacity(
-                        0.3,
-                      )
-                    : Colors.grey
-                        .shade200,
+                ? const Color(0xFF2E7D32).withOpacity(0.3)
+                : Colors.grey.shade200,
 
-            width: bonusAtivo
-                ? 2
-                : 1,
+            width: bonusAtivo ? 2 : 1,
           ),
 
           boxShadow: [
             BoxShadow(
               color: bonusAtivo
-                  ? dourado.withOpacity(
-                      0.15,
-                    )
-                  : Colors.black
-                      .withOpacity(
-                        0.03,
-                      ),
+                  ? dourado.withOpacity(0.15)
+                  : Colors.black.withOpacity(0.03),
 
-              blurRadius:
-                  bonusAtivo
-                      ? 8
-                      : 4,
+              blurRadius: bonusAtivo ? 8 : 4,
 
-              spreadRadius:
-                  bonusAtivo
-                      ? 1
-                      : 0,
+              spreadRadius: bonusAtivo ? 1 : 0,
 
-              offset:
-                  const Offset(
-                0,
-                2,
-              ),
+              offset: const Offset(0, 2),
             ),
           ],
         ),
         child: Column(
           children: [
             Padding(
-              padding:
-                  const EdgeInsets.all(
-                14,
-              ),
+              padding: const EdgeInsets.all(14),
               child: Row(
                 children: [
                   Stack(
                     children: [
                       Container(
-                        padding:
-                            const EdgeInsets
-                                .all(
-                          3,
-                        ),
-                        decoration:
-                            BoxDecoration(
-                          shape:
-                              BoxShape.circle,
+                        padding: const EdgeInsets.all(3),
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
 
                           color: bonusAtivo
                               ? douradoClaro
-                              : (coresNivelRel['fundo'] ?? const Color(0xFFEAF0FA)),
+                              : (coresNivelRel['fundo'] ??
+                                    const Color(0xFFEAF0FA)),
 
-                          border:
-                              Border.all(
+                          border: Border.all(
                             color: bonusAtivo
                                 ? dourado
-                                : (coresNivelRel['borda'] ?? const Color(0xFFDBEAFE)),
+                                : (coresNivelRel['borda'] ??
+                                      const Color(0xFFDBEAFE)),
                           ),
                         ),
-                        child: BadgeImage(
-                          imageUrl:
-                              imagemUrl,
-                          size: 54,
-                        ),
+                        child: BadgeImage(imageUrl: imagemUrl, size: 54),
                       ),
 
                       if (conquistadoRel)
                         Positioned(
                           right: 0,
                           bottom: 0,
-                          child:
-                              Container(
-                            padding:
-                                const EdgeInsets
-                                    .all(
-                              3,
-                            ),
-                            decoration:
-                                BoxDecoration(
+                          child: Container(
+                            padding: const EdgeInsets.all(3),
+                            decoration: BoxDecoration(
                               color: bonusAtivo
                                   ? dourado
-                                  : const Color(
-                                      0xFF2E7D32,
-                                    ),
-                              shape:
-                                  BoxShape.circle,
+                                  : const Color(0xFF2E7D32),
+                              shape: BoxShape.circle,
                             ),
-                            child:
-                                const Icon(
+                            child: const Icon(
                               Icons.check,
-                              color:
-                                  Colors.white,
+                              color: Colors.white,
                               size: 10,
                             ),
                           ),
@@ -2101,174 +2054,107 @@ class _BadgeDetalheState extends State<BadgeDetalhe>
                     ],
                   ),
 
-                  const SizedBox(
-                    width: 12,
-                  ),
+                  const SizedBox(width: 12),
 
                   Expanded(
                     child: Column(
-                      crossAxisAlignment:
-                          CrossAxisAlignment
-                              .start,
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Wrap(
                           spacing: 7,
                           runSpacing: 5,
-                          crossAxisAlignment:
-                              WrapCrossAlignment
-                                  .center,
+                          crossAxisAlignment: WrapCrossAlignment.center,
                           children: [
                             Text(
                               nome,
-                              style:
-                                  const TextStyle(
-                                fontWeight:
-                                    FontWeight
-                                        .bold,
-                                fontSize:
-                                    13,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13,
                               ),
                             ),
 
                             if (bonusAtivo)
                               Container(
-                                padding:
-                                    const EdgeInsets
-                                        .symmetric(
-                                  horizontal:
-                                      7,
-                                  vertical:
-                                      3,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 7,
+                                  vertical: 3,
                                 ),
-                                decoration:
-                                    BoxDecoration(
-                                  color:
-                                      douradoClaro,
+                                decoration: BoxDecoration(
+                                  color: douradoClaro,
 
-                                  borderRadius:
-                                      BorderRadius
-                                          .circular(
-                                    20,
-                                  ),
+                                  borderRadius: BorderRadius.circular(20),
 
-                                  border:
-                                      Border.all(
-                                    color:
-                                        const Color(
-                                      0xFFF0D36B,
-                                    ),
+                                  border: Border.all(
+                                    color: const Color(0xFFF0D36B),
                                   ),
                                 ),
-                                child:
-                                    const Text(
+                                child: const Text(
                                   'Desafio concluído',
-                                  style:
-                                      TextStyle(
-                                    fontSize:
-                                        8,
-                                    fontWeight:
-                                        FontWeight
-                                            .bold,
-                                    color:
-                                        douradoEscuro,
+                                  style: TextStyle(
+                                    fontSize: 8,
+                                    fontWeight: FontWeight.bold,
+                                    color: douradoEscuro,
                                   ),
                                 ),
                               ),
                           ],
                         ),
 
-                        if (
-                          descricao.isNotEmpty
-                        )
+                        if (descricao.isNotEmpty)
                           Text(
                             descricao,
-                            style:
-                                const TextStyle(
-                              fontSize:
-                                  11,
-                              color:
-                                  Colors.grey,
+                            style: const TextStyle(
+                              fontSize: 11,
+                              color: Colors.grey,
                             ),
-                            maxLines:
-                                2,
-                            overflow:
-                                TextOverflow
-                                    .ellipsis,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
                           ),
                       ],
                     ),
                   ),
 
-                  const SizedBox(
-                    width: 8,
-                  ),
+                  const SizedBox(width: 8),
 
                   Container(
-                    padding:
-                        const EdgeInsets
-                            .symmetric(
+                    padding: const EdgeInsets.symmetric(
                       horizontal: 9,
                       vertical: 7,
                     ),
-                    decoration:
-                        BoxDecoration(
-                      color: bonusAtivo
-                          ? fundoDourado
-                          : Colors.white,
+                    decoration: BoxDecoration(
+                      color: bonusAtivo ? fundoDourado : Colors.white,
 
-                      border:
-                          Border.all(
-                        color: bonusAtivo
-                            ? dourado
-                            : _azul.withOpacity(
-                                0.6,
-                              ),
+                      border: Border.all(
+                        color: bonusAtivo ? dourado : _azul.withOpacity(0.6),
                       ),
 
-                      borderRadius:
-                          BorderRadius
-                              .circular(
-                        12,
-                      ),
+                      borderRadius: BorderRadius.circular(12),
                     ),
                     child: Column(
                       children: [
                         Text(
                           'Pontos',
-                          style:
-                              TextStyle(
+                          style: TextStyle(
                             fontSize: 9,
-                            color: bonusAtivo
-                                ? douradoEscuro
-                                : _azul,
+                            color: bonusAtivo ? douradoEscuro : _azul,
                           ),
                         ),
 
                         Text(
                           '$pontosRel',
-                          style:
-                              const TextStyle(
-                            fontWeight:
-                                FontWeight
-                                    .bold,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
                             fontSize: 15,
                           ),
                         ),
 
-                        if (
-                          bonusAtivo &&
-                          pontosExtra > 0
-                        )
+                        if (bonusAtivo && pontosExtra > 0)
                           Text(
                             '+$pontosExtra extra',
-                            style:
-                                const TextStyle(
+                            style: const TextStyle(
                               fontSize: 8,
-                              color:
-                                  dourado,
-                              fontWeight:
-                                  FontWeight
-                                      .bold,
+                              color: dourado,
+                              fontWeight: FontWeight.bold,
                             ),
                           ),
                       ],
@@ -2280,51 +2166,26 @@ class _BadgeDetalheState extends State<BadgeDetalhe>
 
             Container(
               width: double.infinity,
-              padding:
-                  const EdgeInsets
-                      .symmetric(
-                horizontal: 14,
-                vertical: 7,
-              ),
-              decoration:
-                  BoxDecoration(
-                color: bonusAtivo
-                    ? fundoDourado
-                    : const Color(
-                        0xFFFBFDFF,
-                      ),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+              decoration: BoxDecoration(
+                color: bonusAtivo ? fundoDourado : const Color(0xFFFBFDFF),
 
-                border:
-                    const Border(
-                  top: BorderSide(
-                    color:
-                        Color(
-                      0xFFE5E7EB,
-                    ),
-                  ),
-                ),
+                border: const Border(top: BorderSide(color: Color(0xFFE5E7EB))),
               ),
               child: Text(
-                bonusAtivo &&
-                        pontosExtra > 0
+                bonusAtivo && pontosExtra > 0
                     ? '$estadoTexto • '
-                        '+$pontosExtra extra • '
-                        'Total: '
-                        '$totalObtido pontos'
+                          '+$pontosExtra extra • '
+                          'Total: '
+                          '$totalObtido pontos'
                     : estadoTexto,
 
-                textAlign:
-                    TextAlign.center,
+                textAlign: TextAlign.center,
 
                 style: TextStyle(
-                  fontSize:
-                      10,
-                  color:
-                      estadoCor,
-                  fontWeight:
-                      bonusAtivo
-                          ? FontWeight.w600
-                          : FontWeight.w500,
+                  fontSize: 10,
+                  color: estadoCor,
+                  fontWeight: bonusAtivo ? FontWeight.w600 : FontWeight.w500,
                 ),
               ),
             ),
@@ -2371,32 +2232,18 @@ class BadgeImage extends StatelessWidget {
           fit: BoxFit.contain,
           alignment: Alignment.center,
           filterQuality: FilterQuality.high,
-          loadingBuilder: (
-            context,
-            child,
-            loadingProgress,
-          ) {
+          loadingBuilder: (context, child, loadingProgress) {
             if (loadingProgress == null) {
               return child;
             }
 
             return const Center(
-              child: CircularProgressIndicator(
-                strokeWidth: 2,
-              ),
+              child: CircularProgressIndicator(strokeWidth: 2),
             );
           },
-          errorBuilder: (
-            context,
-            error,
-            stackTrace,
-          ) {
-            debugPrint(
-              'Erro ao carregar imagem: $error',
-            );
-            debugPrint(
-              'URL da imagem: $url',
-            );
+          errorBuilder: (context, error, stackTrace) {
+            debugPrint('Erro ao carregar imagem: $error');
+            debugPrint('URL da imagem: $url');
 
             return _fallback();
           },
