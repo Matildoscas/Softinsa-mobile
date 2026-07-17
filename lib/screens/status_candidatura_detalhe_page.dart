@@ -1,17 +1,32 @@
 import 'package:flutter/material.dart';
 
+import '../services/api_service.dart';
 import 'informacoes_badge.dart';
 import 'submeter_badges.dart';
 
 class StatusCandidaturaDetalhePage extends StatelessWidget {
   final Map<String, dynamic> userData;
   final Map<String, dynamic> candidatura;
+  final Future<Map<String, dynamic>?> _detalheFuture;
 
   const StatusCandidaturaDetalhePage({
     super.key,
     required this.userData,
     required this.candidatura,
-  });
+  }) : _detalheFuture = ApiService().getStatusCandidaturaDetalheConsultor(
+          int.tryParse(
+                (userData['id_utilizador'] ??
+                        userData['ID_UTILIZADOR'] ??
+                        userData['id'] ??
+                        '')
+                    .toString(),
+              ) ??
+              0,
+          int.tryParse(
+                (candidatura['id_candidatura_pedido'] ?? '').toString(),
+              ) ??
+              0,
+        );
 
   String _removerAcentos(String texto) {
     return texto
@@ -242,6 +257,17 @@ class StatusCandidaturaDetalhePage extends StatelessWidget {
     }
 
     return '${dt.day.toString().padLeft(2, '0')}/${dt.month.toString().padLeft(2, '0')}/${dt.year} ${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+  }
+
+  int _valorContagem(List<dynamic> candidatos) {
+    for (final valor in candidatos) {
+      final numero = int.tryParse((valor ?? '').toString());
+      if (numero != null && numero >= 0) {
+        return numero;
+      }
+    }
+
+    return 0;
   }
 
   String _motivoRejeicaoTexto() {
@@ -486,31 +512,58 @@ class StatusCandidaturaDetalhePage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final nome =
-        candidatura['nome_badge']?.toString() ??
-        candidatura['nome']?.toString() ??
-        'Badge';
-    final estadoRaw =
-        candidatura['estado_geral']?.toString() ??
-        candidatura['estado_final']?.toString() ??
-        candidatura['estado_candidatura_pedido']?.toString() ??
-        '-';
-    final faseRaw = candidatura['fase_geral']?.toString() ?? '-';
-    final coresEstado = _coresEstado(estadoRaw);
-    final idBadge = _idBadge();
-    final idCandidatura = _idCandidatura();
-    final idUtilizador = _idUtilizador();
-    final bool podeContinuar =
-        !_candidaturaEstaFinalizada && idUtilizador > 0 && idBadge != null;
+    return FutureBuilder<Map<String, dynamic>?>(
+      future: _detalheFuture,
+      builder: (context, snapshot) {
+        final detalhe = snapshot.data;
+        final candidaturaCompleta = <String, dynamic>{
+          ...candidatura,
+          if (detalhe != null && detalhe['candidatura'] is Map)
+            ...Map<String, dynamic>.from(detalhe['candidatura'] as Map),
+        };
+        final requisitos = detalhe != null && detalhe['requisitos'] is List
+            ? (detalhe['requisitos'] as List)
+            : const [];
+        final candidatura = candidaturaCompleta;
+        final nome =
+            candidatura['nome_badge']?.toString() ??
+            candidatura['nome']?.toString() ??
+            'Badge';
+        final estadoRaw =
+            candidatura['estado_geral']?.toString() ??
+            candidatura['estado_final']?.toString() ??
+            candidatura['estado_candidatura_pedido']?.toString() ??
+            '-';
+        final faseRaw = candidatura['fase_geral']?.toString() ?? '-';
+        final coresEstado = _coresEstado(estadoRaw);
+        final idBadge = _idBadge();
+        final idCandidatura = _idCandidatura();
+        final idUtilizador = _idUtilizador();
+        final int totalEvidencias = _valorContagem([
+          candidatura['total_evidencias'],
+          requisitos.length,
+          candidatura['numero_requisitos'],
+          candidatura['requisitos'] is List
+              ? (candidatura['requisitos'] as List).length
+              : null,
+        ]);
+        final int evidenciasTm = _valorContagem([
+          candidatura['evidencias_decididas_tm'],
+        ]);
+        final int evidenciasSll = _valorContagem([
+          candidatura['evidencias_decididas_sll'],
+        ]);
+        final bool podeContinuar =
+            !_candidaturaEstaFinalizada && idUtilizador > 0 && idBadge != null;
 
-    return Scaffold(
-      backgroundColor: const Color(0xFFF7F7F7),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
+        return Scaffold(
+          backgroundColor: const Color(0xFFF7F7F7),
+          body: SafeArea(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
               GestureDetector(
                 onTap: () => Navigator.pop(context),
                 child: const Row(
@@ -708,11 +761,11 @@ class StatusCandidaturaDetalhePage extends StatelessWidget {
                     const SizedBox(height: 12),
                     _linhaInfo(
                       'Evidências TM',
-                      '${candidatura['evidencias_decididas_tm'] ?? 0}/${candidatura['total_evidencias'] ?? 0}',
+                      '$evidenciasTm/${totalEvidencias > 0 ? totalEvidencias : '-'}',
                     ),
                     _linhaInfo(
                       'Evidências SLL',
-                      '${candidatura['evidencias_decididas_sll'] ?? 0}/${candidatura['total_evidencias'] ?? 0}',
+                      '$evidenciasSll/${totalEvidencias > 0 ? totalEvidencias : '-'}',
                     ),
                   ],
                 ),
@@ -831,7 +884,8 @@ class StatusCandidaturaDetalhePage extends StatelessWidget {
             ],
           ),
         ),
-      ),
+      );
+      },
     );
   }
 }

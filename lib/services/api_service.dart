@@ -20,7 +20,8 @@
 import 'dart:convert'; // Converte objetos Dart para JSON e JSON para objetos Dart.
 import 'dart:io'; // File: leitura de ficheiros; SocketException: erros de ligação.
 import 'dart:async'; // Future e TimeoutException para operações assíncronas.
-import 'package:http/http.dart' as http; // Biblioteca usada para GET, POST, PUT e multipart.
+import 'package:http/http.dart'
+    as http; // Biblioteca usada para GET, POST, PUT e multipart.
 
 // Token JWT da sessão atual.
 // É preenchido após um login bem-sucedido e usado pelo getter _headers.
@@ -34,12 +35,9 @@ class ApiService {
   // Para desenvolvimento local, usa-se o IP do computador na rede.
 
   // Produção (Render)
-  static const String baseUrl =
-    'https://softinsa-api.onrender.com/api';
+  static const String baseUrl = 'https://softinsa-api.onrender.com/api';
 
-  int _converterInteiro(
-    dynamic valor,
-  ) {
+  int _converterInteiro(dynamic valor) {
     if (valor == null) {
       return 0;
     }
@@ -52,18 +50,12 @@ class ApiService {
       return valor.round();
     }
 
-    return int.tryParse(
-          valor.toString(),
-        ) ??
-        double.tryParse(
-          valor.toString(),
-        )?.round() ??
+    return int.tryParse(valor.toString()) ??
+        double.tryParse(valor.toString())?.round() ??
         0;
   }
 
-  bool _converterBooleano(
-    dynamic valor,
-  ) {
+  bool _converterBooleano(dynamic valor) {
     if (valor is bool) {
       return valor;
     }
@@ -72,23 +64,12 @@ class ApiService {
       return valor == 1;
     }
 
-    final texto = valor
-        ?.toString()
-        .trim()
-        .toLowerCase();
+    final texto = valor?.toString().trim().toLowerCase();
 
-    return [
-      'true',
-      't',
-      '1',
-      'sim',
-      'yes',
-    ].contains(texto);
+    return ['true', 't', '1', 'sim', 'yes'].contains(texto);
   }
 
-  List<Map<String, dynamic>> _extrairListaMap(
-    dynamic decoded,
-  ) {
+  List<Map<String, dynamic>> _extrairListaMap(dynamic decoded) {
     if (decoded is List) {
       return decoded
           .whereType<Map>()
@@ -127,7 +108,6 @@ class ApiService {
 
     return <Map<String, dynamic>>[];
   }
-
 
   // =========================================================================
   // CABEÇALHOS HTTP
@@ -198,9 +178,7 @@ class ApiService {
     required String novaPassword,
     int? idArea,
   }) async {
-    final url = Uri.parse(
-      '$baseUrl/auth/ativacao-admin/confirmar',
-    );
+    final url = Uri.parse('$baseUrl/auth/ativacao-admin/confirmar');
 
     final response = await http
         .post(
@@ -235,166 +213,150 @@ class ApiService {
     throw Exception('Não foi possível ativar a conta.');
   }
 
-  Future<Map<String, dynamic>> login(
-    String email,
-    String password,
-  ) async {
+  Future<Map<String, dynamic>> login(String email, String password) async {
     // Constrói um objeto Uri válido a partir do endereço da rota.
     final url = Uri.parse('$baseUrl/auth/login');
 
-  print('========== LOGIN ==========');
-  print('URL: $url');
-  print('Email enviado: "${email.trim()}"');
-  print('Password preenchida: ${password.isNotEmpty}');
-  print('Tamanho da password: ${password.length}');
-
-  try {
-    // Cria o corpo que será convertido para JSON.
-    // trim() remove espaços acidentais antes e depois do email.
-    final body = {
-      'email': email.trim(),
-      'password': password,
-    };
-
-    print('Body enviado: ${jsonEncode({
-      'email': email.trim(),
-      'password': '***',
-    })}');
-
-    // await suspende apenas este método até chegar a resposta,
-    // sem bloquear a interface gráfica da aplicação.
-    final response = await http.post(
-      url,
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-      },
-      body: jsonEncode(body),
-    );
-
-    print('Status recebido: ${response.statusCode}');
-    print('Headers recebidos: ${response.headers}');
-    print('Body recebido: ${response.body}');
-
-    dynamic decoded;
+    print('========== LOGIN ==========');
+    print('URL: $url');
+    print('Email enviado: "${email.trim()}"');
+    print('Password preenchida: ${password.isNotEmpty}');
+    print('Tamanho da password: ${password.length}');
 
     try {
-      // Converte a String JSON do backend para uma estrutura Dart.
-      decoded = jsonDecode(response.body);
-      print('JSON convertido com sucesso.');
-      print('Tipo do JSON: ${decoded.runtimeType}');
-    } catch (e, stackTrace) {
-      print('ERRO AO CONVERTER JSON: $e');
-      print(stackTrace);
+      // Cria o corpo que será convertido para JSON.
+      // trim() remove espaços acidentais antes e depois do email.
+      final body = {'email': email.trim(), 'password': password};
+
+      print(
+        'Body enviado: ${jsonEncode({'email': email.trim(), 'password': '***'})}',
+      );
+
+      // await suspende apenas este método até chegar a resposta,
+      // sem bloquear a interface gráfica da aplicação.
+      final response = await http.post(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: jsonEncode(body),
+      );
+
+      print('Status recebido: ${response.statusCode}');
+      print('Headers recebidos: ${response.headers}');
+      print('Body recebido: ${response.body}');
+
+      dynamic decoded;
+
+      try {
+        // Converte a String JSON do backend para uma estrutura Dart.
+        decoded = jsonDecode(response.body);
+        print('JSON convertido com sucesso.');
+        print('Tipo do JSON: ${decoded.runtimeType}');
+      } catch (e, stackTrace) {
+        print('ERRO AO CONVERTER JSON: $e');
+        print(stackTrace);
+
+        return {
+          'success': false,
+          'message':
+              'O servidor respondeu, mas o conteúdo não é JSON válido. '
+              'Status: ${response.statusCode}',
+        };
+      }
+
+      if (decoded is! Map<String, dynamic>) {
+        print('ERRO: resposta JSON não é um Map.');
+
+        return {
+          'success': false,
+          'message': 'Formato de resposta inesperado do servidor.',
+        };
+      }
+
+      final data = decoded;
+
+      if (response.statusCode == 200) {
+        print('Login HTTP aceite.');
+
+        // Guarda globalmente o JWT para os pedidos autenticados seguintes.
+        token = data['token']?.toString();
+
+        print('Token recebido: ${token != null && token!.isNotEmpty}');
+        print('User recebido: ${data['user']}');
+
+        if (token == null || token!.isEmpty) {
+          print('ERRO: status 200, mas sem token.');
+
+          return {
+            'success': false,
+            'message': 'O servidor aceitou o login, mas não devolveu o token.',
+          };
+        }
+
+        print('LOGIN CONCLUÍDO COM SUCESSO');
+        print('===========================');
+
+        return {'success': true, ...data};
+      }
+
+      if (response.statusCode == 403) {
+        print('Login recusado com status 403.');
+        print('Erro recebido: ${data['error']}');
+
+        final mensagem =
+            data['error']?.toString() ??
+            data['message']?.toString() ??
+            'Acesso recusado.';
+
+        final mensagemNormalizada = mensagem.toLowerCase();
+
+        final contaPendenteAtivacao =
+            mensagemNormalizada.contains('ative a conta') ||
+            mensagemNormalizada.contains('password temporária') ||
+            mensagemNormalizada.contains('password temporaria') ||
+            mensagemNormalizada.contains('pendente de ativação') ||
+            mensagemNormalizada.contains('pendente de ativacao');
+
+        final emailNaoVerificado =
+            !contaPendenteAtivacao &&
+            (mensagemNormalizada.contains('confirme o email') ||
+                mensagemNormalizada.contains('email não verificado') ||
+                mensagemNormalizada.contains('email nao verificado'));
+
+        return {
+          'success': false,
+          'emailNaoVerificado': emailNaoVerificado,
+          'contaPendenteAtivacao': contaPendenteAtivacao,
+          'message': mensagem,
+        };
+      }
+
+      print('Login recusado.');
+      print('Status: ${response.statusCode}');
+      print('Erro: ${data['error']}');
+      print('Mensagem: ${data['message']}');
+      print('===========================');
 
       return {
         'success': false,
         'message':
-            'O servidor respondeu, mas o conteúdo não é JSON válido. '
-            'Status: ${response.statusCode}',
+            data['error'] ??
+            data['message'] ??
+            'Erro no login. Status: ${response.statusCode}',
       };
-    }
-
-    if (decoded is! Map<String, dynamic>) {
-      print('ERRO: resposta JSON não é um Map.');
-
-      return {
-        'success': false,
-        'message': 'Formato de resposta inesperado do servidor.',
-      };
-    }
-
-    final data = decoded;
-
-    if (response.statusCode == 200) {
-      print('Login HTTP aceite.');
-
-      // Guarda globalmente o JWT para os pedidos autenticados seguintes.
-      token = data['token']?.toString();
-
-      print('Token recebido: ${token != null && token!.isNotEmpty}');
-      print('User recebido: ${data['user']}');
-
-      if (token == null || token!.isEmpty) {
-        print('ERRO: status 200, mas sem token.');
-
-        return {
-          'success': false,
-          'message': 'O servidor aceitou o login, mas não devolveu o token.',
-        };
-      }
-
-      print('LOGIN CONCLUÍDO COM SUCESSO');
+    } catch (e, stackTrace) {
+      print('EXCEÇÃO DURANTE O LOGIN:');
+      print('Tipo: ${e.runtimeType}');
+      print('Erro: $e');
+      print('Stack trace:');
+      print(stackTrace);
       print('===========================');
 
-      return {
-        'success': true,
-        ...data,
-      };
+      return {'success': false, 'message': 'Sem ligação ao servidor. Erro: $e'};
     }
-
-    if (response.statusCode == 403) {
-      print('Login recusado com status 403.');
-      print('Erro recebido: ${data['error']}');
-
-      final mensagem =
-          data['error']?.toString() ??
-          data['message']?.toString() ??
-          'Acesso recusado.';
-
-      final mensagemNormalizada =
-          mensagem.toLowerCase();
-
-      final contaPendenteAtivacao =
-          mensagemNormalizada.contains('ative a conta') ||
-          mensagemNormalizada.contains('password temporária') ||
-          mensagemNormalizada.contains('password temporaria') ||
-          mensagemNormalizada.contains('pendente de ativação') ||
-          mensagemNormalizada.contains('pendente de ativacao');
-
-      final emailNaoVerificado =
-          !contaPendenteAtivacao &&
-          (
-            mensagemNormalizada.contains('confirme o email') ||
-            mensagemNormalizada.contains('email não verificado') ||
-            mensagemNormalizada.contains('email nao verificado')
-          );
-
-      return {
-        'success': false,
-        'emailNaoVerificado': emailNaoVerificado,
-        'contaPendenteAtivacao': contaPendenteAtivacao,
-        'message': mensagem,
-      };
-    }
-
-    print('Login recusado.');
-    print('Status: ${response.statusCode}');
-    print('Erro: ${data['error']}');
-    print('Mensagem: ${data['message']}');
-    print('===========================');
-
-    return {
-      'success': false,
-      'message':
-          data['error'] ??
-          data['message'] ??
-          'Erro no login. Status: ${response.statusCode}',
-    };
-  } catch (e, stackTrace) {
-    print('EXCEÇÃO DURANTE O LOGIN:');
-    print('Tipo: ${e.runtimeType}');
-    print('Erro: $e');
-    print('Stack trace:');
-    print(stackTrace);
-    print('===========================');
-
-    return {
-      'success': false,
-      'message': 'Sem ligação ao servidor. Erro: $e',
-    };
   }
-}
 
   // =========================================================================
   // REGISTO
@@ -436,7 +398,10 @@ class ApiService {
   // =========================================================================
   Future<List<Map<String, dynamic>>> getUtilizadores() async {
     try {
-      final response = await http.get(Uri.parse('$baseUrl/utilizadores'), headers: _headers);
+      final response = await http.get(
+        Uri.parse('$baseUrl/utilizadores'),
+        headers: _headers,
+      );
       if (response.statusCode == 200) {
         // A resposta é uma lista JSON; cada elemento será um Map.
         final List data = jsonDecode(response.body);
@@ -499,16 +464,12 @@ class ApiService {
 
       if (decoded is List) {
         lista = decoded;
-      } else if (decoded is Map<String, dynamic> &&
-          decoded['areas'] is List) {
+      } else if (decoded is Map<String, dynamic> && decoded['areas'] is List) {
         lista = decoded['areas'] as List;
-      } else if (decoded is Map<String, dynamic> &&
-          decoded['data'] is List) {
+      } else if (decoded is Map<String, dynamic> && decoded['data'] is List) {
         lista = decoded['data'] as List;
       } else {
-        throw const FormatException(
-          'A API não devolveu uma lista de áreas.',
-        );
+        throw const FormatException('A API não devolveu uma lista de áreas.');
       }
 
       // Ignora elementos que não sejam Map e cria cópias tipadas
@@ -553,18 +514,11 @@ class ApiService {
   // Obtém os totais e informações principais do utilizador autenticado.
   // A rota recebe o ID do utilizador no próprio URL.
   // =========================================================================
-  Future<Map<String, dynamic>> getDashboard(
-    int userId,
-  ) async {
-    final url = Uri.parse(
-      '$baseUrl/utilizadores/dashboard/$userId',
-    );
+  Future<Map<String, dynamic>> getDashboard(int userId) async {
+    final url = Uri.parse('$baseUrl/utilizadores/dashboard/$userId');
 
     try {
-      final response = await http.get(
-        url,
-        headers: _headers,
-      );
+      final response = await http.get(url, headers: _headers);
 
       print('========== DASHBOARD ==========');
       print('URL: $url');
@@ -573,19 +527,13 @@ class ApiService {
       print('===============================');
 
       if (response.statusCode == 200) {
-        final decoded =
-            jsonDecode(response.body);
+        final decoded = jsonDecode(response.body);
 
-        if (
-          decoded
-          is Map<String, dynamic>
-        ) {
+        if (decoded is Map<String, dynamic>) {
           return decoded;
         }
 
-        throw const FormatException(
-          'O dashboard não devolveu um objeto JSON.',
-        );
+        throw const FormatException('O dashboard não devolveu um objeto JSON.');
       }
 
       throw Exception(
@@ -594,9 +542,7 @@ class ApiService {
         '${response.body}',
       );
     } on SocketException {
-      throw const SocketException(
-        'offline',
-      );
+      throw const SocketException('offline');
     }
   }
 
@@ -606,7 +552,10 @@ class ApiService {
   // =========================================================================
   Future<List<Map<String, dynamic>>> getBadgesProgresso(int userId) async {
     try {
-      final response = await http.get(Uri.parse('$baseUrl/badges/progresso/$userId'), headers: _headers);
+      final response = await http.get(
+        Uri.parse('$baseUrl/badges/progresso/$userId'),
+        headers: _headers,
+      );
       if (response.statusCode == 200) {
         final dynamic decoded = jsonDecode(response.body);
         return _extrairListaMap(decoded);
@@ -623,7 +572,10 @@ class ApiService {
   // =========================================================================
   Future<List<Map<String, dynamic>>> getBadgesRecomendados(int userId) async {
     try {
-      final response = await http.get(Uri.parse('$baseUrl/badges/recomendados/$userId'), headers: _headers);
+      final response = await http.get(
+        Uri.parse('$baseUrl/badges/recomendados/$userId'),
+        headers: _headers,
+      );
       if (response.statusCode == 200) {
         final dynamic decoded = jsonDecode(response.body);
         return _extrairListaMap(decoded);
@@ -641,7 +593,10 @@ class ApiService {
   // =========================================================================
   Future<Map<String, dynamic>?> getBadgeEspecial() async {
     try {
-      final response = await http.get(Uri.parse('$baseUrl/badges/especial'), headers: _headers);
+      final response = await http.get(
+        Uri.parse('$baseUrl/badges/especial'),
+        headers: _headers,
+      );
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         if (data == null) return null;
@@ -663,7 +618,10 @@ class ApiService {
   // =========================================================================
   Future<List<Map<String, dynamic>>> getNotifications(int userId) async {
     try {
-      final response = await http.get(Uri.parse('$baseUrl/notificacoes/$userId'), headers: _headers);
+      final response = await http.get(
+        Uri.parse('$baseUrl/notificacoes/$userId'),
+        headers: _headers,
+      );
       if (response.statusCode == 200) {
         final List data = jsonDecode(response.body);
         return data.map((e) => e as Map<String, dynamic>).toList();
@@ -681,12 +639,14 @@ class ApiService {
   // para produzir um único objeto por badge.
   // =========================================================================
   Future<List<Map<String, dynamic>>> getTodosBadges() async {
-    final response = await http.get(Uri.parse('$baseUrl/badges/todos'), headers: _headers);
+    final response = await http.get(
+      Uri.parse('$baseUrl/badges/todos'),
+      headers: _headers,
+    );
     if (response.statusCode == 200) {
       final List data = jsonDecode(response.body);
       // Converte cada elemento para Map antes de efetuar o agrupamento.
-      final listaPlana =
-          data.map((e) => e as Map<String, dynamic>).toList();
+      final listaPlana = data.map((e) => e as Map<String, dynamic>).toList();
       return agruparBadgesComRequisitos(listaPlana);
     }
     throw Exception('Erro catálogo');
@@ -698,7 +658,10 @@ class ApiService {
   // =========================================================================
   Future<List<Map<String, dynamic>>> getBadgesConquistados(int userId) async {
     try {
-      final response = await http.get(Uri.parse('$baseUrl/badges/conquistados/$userId'), headers: _headers);
+      final response = await http.get(
+        Uri.parse('$baseUrl/badges/conquistados/$userId'),
+        headers: _headers,
+      );
       if (response.statusCode == 200) {
         final dynamic decoded = jsonDecode(response.body);
         final listaPlana = _extrairListaMap(decoded);
@@ -719,9 +682,14 @@ class ApiService {
   // - Se receber Map com a chave 'rows', usa essa lista;
   // - Se receber outro Map, devolve [] para evitar que a interface bloqueie.
   // =========================================================================
-  Future<List<Map<String, dynamic>>> getCandidaturasPendentes(int userId) async {
+  Future<List<Map<String, dynamic>>> getCandidaturasPendentes(
+    int userId,
+  ) async {
     try {
-      final response = await http.get(Uri.parse('$baseUrl/certificados/pendentes/$userId'), headers: _headers);
+      final response = await http.get(
+        Uri.parse('$baseUrl/certificados/pendentes/$userId'),
+        headers: _headers,
+      );
       if (response.statusCode == 200) {
         final decoded = jsonDecode(response.body);
 
@@ -735,21 +703,25 @@ class ApiService {
 
         // 3. Se for um Map (o tal erro), evita o crash e descobre o que é
         if (decoded is Map<String, dynamic>) {
-          print('[API AVISO] A rota devolveu um objeto em vez de lista. Conteúdo: $decoded');
-          
+          print(
+            '[API AVISO] A rota devolveu um objeto em vez de lista. Conteúdo: $decoded',
+          );
+
           // Se por acaso a lista veio envelopada numa chave 'rows' ou 'dados'
           if (decoded.containsKey('rows') && decoded['rows'] is List) {
             final List rows = decoded['rows'];
             return rows.map((e) => e as Map<String, dynamic>).toList();
           }
-          
+
           // Se for um objeto de erro ou vazio, retorna lista vazia para a app não crashar
           return [];
         }
       }
       print('Erro na API. Status Code: ${response.statusCode}');
       print('Corpo do erro enviado pelo servidor: ${response.body}');
-      throw Exception('Erro ao carregar candidaturas pendentes: Status ${response.statusCode}');
+      throw Exception(
+        'Erro ao carregar candidaturas pendentes: Status ${response.statusCode}',
+      );
     } on SocketException {
       throw const SocketException('offline');
     }
@@ -760,9 +732,13 @@ class ApiService {
   // Equivalente ao fluxo usado no consultor web, com estados agregados
   // (estado_geral, fase_geral, estado_final e afins).
   // =========================================================================
-  Future<List<Map<String, dynamic>>> getStatusCandidaturasConsultor(int userId) async {
+  Future<List<Map<String, dynamic>>> getStatusCandidaturasConsultor(
+    int userId,
+  ) async {
     try {
-      final uri = Uri.parse('$baseUrl/candidaturas/$userId/status-candidaturas');
+      final uri = Uri.parse(
+        '$baseUrl/candidaturas/$userId/status-candidaturas',
+      );
       final response = await http.get(uri, headers: _headers);
 
       if (response.statusCode == 200) {
@@ -799,9 +775,7 @@ class ApiService {
             final valor = decoded[chave];
             if (valor is List) {
               agregadas.addAll(
-                valor
-                    .whereType<Map>()
-                    .map((e) => Map<String, dynamic>.from(e)),
+                valor.whereType<Map>().map((e) => Map<String, dynamic>.from(e)),
               );
             }
           }
@@ -828,8 +802,7 @@ class ApiService {
   // PROGRESSO DAS LEARNING PATHS
   // Obtém o progresso do utilizador nas learning paths.
   // =========================================================================
-  Future<List<Map<String, dynamic>>>
-      getProgressoLearningPaths(
+  Future<List<Map<String, dynamic>>> getProgressoLearningPaths(
     int userId,
   ) async {
     /*
@@ -841,43 +814,24 @@ class ApiService {
     * criada para a página de progresso.
     */
     final List<Uri> urls = [
-      Uri.parse(
-        '$baseUrl/badges/learningpaths/$userId',
-      ),
-      Uri.parse(
-        '$baseUrl/badges/progresso/$userId',
-      ),
+      Uri.parse('$baseUrl/badges/learningpaths/$userId'),
+      Uri.parse('$baseUrl/badges/progresso/$userId'),
     ];
 
     Object? ultimoErro;
 
     for (final url in urls) {
       try {
-        print(
-          '========== LEARNING PATHS ==========',
-        );
+        print('========== LEARNING PATHS ==========');
         print('URL: $url');
 
         final response = await http
-            .get(
-              url,
-              headers: _headers,
-            )
-            .timeout(
-              const Duration(
-                seconds: 30,
-              ),
-            );
+            .get(url, headers: _headers)
+            .timeout(const Duration(seconds: 30));
 
-        print(
-          'STATUS: ${response.statusCode}',
-        );
-        print(
-          'BODY: ${response.body}',
-        );
-        print(
-          '====================================',
-        );
+        print('STATUS: ${response.statusCode}');
+        print('BODY: ${response.body}');
+        print('====================================');
 
         if (response.statusCode != 200) {
           ultimoErro = Exception(
@@ -888,10 +842,7 @@ class ApiService {
           continue;
         }
 
-        final dynamic decoded =
-            jsonDecode(
-          response.body,
-        );
+        final dynamic decoded = jsonDecode(response.body);
 
         List<dynamic>? lista;
 
@@ -915,10 +866,7 @@ class ApiService {
         *   "learningPaths": [...]
         * }
         */
-        if (
-          decoded
-          is Map<String, dynamic>
-        ) {
+        if (decoded is Map<String, dynamic>) {
           final possibilidades = [
             decoded['learningPaths'],
             decoded['learning_paths'],
@@ -928,10 +876,7 @@ class ApiService {
             decoded['rows'],
           ];
 
-          for (
-            final possibilidade
-            in possibilidades
-          ) {
+          for (final possibilidade in possibilidades) {
             if (possibilidade is List) {
               lista = possibilidade;
               break;
@@ -940,8 +885,7 @@ class ApiService {
         }
 
         if (lista == null) {
-          ultimoErro =
-              const FormatException(
+          ultimoErro = const FormatException(
             'A API não devolveu uma lista '
             'de Learning Paths.',
           );
@@ -951,30 +895,13 @@ class ApiService {
 
         final resultado = lista
             .whereType<Map>()
-            .map(
-              (item) =>
-                  Map<String, dynamic>.from(
-                item,
-              ),
-            )
+            .map((item) => Map<String, dynamic>.from(item))
             .where(
               (item) =>
-                  item[
-                    'id_learningpaths'
-                  ] !=
-                  null ||
-                  item[
-                    'id_learningpath'
-                  ] !=
-                  null ||
-                  item[
-                    'nome_learningpath'
-                  ] !=
-                  null ||
-                  item[
-                    'nome_learningpaths'
-                  ] !=
-                  null,
+                  item['id_learningpaths'] != null ||
+                  item['id_learningpath'] != null ||
+                  item['nome_learningpath'] != null ||
+                  item['nome_learningpaths'] != null,
             )
             .toList();
 
@@ -995,8 +922,7 @@ class ApiService {
           return [];
         }
 
-        ultimoErro =
-            const FormatException(
+        ultimoErro = const FormatException(
           'A resposta não contém dados '
           'de Learning Paths.',
         );
@@ -1052,108 +978,71 @@ class ApiService {
   //
   // Não faz nenhum pedido HTTP; apenas reorganiza dados já recebidos.
   // =========================================================================
-  List<Map<String, dynamic>>
-    agruparBadgesComRequisitos(
-    List<Map<String, dynamic>>
-        dadosPlanos,
+  List<Map<String, dynamic>> agruparBadgesComRequisitos(
+    List<Map<String, dynamic>> dadosPlanos,
   ) {
-    final Map<
-      int,
-      Map<String, dynamic>
-    > badgesAgrupados = {};
+    final Map<int, Map<String, dynamic>> badgesAgrupados = {};
 
     for (final linha in dadosPlanos) {
-      final int? badgeId =
-          int.tryParse(
-        (
-          linha['id_badge_modelo'] ??
-          linha['id'] ??
-          linha['badge_id'] ??
-          linha['id_badge_atribuido'] ??
-          ''
-        ).toString(),
+      final int? badgeId = int.tryParse(
+        (linha['id_badge_modelo'] ??
+                linha['id'] ??
+                linha['badge_id'] ??
+                linha['id_badge_atribuido'] ??
+                '')
+            .toString(),
       );
 
       if (badgeId == null) {
         continue;
       }
 
-      final int pontosExtraLinha =
-          _converterInteiro(
-        linha['pontos_extra'] ??
-        linha['pontos_bonus'],
+      final int pontosExtraLinha = _converterInteiro(
+        linha['pontos_extra'] ?? linha['pontos_bonus'],
       );
 
       final bool ganhouBonusLinha =
           _converterBooleano(
-            linha['ganhou_bonus'] ??
-            linha['premio_atribuido'],
+            linha['ganhou_bonus'] ?? linha['premio_atribuido'],
           ) ||
           pontosExtraLinha > 0;
 
-      if (
-        !badgesAgrupados
-            .containsKey(badgeId)
-      ) {
+      if (!badgesAgrupados.containsKey(badgeId)) {
         badgesAgrupados[badgeId] = {
           ...linha,
 
           'id': badgeId,
 
-            'id_badge_modelo':
-              linha['id_badge_modelo'] ??
-              badgeId,
+          'id_badge_modelo': linha['id_badge_modelo'] ?? badgeId,
 
-          'nome':
-              linha['nome'] ??
-              linha['nome_badge'] ??
-              'Badge',
+          'nome': linha['nome'] ?? linha['nome_badge'] ?? 'Badge',
 
           'descricao':
-              linha['descricao'] ??
-              linha[
-                'descricao_badge_modelo'
-              ] ??
-              '',
+              linha['descricao'] ?? linha['descricao_badge_modelo'] ?? '',
 
-          'pontos': _converterInteiro(
-            linha['pontos'],
-          ),
+          'pontos': _converterInteiro(linha['pontos']),
 
           'imagem_url':
-              linha['imagem_url'] ??
-              linha['imagem'] ??
-              linha['url_imagem'],
+              linha['imagem_url'] ?? linha['imagem'] ?? linha['url_imagem'],
 
           'imagem':
-              linha['imagem_url'] ??
-              linha['imagem'] ??
-              linha['url_imagem'],
+              linha['imagem_url'] ?? linha['imagem'] ?? linha['url_imagem'],
 
-          'ganhou_bonus':
-              ganhouBonusLinha,
+          'ganhou_bonus': ganhouBonusLinha,
 
-          'premio_atribuido':
-              ganhouBonusLinha,
+          'premio_atribuido': ganhouBonusLinha,
 
-          'pontos_extra':
-              pontosExtraLinha,
+          'pontos_extra': pontosExtraLinha,
 
-          'pontos_bonus':
-              pontosExtraLinha,
+          'pontos_bonus': pontosExtraLinha,
 
-          'requisitos':
-              <Map<String, dynamic>>[],
+          'requisitos': <Map<String, dynamic>>[],
 
           'tipo_badge':
-              linha['tipo_badge'] ??
-              linha['tipoBadge'] ??
-              linha['tipo'],
+              linha['tipo_badge'] ?? linha['tipoBadge'] ?? linha['tipo'],
 
           'nome_nivel':
-              linha['nome_nivel'] ??
-              linha['nomeNivel'] ??
-              linha['nivel'],
+              linha['nome_nivel'] ?? linha['nomeNivel'] ?? linha['nivel'],
 
           'codigo_nivel':
               linha['codigo_nivel'] ??
@@ -1161,135 +1050,84 @@ class ApiService {
               linha['letra_nivel'],
         };
       } else {
-        final badgeAtual =
-            badgesAgrupados[badgeId]!;
+        final badgeAtual = badgesAgrupados[badgeId]!;
 
-        final int pontosExtraAtual =
-            _converterInteiro(
-          badgeAtual['pontos_extra'] ??
-          badgeAtual['pontos_bonus'],
+        final int pontosExtraAtual = _converterInteiro(
+          badgeAtual['pontos_extra'] ?? badgeAtual['pontos_bonus'],
         );
 
         final bool ganhouBonusAtual =
             _converterBooleano(
-              badgeAtual['ganhou_bonus'] ??
-              badgeAtual[
-                'premio_atribuido'
-              ],
+              badgeAtual['ganhou_bonus'] ?? badgeAtual['premio_atribuido'],
             ) ||
             pontosExtraAtual > 0;
 
-        badgeAtual['ganhou_bonus'] =
-            ganhouBonusAtual ||
-            ganhouBonusLinha;
+        badgeAtual['ganhou_bonus'] = ganhouBonusAtual || ganhouBonusLinha;
 
-        badgeAtual['premio_atribuido'] =
-            ganhouBonusAtual ||
-            ganhouBonusLinha;
+        badgeAtual['premio_atribuido'] = ganhouBonusAtual || ganhouBonusLinha;
 
-        badgeAtual['pontos_extra'] =
-            pontosExtraLinha >
-                pontosExtraAtual
+        badgeAtual['pontos_extra'] = pontosExtraLinha > pontosExtraAtual
             ? pontosExtraLinha
             : pontosExtraAtual;
 
-        badgeAtual['pontos_bonus'] =
-            badgeAtual[
-              'pontos_extra'
-            ];
+        badgeAtual['pontos_bonus'] = badgeAtual['pontos_extra'];
 
         final imagemNova =
-            linha['imagem_url'] ??
-            linha['imagem'] ??
-            linha['url_imagem'];
+            linha['imagem_url'] ?? linha['imagem'] ?? linha['url_imagem'];
 
-        final imagemAtual =
-            badgeAtual['imagem_url'] ??
-            badgeAtual['imagem'];
+        final imagemAtual = badgeAtual['imagem_url'] ?? badgeAtual['imagem'];
 
-        if (
-          (
-            imagemAtual == null ||
-            imagemAtual
-                .toString()
-                .trim()
-                .isEmpty
-          ) &&
-          imagemNova != null
-        ) {
-          badgeAtual['imagem_url'] =
-              imagemNova;
+        if ((imagemAtual == null || imagemAtual.toString().trim().isEmpty) &&
+            imagemNova != null) {
+          badgeAtual['imagem_url'] = imagemNova;
 
-          badgeAtual['imagem'] =
-              imagemNova;
+          badgeAtual['imagem'] = imagemNova;
         }
       }
 
-      if (
-        linha['nome_requisito'] != null ||
-        linha['titulo'] != null ||
-        linha['descricao_requisito'] != null
-      ) {
+      if (linha['nome_requisito'] != null ||
+          linha['titulo'] != null ||
+          linha['descricao_requisito'] != null) {
         final listaRequisitos =
             badgesAgrupados[badgeId]?['requisitos']
                 as List<Map<String, dynamic>>;
 
         final dynamic idRequisito =
-            linha['id_requisito'] ??
-            linha['id_requisitos'];
+            linha['id_requisito'] ?? linha['id_requisitos'];
 
         final String chave =
             idRequisito?.toString() ??
             linha['titulo']?.toString() ??
-            linha['nome_requisito']
-                ?.toString() ??
+            linha['nome_requisito']?.toString() ??
             '';
 
-        final bool jaExiste =
-            listaRequisitos.any(
-          (requisito) {
-            final chaveExistente =
-                requisito['id_requisito']
-                        ?.toString() ??
-                    requisito['titulo']
-                        ?.toString() ??
-                    requisito['nome']
-                        ?.toString() ??
-                    '';
+        final bool jaExiste = listaRequisitos.any((requisito) {
+          final chaveExistente =
+              requisito['id_requisito']?.toString() ??
+              requisito['titulo']?.toString() ??
+              requisito['nome']?.toString() ??
+              '';
 
-            return chaveExistente == chave;
-          },
-        );
+          return chaveExistente == chave;
+        });
 
         if (!jaExiste) {
           listaRequisitos.add({
-            'id_requisito':
-                idRequisito,
+            'id_requisito': idRequisito,
 
-            'id_requisitos':
-                idRequisito,
+            'id_requisitos': idRequisito,
 
-            'nome':
-                linha['nome_requisito'] ??
-                linha['titulo'] ??
-                'Requisito',
+            'nome': linha['nome_requisito'] ?? linha['titulo'] ?? 'Requisito',
 
-            'titulo':
-                linha['titulo'] ??
-                linha['nome_requisito'] ??
-                'Requisito',
+            'titulo': linha['titulo'] ?? linha['nome_requisito'] ?? 'Requisito',
 
-            'descricao':
-                linha['descricao_requisito'] ??
-                '',
+            'descricao': linha['descricao_requisito'] ?? '',
           });
         }
       }
     }
 
-    return badgesAgrupados
-        .values
-        .toList();
+    return badgesAgrupados.values.toList();
   }
 
   // =========================================================================
@@ -1313,63 +1151,53 @@ class ApiService {
     required bool autorizaPublicacaoBadge,
     String? linkedinPublicacaoBadge,
   }) async {
-    final uri = Uri.parse(
-      '$baseUrl/candidaturas/submeter-evidencias',
-    );
+    final uri = Uri.parse('$baseUrl/candidaturas/submeter-evidencias');
 
-    final request = http.MultipartRequest(
-      'POST',
-      uri,
-    );
+    final request = http.MultipartRequest('POST', uri);
 
     request.headers.addAll({
       'Accept': 'application/json',
-      if (token != null)
-        'Authorization': 'Bearer $token',
+      if (token != null) 'Authorization': 'Bearer $token',
     });
 
     request.fields['id_utilizador'] = userId.toString();
     request.fields['id_badge_modelo'] = badgeId.toString();
     request.fields['comentario'] = comentario.trim();
 
-    request.fields['autoriza_publicacao_badge'] =
-    autorizaPublicacaoBadge ? 'true' : 'false';
+    request.fields['autoriza_publicacao_badge'] = autorizaPublicacaoBadge
+        ? 'true'
+        : 'false';
 
-    if (
-      linkedinPublicacaoBadge != null &&
-      linkedinPublicacaoBadge.trim().isNotEmpty
-    ) {
-      request.fields['linkedin_publicacao_badge'] =
-          linkedinPublicacaoBadge.trim();
+    if (linkedinPublicacaoBadge != null &&
+        linkedinPublicacaoBadge.trim().isNotEmpty) {
+      request.fields['linkedin_publicacao_badge'] = linkedinPublicacaoBadge
+          .trim();
     }
 
     if (idLembrete != null) {
       request.fields['id_lembrete'] = idLembrete.toString();
     }
 
+    final List<Map<String, dynamic>> metadados = [];
+
     for (final evidencia in evidencias) {
       final int? idRequisito = int.tryParse(
         evidencia['id_requisito']?.toString() ?? '',
       );
 
-      final String caminho =
-          evidencia['caminho_ficheiro']?.toString() ?? '';
+      final String caminho = evidencia['caminho_ficheiro']?.toString() ?? '';
 
       final String nomeFicheiro =
           evidencia['nome_ficheiro']?.toString() ?? 'comprovativo';
 
       if (idRequisito == null) {
-        throw Exception(
-          'Existe uma evidência sem requisito associado.',
-        );
+        throw Exception('Existe uma evidência sem requisito associado.');
       }
 
       final file = File(caminho);
 
       if (!await file.exists()) {
-        throw Exception(
-          'O ficheiro "$nomeFicheiro" não foi encontrado.',
-        );
+        throw Exception('O ficheiro "$nomeFicheiro" não foi encontrado.');
       }
 
       request.files.add(
@@ -1380,32 +1208,50 @@ class ApiService {
         ),
       );
 
-      request.files.add(
-        http.MultipartFile.fromString(
-          'metadados',
-          jsonEncode({
-            'requisito_key': 'requisito_$idRequisito',
-            'id_requisito': idRequisito,
-            'titulo': evidencia['titulo'],
-            'nome': evidencia['nome'],
-            'ficheiro_nome': nomeFicheiro,
-          }),
-        ),
-      );
+      metadados.add({
+        'requisito_key': 'requisito_$idRequisito',
+        'id_requisito': idRequisito,
+        'titulo': evidencia['titulo'],
+        'nome': evidencia['nome'],
+        'ficheiro_nome': nomeFicheiro,
+      });
+    }
+
+    request.fields['metadados'] = jsonEncode(metadados);
+
+    if (request.files.isEmpty) {
+      throw Exception('Não foram encontrados ficheiros válidos para submeter.');
     }
 
     final streamedResponse = await request.send();
     final body = await streamedResponse.stream.bytesToString();
 
-    if (
-      streamedResponse.statusCode != 200 &&
-      streamedResponse.statusCode != 201
-    ) {
-      throw Exception(
-        body.isNotEmpty
-            ? body
-            : 'Erro ao submeter evidências.',
+    if (streamedResponse.statusCode != 200 &&
+        streamedResponse.statusCode != 201) {
+      throw Exception(body.isNotEmpty ? body : 'Erro ao submeter evidências.');
+    }
+  }
+
+  Future<Map<String, dynamic>?> getStatusCandidaturaDetalheConsultor(
+    int userId,
+    int candidaturaId,
+  ) async {
+    try {
+      final uri = Uri.parse(
+        '$baseUrl/candidaturas/$userId/status-candidaturas/$candidaturaId',
       );
+      final response = await http.get(uri, headers: _headers);
+
+      if (response.statusCode == 200) {
+        final decoded = jsonDecode(response.body);
+        if (decoded is Map<String, dynamic>) {
+          return decoded;
+        }
+      }
+
+      return null;
+    } on SocketException {
+      throw const SocketException('offline');
     }
   }
 
@@ -1423,11 +1269,11 @@ class ApiService {
 
       // Acrescenta os cabeçalhos comuns, incluindo o JWT quando existe.
       request.headers.addAll(_headers);
-      
+
       // 2. Chaves corrigidas de acordo com o teu candidaturaController.js
       request.fields['id_utilizador'] = userId.toString();
       request.fields['id_badge_modelo'] = badgeId.toString();
-      
+
       // O teu back-end espera os metadados (como descrição) dentro de um Array JSON
       // Vamos empacotar para o formato esperado: metadados = ['{"descricao": "..."}']
       request.fields['metadados'] = '{"descricao": "$descricao"}';
@@ -1437,19 +1283,21 @@ class ApiService {
       if (await file.exists()) {
         // Lê o conteúdo completo do ficheiro para uma lista de bytes.
         final bytes = await file.readAsBytes();
-        
-        request.files.add(http.MultipartFile.fromBytes(
-          'ficheiros', // Chave Corrigida para o plural exigido no teu Multer Router!
-          bytes,
-          filename: file.path.split('/').last,
-        ));
+
+        request.files.add(
+          http.MultipartFile.fromBytes(
+            'ficheiros', // Chave Corrigida para o plural exigido no teu Multer Router!
+            bytes,
+            filename: file.path.split('/').last,
+          ),
+        );
       } else {
         // Fallback de segurança para testes ou caminhos simulados offline
-        request.files.add(http.MultipartFile.fromBytes(
-          'ficheiros',
-          [0],
-          filename: 'comprovativo.pdf',
-        ));
+        request.files.add(
+          http.MultipartFile.fromBytes('ficheiros', [
+            0,
+          ], filename: 'comprovativo.pdf'),
+        );
       }
 
       // 4. Envia o pedido
@@ -1459,12 +1307,13 @@ class ApiService {
       // Se falhar, captura o texto real do Render para sabermos o que houve
       if (response.statusCode != 200 && response.statusCode != 201) {
         final responseData = await response.stream.bytesToString();
-        print("❌ O Servidor do Render rejeitou com o código ${response.statusCode}: $responseData");
+        print(
+          "❌ O Servidor do Render rejeitou com o código ${response.statusCode}: $responseData",
+        );
         throw Exception("Erro na API: $responseData");
       }
-      
+
       print("✨ Evidência enviada com sucesso online para o Render!");
-      
     } catch (e) {
       print("💥 Erro no ApiService: $e");
       rethrow; // Deixa o submeter_badges.dart capturar e salvar no SQLite!
@@ -1562,7 +1411,10 @@ class ApiService {
     final response = await http.put(
       Uri.parse('$baseUrl/utilizadores/$idUtilizador/password'),
       headers: _headers,
-      body: jsonEncode({'password_atual': passwordAtual, 'nova_password': novaPassword}),
+      body: jsonEncode({
+        'password_atual': passwordAtual,
+        'nova_password': novaPassword,
+      }),
     );
 
     if (response.statusCode != 200) {
@@ -1577,31 +1429,32 @@ class ApiService {
   // Não elimina necessariamente o registo da base de dados.
   // =========================================================================
   Future<void> desativarConta(int idUtilizador) async {
-    final response = await http.put(Uri.parse('$baseUrl/utilizadores/$idUtilizador/desativar'), headers: _headers);
+    final response = await http.put(
+      Uri.parse('$baseUrl/utilizadores/$idUtilizador/desativar'),
+      headers: _headers,
+    );
     if (response.statusCode != 200) {
       throw Exception('Erro ao desativar conta');
     }
   }
 
   String _mensagemErroLembretes(http.Response response) {
-  try {
-    final decoded = jsonDecode(response.body);
+    try {
+      final decoded = jsonDecode(response.body);
 
-    if (decoded is Map<String, dynamic>) {
-      return decoded['error']?.toString() ??
-          decoded['message']?.toString() ??
-          'Erro ${response.statusCode}.';
-    }
-  } catch (_) {}
+      if (decoded is Map<String, dynamic>) {
+        return decoded['error']?.toString() ??
+            decoded['message']?.toString() ??
+            'Erro ${response.statusCode}.';
+      }
+    } catch (_) {}
 
-  return response.body.trim().isNotEmpty
-      ? response.body
-      : 'Erro ${response.statusCode}.';
-}
+    return response.body.trim().isNotEmpty
+        ? response.body
+        : 'Erro ${response.statusCode}.';
+  }
 
-Future<List<Map<String, dynamic>>> getLembretesConsultor(
-    int userId,
-  ) async {
+  Future<List<Map<String, dynamic>>> getLembretesConsultor(int userId) async {
     final response = await http
         .get(
           Uri.parse('$baseUrl/lembretes/consultor/$userId'),
@@ -1634,10 +1487,7 @@ Future<List<Map<String, dynamic>>> getLembretesConsultor(
 
   Future<List<Map<String, dynamic>>> getBadgesLembretes() async {
     final response = await http
-        .get(
-          Uri.parse('$baseUrl/lembretes/badges'),
-          headers: _headers,
-        )
+        .get(Uri.parse('$baseUrl/lembretes/badges'), headers: _headers)
         .timeout(const Duration(seconds: 30));
 
     if (response.statusCode != 200) {
@@ -1683,9 +1533,7 @@ Future<List<Map<String, dynamic>>> getLembretesConsultor(
   }) async {
     final response = await http
         .put(
-          Uri.parse(
-            '$baseUrl/lembretes/consultor/$userId/$lembreteId',
-          ),
+          Uri.parse('$baseUrl/lembretes/consultor/$userId/$lembreteId'),
           headers: _headers,
           body: jsonEncode(dados),
         )
@@ -1705,9 +1553,7 @@ Future<List<Map<String, dynamic>>> getLembretesConsultor(
   }) async {
     final response = await http
         .put(
-          Uri.parse(
-            '$baseUrl/lembretes/consultor/$userId/$lembreteId/aceitar',
-          ),
+          Uri.parse('$baseUrl/lembretes/consultor/$userId/$lembreteId/aceitar'),
           headers: _headers,
         )
         .timeout(const Duration(seconds: 30));
@@ -1727,13 +1573,9 @@ Future<List<Map<String, dynamic>>> getLembretesConsultor(
   }) async {
     final response = await http
         .put(
-          Uri.parse(
-            '$baseUrl/lembretes/consultor/$userId/$lembreteId/recusar',
-          ),
+          Uri.parse('$baseUrl/lembretes/consultor/$userId/$lembreteId/recusar'),
           headers: _headers,
-          body: jsonEncode({
-            'motivo': motivo.trim(),
-          }),
+          body: jsonEncode({'motivo': motivo.trim()}),
         )
         .timeout(const Duration(seconds: 30));
 
@@ -1772,9 +1614,7 @@ Future<List<Map<String, dynamic>>> getLembretesConsultor(
   }) async {
     final response = await http
         .delete(
-          Uri.parse(
-            '$baseUrl/lembretes/consultor/$userId/$lembreteId',
-          ),
+          Uri.parse('$baseUrl/lembretes/consultor/$userId/$lembreteId'),
           headers: _headers,
         )
         .timeout(const Duration(seconds: 30));
@@ -1798,21 +1638,11 @@ Future<List<Map<String, dynamic>>> getLembretesConsultor(
           .patch(
             url,
             headers: _headers,
-            body: jsonEncode({
-              'id_utilizador':
-                  userId,
-            }),
+            body: jsonEncode({'id_utilizador': userId}),
           )
-          .timeout(
-            const Duration(
-              seconds: 30,
-            ),
-          );
+          .timeout(const Duration(seconds: 30));
 
-      if (
-        response.statusCode == 200 ||
-        response.statusCode == 204
-      ) {
+      if (response.statusCode == 200 || response.statusCode == 204) {
         return;
       }
 
@@ -1821,70 +1651,44 @@ Future<List<Map<String, dynamic>>> getLembretesConsultor(
           'a notificação como lida.';
 
       try {
-        final dynamic decoded =
-            jsonDecode(
-          response.body,
-        );
+        final dynamic decoded = jsonDecode(response.body);
 
         if (decoded is Map) {
           mensagem =
-              decoded['error']
-                      ?.toString() ??
-                  decoded['message']
-                      ?.toString() ??
-                  mensagem;
+              decoded['error']?.toString() ??
+              decoded['message']?.toString() ??
+              mensagem;
         }
       } catch (_) {
-        if (
-          response.body
-              .trim()
-              .isNotEmpty
-        ) {
+        if (response.body.trim().isNotEmpty) {
           mensagem =
               'Erro ${response.statusCode}: '
               '${response.body}';
         }
       }
 
-      throw Exception(
-        mensagem,
-      );
+      throw Exception(mensagem);
     } on TimeoutException {
       throw Exception(
         'O servidor demorou demasiado '
         'tempo a responder.',
       );
     } on SocketException {
-      throw Exception(
-        'Sem ligação ao servidor.',
-      );
+      throw Exception('Sem ligação ao servidor.');
     }
   }
 
-  Future<void>
-      marcarTodasNotificacoesComoLidas(
-    int userId,
-  ) async {
+  Future<void> marcarTodasNotificacoesComoLidas(int userId) async {
     final Uri url = Uri.parse(
       '$baseUrl/notificacoes/'
       'utilizador/$userId/lidas',
     );
 
     final response = await http
-        .patch(
-          url,
-          headers: _headers,
-        )
-        .timeout(
-          const Duration(
-            seconds: 30,
-          ),
-        );
+        .patch(url, headers: _headers)
+        .timeout(const Duration(seconds: 30));
 
-    if (
-      response.statusCode == 200 ||
-      response.statusCode == 204
-    ) {
+    if (response.statusCode == 200 || response.statusCode == 204) {
       return;
     }
 
@@ -1893,51 +1697,33 @@ Future<List<Map<String, dynamic>>> getLembretesConsultor(
         'as notificações como lidas.';
 
     try {
-      final dynamic decoded =
-          jsonDecode(
-        response.body,
-      );
+      final dynamic decoded = jsonDecode(response.body);
 
       if (decoded is Map) {
         mensagem =
-            decoded['error']
-                    ?.toString() ??
-                decoded['message']
-                    ?.toString() ??
-                mensagem;
+            decoded['error']?.toString() ??
+            decoded['message']?.toString() ??
+            mensagem;
       }
     } catch (_) {
-      if (
-        response.body
-            .trim()
-            .isNotEmpty
-      ) {
+      if (response.body.trim().isNotEmpty) {
         mensagem =
             'Erro ${response.statusCode}: '
             '${response.body}';
       }
     }
 
-    throw Exception(
-      mensagem,
-    );
+    throw Exception(mensagem);
   }
 
   Future<List<Map<String, dynamic>>> getCertificadosDisponiveis(
     int userId,
   ) async {
-    final url = Uri.parse(
-      '$baseUrl/certificados/disponiveis/$userId',
-    );
+    final url = Uri.parse('$baseUrl/certificados/disponiveis/$userId');
 
     final response = await http
-        .get(
-          url,
-          headers: _headers,
-        )
-        .timeout(
-          const Duration(seconds: 30),
-        );
+        .get(url, headers: _headers)
+        .timeout(const Duration(seconds: 30));
 
     if (response.statusCode != 200) {
       String mensagem =
@@ -1947,7 +1733,8 @@ Future<List<Map<String, dynamic>>> getLembretesConsultor(
         final decoded = jsonDecode(response.body);
 
         if (decoded is Map) {
-          mensagem = decoded['error']?.toString() ??
+          mensagem =
+              decoded['error']?.toString() ??
               decoded['message']?.toString() ??
               mensagem;
         }
@@ -1989,34 +1776,25 @@ Future<List<Map<String, dynamic>>> getLembretesConsultor(
     required int idHistorico,
     required int idUtilizador,
   }) async {
-    final url = Uri.parse(
-      '$baseUrl/certificados/$idHistorico/$idUtilizador',
-    );
+    final url = Uri.parse('$baseUrl/certificados/$idHistorico/$idUtilizador');
 
     final response = await http
-        .get(
-          url,
-          headers: _headers,
-        )
-        .timeout(
-          const Duration(seconds: 30),
-        );
+        .get(url, headers: _headers)
+        .timeout(const Duration(seconds: 30));
 
     if (response.statusCode == 404) {
-      throw Exception(
-        'Certificado não encontrado ou ainda não aprovado.',
-      );
+      throw Exception('Certificado não encontrado ou ainda não aprovado.');
     }
 
     if (response.statusCode != 200) {
-      String mensagem =
-          'Não foi possível carregar os dados do certificado.';
+      String mensagem = 'Não foi possível carregar os dados do certificado.';
 
       try {
         final decoded = jsonDecode(response.body);
 
         if (decoded is Map) {
-          mensagem = decoded['error']?.toString() ??
+          mensagem =
+              decoded['error']?.toString() ??
               decoded['message']?.toString() ??
               mensagem;
         }
@@ -2036,25 +1814,15 @@ Future<List<Map<String, dynamic>>> getLembretesConsultor(
     );
   }
 
-  Future<Map<String, dynamic>>
-    getUtilizadorPorId(
-    int idUtilizador,
-  ) async {
+  Future<Map<String, dynamic>> getUtilizadorPorId(int idUtilizador) async {
     final Uri url = Uri.parse(
       '$baseUrl/utilizadores/'
       '$idUtilizador',
     );
 
     final response = await http
-        .get(
-          url,
-          headers: _headers,
-        )
-        .timeout(
-          const Duration(
-            seconds: 30,
-          ),
-        );
+        .get(url, headers: _headers)
+        .timeout(const Duration(seconds: 30));
 
     if (response.statusCode != 200) {
       throw Exception(
@@ -2065,8 +1833,7 @@ Future<List<Map<String, dynamic>>> getLembretesConsultor(
       );
     }
 
-    final dynamic decoded =
-        jsonDecode(response.body);
+    final dynamic decoded = jsonDecode(response.body);
 
     if (decoded is! Map) {
       throw const FormatException(
@@ -2075,10 +1842,7 @@ Future<List<Map<String, dynamic>>> getLembretesConsultor(
       );
     }
 
-    final Map<String, dynamic> mapa =
-        Map<String, dynamic>.from(
-      decoded,
-    );
+    final Map<String, dynamic> mapa = Map<String, dynamic>.from(decoded);
 
     /*
     * Aceita todos estes formatos:
@@ -2088,21 +1852,12 @@ Future<List<Map<String, dynamic>>> getLembretesConsultor(
     * { user: {...} }
     * { data: {...} }
     */
-    for (final String chave in [
-      'utilizador',
-      'user',
-      'dados',
-      'data',
-    ]) {
+    for (final String chave in ['utilizador', 'user', 'dados', 'data']) {
       if (mapa[chave] is Map) {
-        return Map<String, dynamic>.from(
-          mapa[chave],
-        );
+        return Map<String, dynamic>.from(mapa[chave]);
       }
     }
 
     return mapa;
   }
-
-
 }

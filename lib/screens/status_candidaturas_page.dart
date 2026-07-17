@@ -244,14 +244,35 @@ class _StatusCandidaturasPageState extends State<StatusCandidaturasPage> {
         id_utilizador INTEGER,
         id_candidatura_pedido INTEGER,
         id_badge_modelo INTEGER,
+        nome_badge TEXT,
         estado_geral TEXT,
         fase_geral TEXT,
         estado_final TEXT,
         estado_candidatura_pedido TEXT,
         data_submissao TEXT,
+        total_evidencias INTEGER,
+        evidencias_decididas_tm INTEGER,
+        evidencias_decididas_sll INTEGER,
+        comentarios_tm TEXT,
+        comentarios_sll TEXT,
+        motivo_estado_final TEXT,
         PRIMARY KEY (id_utilizador, id_candidatura_pedido, id_badge_modelo)
       )
     ''');
+
+    for (final alter in [
+      'ALTER TABLE cache_status_candidaturas ADD COLUMN nome_badge TEXT',
+      'ALTER TABLE cache_status_candidaturas ADD COLUMN total_evidencias INTEGER',
+      'ALTER TABLE cache_status_candidaturas ADD COLUMN evidencias_decididas_tm INTEGER',
+      'ALTER TABLE cache_status_candidaturas ADD COLUMN evidencias_decididas_sll INTEGER',
+      'ALTER TABLE cache_status_candidaturas ADD COLUMN comentarios_tm TEXT',
+      'ALTER TABLE cache_status_candidaturas ADD COLUMN comentarios_sll TEXT',
+      'ALTER TABLE cache_status_candidaturas ADD COLUMN motivo_estado_final TEXT',
+    ]) {
+      try {
+        await db.execute(alter);
+      } catch (_) {}
+    }
   }
 
   Future<void> _guardarStatusCache(
@@ -283,6 +304,7 @@ class _StatusCandidaturasPageState extends State<StatusCandidaturasPage> {
         'id_utilizador': userId,
         'id_candidatura_pedido': idCandidatura,
         'id_badge_modelo': idBadge,
+        'nome_badge': c['nome_badge']?.toString() ?? c['nome']?.toString(),
         'estado_geral':
             c['estado_geral']?.toString() ?? c['estado_validacao']?.toString(),
         'fase_geral': c['fase_geral']?.toString(),
@@ -290,6 +312,15 @@ class _StatusCandidaturasPageState extends State<StatusCandidaturasPage> {
         'estado_candidatura_pedido': c['estado_candidatura_pedido']?.toString(),
         'data_submissao':
             c['data_submissao']?.toString() ?? c['data_submisao']?.toString(),
+        'total_evidencias':
+            int.tryParse((c['total_evidencias'] ?? 0).toString()) ?? 0,
+        'evidencias_decididas_tm':
+            int.tryParse((c['evidencias_decididas_tm'] ?? 0).toString()) ?? 0,
+        'evidencias_decididas_sll':
+            int.tryParse((c['evidencias_decididas_sll'] ?? 0).toString()) ?? 0,
+        'comentarios_tm': c['comentarios_tm']?.toString(),
+        'comentarios_sll': c['comentarios_sll']?.toString(),
+        'motivo_estado_final': c['motivo_estado_final']?.toString(),
       }, conflictAlgorithm: ConflictAlgorithm.replace);
     }
   }
@@ -319,12 +350,21 @@ class _StatusCandidaturasPageState extends State<StatusCandidaturasPage> {
           'id_candidatura_pedido': row['id_candidatura_pedido'],
           'id_badge_modelo': row['id_badge_modelo'],
           'id': row['id_badge_modelo'],
-          'nome_badge': nomesBadge[idBadge] ?? 'Badge #$idBadge',
+          'nome_badge':
+              row['nome_badge']?.toString() ??
+              nomesBadge[idBadge] ??
+              'Badge #$idBadge',
           'estado_geral': row['estado_geral'],
           'fase_geral': row['fase_geral'],
           'estado_final': row['estado_final'],
           'estado_candidatura_pedido': row['estado_candidatura_pedido'],
           'data_submissao': row['data_submissao'],
+          'total_evidencias': row['total_evidencias'],
+          'evidencias_decididas_tm': row['evidencias_decididas_tm'],
+          'evidencias_decididas_sll': row['evidencias_decididas_sll'],
+          'comentarios_tm': row['comentarios_tm'],
+          'comentarios_sll': row['comentarios_sll'],
+          'motivo_estado_final': row['motivo_estado_final'],
           'offline': true,
         };
       }).toList();
@@ -489,7 +529,7 @@ class _StatusCandidaturasPageState extends State<StatusCandidaturasPage> {
                                 candidatura: item,
                               ),
                             ),
-                          );
+                          ).then((_) => _carregar());
                         },
                         child: Container(
                           padding: const EdgeInsets.all(14),
@@ -652,7 +692,7 @@ class _StatusCandidaturasPageState extends State<StatusCandidaturasPage> {
                                               candidatura: item,
                                             ),
                                       ),
-                                    );
+                                    ).then((_) => _carregar());
                                   },
                                   style: TextButton.styleFrom(
                                     foregroundColor: const Color(0xFF4470AF),
