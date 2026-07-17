@@ -538,7 +538,9 @@ class _StatusCandidaturasPageState extends State<StatusCandidaturasPage> {
                                   const SizedBox(width: 10),
                                   Icon(
                                     Icons.chevron_right,
-                                    color: cores['texto'] ?? _azul,
+                                    color:
+                                        cores['texto'] ??
+                                        const Color(0xFF4470AF),
                                     size: 22,
                                   ),
                                 ],
