@@ -67,9 +67,65 @@ class Basededados {
 
     return await openDatabase(
       path,
-      version: 1,        // Versão do esquema — usada para migrações futuras
+      version: 2,        // Versão do esquema — usada para migrações futuras
       onCreate: _onCreate, // Callback chamado apenas na primeira instalação
+      onUpgrade: _onUpgrade,
+      onOpen: _onOpen,
     );
+  }
+
+  Future<void> _onUpgrade(
+    Database db,
+    int oldVersion,
+    int newVersion,
+  ) async {
+    if (oldVersion < 2) {
+      await _adicionarColunaSeNecessario(
+        db,
+        tabela: 'utilizador',
+        coluna: 'password_hash',
+        definicao: 'TEXT',
+      );
+
+      await _adicionarColunaSeNecessario(
+        db,
+        tabela: 'notificacoes',
+        coluna: 'id_utilizador',
+        definicao: 'INTEGER',
+      );
+    }
+  }
+
+  Future<void> _onOpen(Database db) async {
+    await _adicionarColunaSeNecessario(
+      db,
+      tabela: 'utilizador',
+      coluna: 'password_hash',
+      definicao: 'TEXT',
+    );
+
+    await _adicionarColunaSeNecessario(
+      db,
+      tabela: 'notificacoes',
+      coluna: 'id_utilizador',
+      definicao: 'INTEGER',
+    );
+  }
+
+  Future<void> _adicionarColunaSeNecessario(
+    Database db, {
+    required String tabela,
+    required String coluna,
+    required String definicao,
+  }) async {
+    final colunas = await db.rawQuery('PRAGMA table_info(' + tabela + ')');
+    final existe = colunas.any((item) => item['name']?.toString() == coluna);
+
+    if (!existe) {
+      await db.execute(
+        'ALTER TABLE ' + tabela + ' ADD COLUMN ' + coluna + ' ' + definicao,
+      );
+    }
   }
 
 
@@ -101,6 +157,7 @@ class Basededados {
         ultimo_login TEXT,
         aceitou_termos INTEGER DEFAULT 0,
         password TEXT,
+        password_hash TEXT,
         email_softinsa TEXT,
         token_verificacao TEXT,
         email_verificado INTEGER DEFAULT 0
@@ -408,6 +465,7 @@ class Basededados {
     await db.execute('''
       CREATE TABLE notificacoes (
         id_notificacoes INTEGER PRIMARY KEY,
+        id_utilizador INTEGER,
         tipo_notificacao TEXT,
         conteudo TEXT,
         data_envio TEXT,

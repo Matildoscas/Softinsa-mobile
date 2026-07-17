@@ -480,7 +480,7 @@ class _BadgeDetalheState extends State<BadgeDetalhe>
   //
   // Muda o nível selecionado e procura os requisitos:
   // - Primeiro na lista recebida juntamente com o badge;
-  // - Caso não exista, na tabela local badge_requisito.
+  // - Caso não exista, na tabela local requisitos.
   // =========================================================================
   Future<void> atualizarListaRequisitos(String letraNivel) async {
     List<Map<String, dynamic>> reqs = [];
@@ -493,8 +493,8 @@ class _BadgeDetalheState extends State<BadgeDetalhe>
           .where((r) => r['id_nivel']?.toString() == alvoNivelId.toString() || rawRequisitos.length <= 5)
           .toList();
     } else {
-      // CORREÇÃO DE TABELA: Buscando da tabela 'badge_requisito' mapeada no SQLite
-      final todosReqsLocais = await _dbLocal.listarTabela('badge_requisito');
+      // Lê requisitos da tabela local oficial para fallback offline.
+      final todosReqsLocais = await _dbLocal.listarTabela('requisitos');
       reqs = todosReqsLocais
           .where((r) => r['id_badge_modelo'].toString() == widget.badgeId.toString())
           .map((r) => {

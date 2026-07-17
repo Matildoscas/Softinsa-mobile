@@ -411,7 +411,7 @@ class UtilizadorNotifier extends StateNotifier<UtilizadorState> {
           'email': user['email'] ?? '',
           'contacto': user['contacto'] ?? '',
           'estado_conta': user['estado_conta'] ?? 'Ativo',
-          'password': user['password'] ?? '',
+          'password_hash': user['password_hash']?.toString() ?? '',
           'aceitou_termos': (user['aceitou_termos'] == true ||
                   user['aceitou_termos'] == 1 ||
                   user['aceitar_termos'] == 1)

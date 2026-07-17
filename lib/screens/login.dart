@@ -16,7 +16,9 @@
 // ============================================================================
 
 import 'package:flutter/material.dart';
+import 'dart:async';
 import 'dart:convert';
+import 'package:crypto/crypto.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 // Adicionado para controlo do estado local
 import '../services/api_service.dart';
@@ -24,6 +26,7 @@ import '../database/basededados.dart'; // Import central do SQFlite para login o
 import 'register.dart';
 import 'pagina_principal.dart';
 import '../services/notification_service.dart';
+import '../services/offline_sync_service.dart';
 import 'package:firebase_analytics/firebase_analytics.dart';
 
 // Widget público utilizado nas rotas da aplicação.
@@ -64,6 +67,11 @@ class _LogPageState extends State<LogPage> {
   // Serviços de API e base de dados utilizados por este ecrã.
   final ApiService _apiService = ApiService();
   final Basededados _dbLocal = Basededados(); // Chave mestra do SQLite
+
+  String _gerarHashPassword(String email, String password) {
+    final payload = email.trim().toLowerCase() + '::' + password;
+    return sha256.convert(utf8.encode(payload)).toString();
+  }
 
   // =========================================================================
   // DISPOSE
@@ -170,7 +178,7 @@ class _LogPageState extends State<LogPage> {
           'nome_completo': user['nome_completo'] ?? '',
           'email': user['email'] ?? emailInput,
           'contacto': user['contacto']?.toString() ?? '',
-          'password': passwordInput,
+          'password_hash': _gerarHashPassword(emailInput, passwordInput),
         });
 
         // SharedPreferences mantém a sessão mesmo depois de fechar a app.
@@ -178,6 +186,10 @@ class _LogPageState extends State<LogPage> {
         // Guarda o JWT e o utilizador serializado em JSON.
         await prefs.setString('token', tokenRecebido);
         await prefs.setString('user', jsonEncode(user));
+
+        unawaited(
+          OfflineSyncService().sincronizarPendenciasUtilizador(idUtilizador),
+        );
 
         setState(() => _isLoading = false);
 
@@ -271,7 +283,14 @@ class _LogPageState extends State<LogPage> {
 
       if (contaLocalEncontrada.isNotEmpty) {
         // Valida a password contra a cópia local.
-        if (contaLocalEncontrada['password'] == passwordInput) {
+        final hashLocal = contaLocalEncontrada['password_hash']?.toString() ?? '';
+        final hashInput = _gerarHashPassword(emailInput, passwordInput);
+        final passwordLegado = contaLocalEncontrada['password']?.toString() ?? '';
+        final credencialValida =
+            (hashLocal.isNotEmpty && hashLocal == hashInput) ||
+            (hashLocal.isEmpty && passwordLegado.isNotEmpty && passwordLegado == passwordInput);
+
+        if (credencialValida) {
           
           // Cria o objeto esperado pela HomePage em modo offline.
           final Map<String, dynamic> userOffline = {
@@ -284,6 +303,12 @@ class _LogPageState extends State<LogPage> {
 
           final prefs = await SharedPreferences.getInstance();
           await prefs.setString('user', jsonEncode(userOffline));
+
+          unawaited(
+            OfflineSyncService().sincronizarPendenciasUtilizador(
+              int.tryParse(userOffline['id_utilizador']?.toString() ?? '') ?? 0,
+            ),
+          );
 
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(

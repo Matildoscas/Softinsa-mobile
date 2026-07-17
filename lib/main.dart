@@ -6,6 +6,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:async';
 import 'dart:convert';
 
 import 'screens/login.dart';
@@ -18,6 +19,7 @@ import 'package:firebase_analytics/firebase_analytics.dart';
 import 'screens/ativacao_admin.dart';
 import 'services/deep_link_service.dart';
 import 'services/api_service.dart' as api_service;
+import 'services/offline_sync_service.dart';
 
 // ============================================================
 // NAVIGATOR GLOBAL
@@ -146,8 +148,22 @@ class MyApp extends StatelessWidget {
         */
         api_service.token = authToken.trim();
 
-        return jsonDecode(userString)
+        final userData = jsonDecode(userString)
             as Map<String, dynamic>;
+
+        final idUtilizador = int.tryParse(
+          userData['id_utilizador']?.toString() ?? '',
+        );
+
+        if (idUtilizador != null && idUtilizador > 0) {
+          unawaited(
+            OfflineSyncService().sincronizarPendenciasUtilizador(
+              idUtilizador,
+            ),
+          );
+        }
+
+        return userData;
       } catch (e) {
         print(
           'Erro ao recuperar sessão guardada: $e',

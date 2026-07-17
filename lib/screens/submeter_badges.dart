@@ -15,10 +15,12 @@
 
 // Widgets visuais e navegação.
 import 'package:flutter/material.dart';
+import 'dart:async';
 // Plugin utilizado para selecionar ficheiros no dispositivo.
 import 'package:file_picker/file_picker.dart';
 // Serviço utilizado para carregar badges e enviar evidências.
 import '../services/api_service.dart';
+import '../services/offline_sync_service.dart';
 // SQLite utilizado para guardar candidaturas e evidências offline.
 import '../database/basededados.dart'; // Import central para salvar evidências offline
 import 'informacoes_badge.dart';
@@ -456,7 +458,7 @@ class _SubmeterBadgeState extends State<SubmeterBadge> {
 
       final localRequisitos =
           await _dbLocal.listarTabela(
-        'badge_requisito',
+        'requisitos',
       );
 
       todos = localModelos.map(
@@ -1125,6 +1127,10 @@ class _SubmeterBadgeState extends State<SubmeterBadge> {
       if (!mounted) {
         return;
       }
+
+      unawaited(
+        OfflineSyncService().sincronizarPendenciasUtilizador(widget.userId),
+      );
 
       ScaffoldMessenger.of(context)
           .showSnackBar(

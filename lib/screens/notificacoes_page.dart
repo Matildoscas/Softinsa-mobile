@@ -80,6 +80,8 @@ class _NotificacoesPageState
       });
     }
 
+    await _garantirColunaIdUtilizador();
+
     try {
       dataRaw =
           await _apiService
@@ -95,9 +97,12 @@ class _NotificacoesPageState
         'Modo offline nas notificações: $e',
       );
 
-      dataRaw =
-          await _dbLocal.listarTabela(
+      final db = await _dbLocal.database;
+      dataRaw = await db.query(
         'notificacoes',
+        where: 'id_utilizador = ?',
+        whereArgs: [widget.userId],
+        orderBy: 'data_envio DESC',
       );
     }
 
@@ -127,6 +132,9 @@ class _NotificacoesPageState
             DateTime.now()
                 .millisecondsSinceEpoch,
 
+        'id_utilizador':
+          n['id_utilizador'] ?? widget.userId,
+
         'tipo_notificacao':
             n['tipo_notificacao'] ??
             n['tipo'] ??
@@ -147,6 +155,18 @@ class _NotificacoesPageState
             'NÃO LIDA',
       },
     );
+  }
+
+  Future<void> _garantirColunaIdUtilizador() async {
+    final db = await _dbLocal.database;
+    final colunas = await db.rawQuery('PRAGMA table_info(notificacoes)');
+    final existe = colunas.any(
+      (coluna) => coluna['name']?.toString() == 'id_utilizador',
+    );
+
+    if (!existe) {
+      await db.execute('ALTER TABLE notificacoes ADD COLUMN id_utilizador INTEGER');
+    }
   }
 
   Future<void> _marcarLida(

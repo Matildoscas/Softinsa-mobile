@@ -865,16 +865,16 @@ class _CertificadoPageState
             await db.rawQuery(
           '''
           SELECT
-            id_badge_requisito,
+            id_requisitos AS id_badge_requisito,
             id_badge_modelo,
             nome_requisito,
             descricao_requisito
 
-          FROM badge_requisito
+          FROM requisitos
 
           WHERE id_badge_modelo = ?
 
-          ORDER BY id_badge_requisito ASC
+          ORDER BY id_requisitos ASC
           ''',
           [
             idBadge,
@@ -898,16 +898,16 @@ class _CertificadoPageState
               await db.rawQuery(
             '''
             SELECT
-              id_requisitos,
+              id_badge_requisito,
               nome_requisito,
               titulo,
               descricao_requisito
 
-            FROM requisitos
+            FROM badge_requisito
 
             WHERE id_badge_modelo = ?
 
-            ORDER BY id_requisitos ASC
+            ORDER BY id_badge_requisito ASC
             ''',
             [
               idBadge,
