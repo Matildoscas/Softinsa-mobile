@@ -207,70 +207,215 @@ class _HistoricoBadgesPageState extends State<HistoricoBadgesPage> {
     List<Map<String, dynamic>> pendentes = [];
 
     try {
-      conquistados =
-          await _apiService.getBadgesConquistados(userId);
+      /*
+      * Carrega também o catálogo porque a rota
+      * de badges conquistados pode não devolver
+      * a imagem do badge.
+      */
+      final resultados =
+          await Future.wait<
+              List<Map<String, dynamic>>>(
+        [
+          _apiService
+              .getBadgesConquistados(
+            userId,
+          ),
+
+          _apiService
+              .getCandidaturasPendentes(
+            userId,
+          ),
+
+          _apiService
+              .getTodosBadges(),
+        ],
+      );
+
+      final conquistadosApi =
+          resultados[0];
 
       pendentes =
-          await _apiService.getCandidaturasPendentes(userId);
+          resultados[1];
 
-      for (final b in conquistados) {
-        await _dbLocal.salvarRegisto(
-          'badge_atribuido',
-          {
-            'id_badge_atribuido':
-                b['id_badge_atribuido'] ??
-                b['id'] ??
-                0,
+      final catalogo =
+          resultados[2];
+
+      final Map<int, Map<String, dynamic>>
+          catalogoPorId = {};
+
+      for (final item in catalogo) {
+        final int idBadge =
+            int.tryParse(
+              (
+                item['id_badge_modelo'] ??
+                item['id'] ??
+                0
+              ).toString(),
+            ) ??
+            0;
+
+        if (idBadge > 0) {
+          catalogoPorId[idBadge] =
+              Map<String, dynamic>.from(
+            item,
+          );
+        }
+      }
+
+      /*
+      * Junta os dados conquistados aos dados
+      * do catálogo. O catálogo é utilizado como
+      * fallback para nome, descrição e imagem.
+      */
+      conquistados =
+          conquistadosApi.map(
+        (itemOriginal) {
+          final item =
+              Map<String, dynamic>.from(
+            itemOriginal,
+          );
+
+          final int idBadge =
+              int.tryParse(
+                (
+                  item['id_badge_modelo'] ??
+                  item['badge_id'] ??
+                  item['id'] ??
+                  0
+                ).toString(),
+              ) ??
+              0;
+
+          final catalogoBadge =
+              catalogoPorId[idBadge] ??
+              <String, dynamic>{};
+
+          final imagem =
+              item['imagem_url'] ??
+              item['imagem'] ??
+              item['url_imagem'] ??
+              item['imagem_badge'] ??
+              catalogoBadge['imagem_url'] ??
+              catalogoBadge['imagem'] ??
+              catalogoBadge['url_imagem'] ??
+              catalogoBadge['imagem_badge'];
+
+          final resultado =
+              <String, dynamic>{
+            ...catalogoBadge,
+            ...item,
+
+            'id':
+                idBadge,
 
             'id_badge_modelo':
-                b['id_badge_modelo'] ??
-                b['id'] ??
-                0,
+                idBadge,
 
             'nome':
-                b['nome'] ??
-                b['nome_badge'] ??
+                item['nome'] ??
+                item['nome_badge'] ??
+                catalogoBadge['nome'] ??
+                catalogoBadge['nome_badge'] ??
+                'Badge',
+
+            'nome_badge':
+                item['nome_badge'] ??
+                item['nome'] ??
+                catalogoBadge['nome_badge'] ??
+                catalogoBadge['nome'] ??
                 'Badge',
 
             'descricao':
-                b['descricao'] ??
-                b[
+                item['descricao'] ??
+                item[
+                  'descricao_badge_modelo'
+                ] ??
+                catalogoBadge['descricao'] ??
+                catalogoBadge[
                   'descricao_badge_modelo'
                 ] ??
                 '',
 
-            'pontos':
-                _converterInteiro(
-              b['pontos'],
-            ),
-
             'imagem':
-                b['imagem'] ??
-                b['imagem_url'],
+                imagem,
 
             'imagem_url':
-                b['imagem_url'] ??
-                b['imagem'],
+                imagem,
+          };
 
-            'data_atribuicao':
-                b['data_atribuicao']
-                    ?.toString(),
+          debugPrint(
+            '[HISTÓRICO] Badge: '
+            '${resultado['nome_badge']}',
+          );
 
-            'data_validade':
-                b['data_validade']
-                    ?.toString(),
+          debugPrint(
+            '[HISTÓRICO] Imagem: '
+            '${resultado['imagem_url']}',
+          );
 
-            'estado_badge_atribuido':
-                b[
-                  'estado_badge_atribuido'
-                ] ??
-                'Conquistado',
-          },
+          return resultado;
+        },
+      ).toList();
+
+      /*
+      * A cache nunca pode fazer perder os dados
+      * online. Por isso tem o seu próprio try.
+      *
+      * Guarda apenas as colunas que existem na
+      * tabela badge_atribuido.
+      */
+      try {
+        for (final b in conquistados) {
+          await _dbLocal.salvarRegisto(
+            'badge_atribuido',
+            {
+              'id_badge_atribuido':
+                  b[
+                    'id_badge_atribuido'
+                  ] ??
+                  b['id'] ??
+                  0,
+
+              'id_badge_modelo':
+                  b[
+                    'id_badge_modelo'
+                  ] ??
+                  b['id'] ??
+                  0,
+
+              'data_atribuicao':
+                  b['data_atribuicao']
+                      ?.toString(),
+
+              'data_validade':
+                  b['data_validade']
+                      ?.toString(),
+
+              'estado_badge_atribuido':
+                  b[
+                    'estado_badge_atribuido'
+                  ] ??
+                  'Conquistado',
+            },
+          );
+        }
+      } catch (erroCache) {
+        /*
+        * Uma falha na cache não elimina os
+        * badges recebidos pela API.
+        */
+        debugPrint(
+          '[HISTÓRICO] Não foi possível '
+          'atualizar a cache: $erroCache',
         );
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
       debugPrint(
-        'Modo Offline Ativo no Histórico: $e',
+        'Modo offline no Histórico: $e',
+      );
+
+      debugPrint(
+        stackTrace.toString(),
       );
 
       final localAtribuidos =
@@ -278,25 +423,99 @@ class _HistoricoBadgesPageState extends State<HistoricoBadgesPage> {
         'badge_atribuido',
       );
 
+      final localModelos =
+          await _dbLocal.listarTabela(
+        'badge_modelo',
+      );
+
+      final Map<int, Map<String, dynamic>>
+          modelosPorId = {};
+
+      for (final modelo in localModelos) {
+        final int id =
+            int.tryParse(
+              modelo[
+                'id_badge_modelo'
+              ]?.toString() ??
+              '',
+            ) ??
+            0;
+
+        if (id > 0) {
+          modelosPorId[id] =
+              Map<String, dynamic>.from(
+            modelo,
+          );
+        }
+      }
+
       conquistados =
           localAtribuidos.map(
-        (e) => <String, dynamic>{
-          'id': e['id_badge_modelo'],
-          'id_badge_modelo': e['id_badge_modelo'],
-          'nome': e['nome'] ?? 'Badge Conquistado',
-          'descricao':
-              e['descricao'] ??
-              'Dados guardados localmente.',
-          'pontos': e['pontos'] ?? 0,
-          'data_atribuicao': e['data_atribuicao'],
-          'data_validade': e['data_validade'],
-          'imagem': e['imagem'],
-          'imagem_url': e['imagem_url'],
-          'ganhou_bonus': e['ganhou_bonus'] ?? false,
-          'premio_atribuido':
-              e['premio_atribuido'] ?? false,
-          'pontos_extra': e['pontos_extra'] ?? 0,
-          'pontos_bonus': e['pontos_bonus'] ?? 0,
+        (atribuidoOriginal) {
+          final atribuido =
+              Map<String, dynamic>.from(
+            atribuidoOriginal,
+          );
+
+          final int idBadge =
+              int.tryParse(
+                atribuido[
+                  'id_badge_modelo'
+                ]?.toString() ??
+                '',
+              ) ??
+              0;
+
+          final modelo =
+              modelosPorId[idBadge] ??
+              <String, dynamic>{};
+
+          return <String, dynamic>{
+            ...modelo,
+            ...atribuido,
+
+            'id':
+                idBadge,
+
+            'id_badge_modelo':
+                idBadge,
+
+            'nome':
+                modelo['nome_badge'] ??
+                'Badge conquistado',
+
+            'nome_badge':
+                modelo['nome_badge'] ??
+                'Badge conquistado',
+
+            'descricao':
+                modelo[
+                  'descricao_badge_modelo'
+                ] ??
+                '',
+
+            'pontos':
+                modelo['pontos'] ??
+                0,
+
+            'imagem':
+                modelo['imagem_url'] ??
+                modelo['imagem'],
+
+            'imagem_url':
+                modelo['imagem_url'] ??
+                modelo['imagem'],
+
+            'data_atribuicao':
+                atribuido[
+                  'data_atribuicao'
+                ],
+
+            'data_validade':
+                atribuido[
+                  'data_validade'
+                ],
+          };
         },
       ).toList();
 
@@ -1318,10 +1537,11 @@ class BadgeImage extends StatelessWidget {
         shape: BoxShape.circle,
       ),
       clipBehavior: Clip.antiAlias,
-      child: Transform.scale(
-        scale: zoom,
+
         child: Image.network(
           url,
+          width: size,
+          height: size,
           fit: BoxFit.contain,
           alignment: Alignment.center,
           filterQuality: FilterQuality.high,
@@ -1355,7 +1575,6 @@ class BadgeImage extends StatelessWidget {
             return _fallback();
           },
         ),
-      ),
     );
   }
 

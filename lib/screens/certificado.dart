@@ -327,7 +327,11 @@ class _CertificadoPageState
     );
 
     if (certificados.isEmpty) {
-      return null;
+      throw Exception(
+        'A API não devolveu certificados '
+        'aprovados para o utilizador '
+        '$_userId.',
+      );
     }
 
     certificados.sort(
@@ -703,13 +707,17 @@ class _CertificadoPageState
           u.id_utilizador = ?
 
           AND UPPER(
-            COALESCE(
-              ch.estado_final,
-              ''
+            TRIM(
+              COALESCE(
+                ch.estado_final,
+                ''
+              )
             )
           ) IN (
             'APROVADA',
-            'APROVADO'
+            'APROVADO',
+            'APROVADA_FINAL',
+            'APROVADO_FINAL'
           )
 
           AND (
@@ -801,13 +809,17 @@ class _CertificadoPageState
             u.id_utilizador = ?
 
             AND UPPER(
-              COALESCE(
-                ch.estado_final,
-                ''
+              TRIM(
+                COALESCE(
+                  ch.estado_final,
+                  ''
+                )
               )
             ) IN (
               'APROVADA',
-              'APROVADO'
+              'APROVADO',
+              'APROVADA_FINAL',
+              'APROVADO_FINAL'
             )
 
             AND (
