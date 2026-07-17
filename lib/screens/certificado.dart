@@ -18,6 +18,7 @@ import 'package:flutter/material.dart';
 import '../database/basededados.dart';
 import '../services/api_service.dart';
 import 'certificado_page.dart';
+import '../config/app_config.dart';
 
 class CertificadoPage extends StatefulWidget {
   final Map<String, dynamic> userData;
@@ -319,279 +320,190 @@ class _CertificadoPageState
   // =========================================================================
 
   Future<Map<String, dynamic>?>
-      _carregarOnline() async {
+    _carregarOnline() async {
+  final user =
+      _userDataPlano;
+
+  int idHistorico =
+      _converterInteiro(
+    _primeiroValor([
+      user[
+        'id_candidatura_historico'
+      ],
+      user['id_historico'],
+    ]),
+  );
+
+  final int idBadge =
+      _converterInteiro(
+    _primeiroValor([
+      user['id_badge_modelo'],
+      user['badge_id'],
+      user['id_badge'],
+    ]),
+  );
+
+  Map<String, dynamic>
+      certificadoSelecionado =
+      <String, dynamic>{};
+
+  /*
+   * Quando a navegação ainda não trouxe
+   * o histórico, procura-o pela lista.
+   */
+  if (idHistorico <= 0) {
     final certificados =
         await _apiService
             .getCertificadosDisponiveis(
       _userId,
     );
 
+    debugPrint(
+      '[CERTIFICADO] Total disponível: '
+      '${certificados.length}',
+    );
+
+    for (final item in certificados) {
+      debugPrint(
+        '[CERTIFICADO] Disponível: '
+        'histórico=${_idHistoricoDe(item)}, '
+        'badge=${_idBadgeDe(item)}, '
+        'nome=${item['nome_badge']}',
+      );
+    }
+
     if (certificados.isEmpty) {
       throw Exception(
         'A API não devolveu certificados '
-        'aprovados para o utilizador '
-        '$_userId.',
+        'para o utilizador $_userId.',
       );
     }
 
-    certificados.sort(
-      (
-        a,
-        b,
-      ) =>
-          _dataOrdenacao(b)
-              .compareTo(
-        _dataOrdenacao(a),
-      ),
+    certificadoSelecionado =
+        certificados.firstWhere(
+      (item) =>
+          _idBadgeDe(item) ==
+          idBadge,
+
+      orElse: () =>
+          <String, dynamic>{},
     );
-
-    final user =
-        _userDataPlano;
-
-    final historicoPretendido =
-        _converterInteiro(
-      _primeiroValor([
-        user[
-          'id_candidatura_historico'
-        ],
-        user['id_historico'],
-      ]),
-    );
-
-    final badgePretendido =
-        _converterInteiro(
-      _primeiroValor([
-        user['id_badge_modelo'],
-        user['id_badge'],
-        user['badge_id'],
-      ]),
-    );
-
-    debugPrint(
-      '========== SELEÇÃO DO CERTIFICADO ==========',
-    );
-
-    debugPrint(
-      'Utilizador: $_userId',
-    );
-
-    debugPrint(
-      'Histórico pretendido: '
-      '$historicoPretendido',
-    );
-
-    debugPrint(
-      'Badge pretendido: '
-      '$badgePretendido',
-    );
-
-    for (
-      final certificado
-      in certificados
-    ) {
-      debugPrint(
-        'Disponível: '
-        'histórico=${_idHistoricoDe(certificado)}, '
-        'badge=${_idBadgeDe(certificado)}, '
-        'nível=${certificado['id_nivel']}, '
-        'nome=${certificado['nome_badge']}',
-      );
-    }
-
-    Map<String, dynamic>?
-        certificadoSelecionado;
-
-    /*
-     * 1. O histórico é o identificador
-     * mais exato do certificado.
-     */
-    if (historicoPretendido > 0) {
-      for (
-        final certificado
-        in certificados
-      ) {
-        if (
-          _idHistoricoDe(
-            certificado,
-          ) ==
-          historicoPretendido
-        ) {
-          certificadoSelecionado =
-              Map<String, dynamic>.from(
-            certificado,
-          );
-
-          break;
-        }
-      }
-    }
-
-    /*
-     * 2. Se não foi encontrado pelo
-     * histórico, procura pelo ID exato
-     * do badge.
-     *
-     * Não é comparado o nível porque o
-     * ID do badge já identifica o badge
-     * concreto e algumas respostas da
-     * API não contêm id_nivel.
-     */
-    if (
-      certificadoSelecionado == null &&
-      badgePretendido > 0
-    ) {
-      for (
-        final certificado
-        in certificados
-      ) {
-        if (
-          _idBadgeDe(
-            certificado,
-          ) ==
-          badgePretendido
-        ) {
-          certificadoSelecionado =
-              Map<String, dynamic>.from(
-            certificado,
-          );
-
-          break;
-        }
-      }
-    }
-
-    /*
-     * 3. Apenas abre o mais recente
-     * quando a navegação não indicou
-     * badge nem histórico.
-     */
-    if (
-      certificadoSelecionado == null &&
-      historicoPretendido <= 0 &&
-      badgePretendido <= 0
-    ) {
-      certificadoSelecionado =
-          Map<String, dynamic>.from(
-        certificados.first,
-      );
-    }
 
     if (
-      certificadoSelecionado ==
-      null
+      certificadoSelecionado
+          .isEmpty
     ) {
       throw Exception(
-        'Não foi encontrado um '
-        'certificado aprovado para o '
-        'badge $badgePretendido.',
+        'Não existe certificado para '
+        'o badge $idBadge.',
       );
     }
 
-    final idHistorico =
+    idHistorico =
         _idHistoricoDe(
       certificadoSelecionado,
     );
+  } else {
+    certificadoSelecionado = {
+      ...user,
 
-    if (idHistorico <= 0) {
-      throw Exception(
-        'O certificado selecionado '
-        'não possui um ID de histórico '
-        'válido.',
-      );
-    }
-
-    debugPrint(
-      'Certificado selecionado: '
-      'histórico=$idHistorico, '
-      'badge=${_idBadgeDe(certificadoSelecionado)}, '
-      'nome=${certificadoSelecionado['nome_badge']}',
-    );
-
-    debugPrint(
-      '=============================================',
-    );
-
-    final respostaCertificado =
-        await _apiService
-            .getCertificado(
-      idHistorico:
+      'id_candidatura_historico':
           idHistorico,
 
-      idUtilizador:
-          _userId,
-    );
+      'id_badge_modelo':
+          idBadge,
+    };
+  }
 
-    final detalhes =
-        _achatarResposta(
-      Map<String, dynamic>.from(
-        respostaCertificado,
-      ),
-    );
-
-    Map<String, dynamic>
-        dadosUtilizador = {};
-
-    try {
-      final respostaUtilizador =
-          await _apiService
-              .getUtilizadorPorId(
-        _userId,
-      );
-
-      dadosUtilizador =
-          _achatarResposta(
-        Map<String, dynamic>.from(
-          respostaUtilizador,
-        ),
-      );
-    } catch (e) {
-      debugPrint(
-        '[CERTIFICADO] Utilizador '
-        'indisponível: $e',
-      );
-    }
-
-    Map<String, dynamic>
-        perfil = {};
-
-    try {
-      final respostaDashboard =
-          await _apiService
-              .getDashboard(
-        _userId,
-      );
-
-      perfil =
-          _achatarResposta(
-        Map<String, dynamic>.from(
-          respostaDashboard,
-        ),
-      );
-    } catch (e) {
-      debugPrint(
-        '[CERTIFICADO] Dashboard '
-        'indisponível: $e',
-      );
-    }
-
-    return _normalizarDados(
-      certificado: {
-        ...detalhes,
-        ...dadosUtilizador,
-      },
-
-      disponivel:
-          certificadoSelecionado,
-
-      perfil: {
-        ...perfil,
-        ...dadosUtilizador,
-      },
-
-      local:
-          const <String, dynamic>{},
+  if (idHistorico <= 0) {
+    throw Exception(
+      'O certificado não possui '
+      'um histórico válido.',
     );
   }
+
+  debugPrint(
+    '[CERTIFICADO] Obter detalhe: '
+    'histórico=$idHistorico, '
+    'utilizador=$_userId, '
+    'badge=$idBadge',
+  );
+
+  final respostaCertificado =
+      await _apiService
+          .getCertificado(
+    idHistorico:
+        idHistorico,
+
+    idUtilizador:
+        _userId,
+  );
+
+  final detalhes =
+      _achatarResposta(
+    Map<String, dynamic>.from(
+      respostaCertificado,
+    ),
+  );
+
+  Map<String, dynamic>
+      dadosUtilizador = {};
+
+  try {
+    dadosUtilizador =
+        _achatarResposta(
+      await _apiService
+          .getUtilizadorPorId(
+        _userId,
+      ),
+    );
+  } catch (e) {
+    debugPrint(
+      '[CERTIFICADO] Utilizador '
+      'indisponível: $e',
+    );
+  }
+
+  Map<String, dynamic>
+      perfil = {};
+
+  try {
+    perfil =
+        _achatarResposta(
+      await _apiService
+          .getDashboard(
+        _userId,
+      ),
+    );
+  } catch (e) {
+    debugPrint(
+      '[CERTIFICADO] Dashboard '
+      'indisponível: $e',
+    );
+  }
+
+  return _normalizarDados(
+    /*
+     * Os detalhes do certificado devem
+     * sobrepor os dados do utilizador.
+     */
+    certificado: {
+      ...dadosUtilizador,
+      ...detalhes,
+    },
+
+    disponivel:
+        certificadoSelecionado,
+
+    perfil: {
+      ...dadosUtilizador,
+      ...perfil,
+    },
+
+    local:
+        const <String, dynamic>{},
+  );
+}
 
   // =========================================================================
   // SQLITE
@@ -1184,11 +1096,13 @@ class _CertificadoPageState
     ]);
 
     final url =
-        urlRecebido.isNotEmpty
-            ? urlRecebido
-            : 'softinsa.pt/badges/'
-                '$_userId/'
-                '${idBadge > 0 ? idBadge : 'badge'}';
+    urlRecebido.isNotEmpty
+        ? urlRecebido
+        : idHistorico > 0
+            ? '${AppConfig.webBaseUrl}'
+                '/verificar/'
+                '${Uri.encodeComponent(codigo)}'
+            : '';
 
     final requisitos =
         _primeiroValor([

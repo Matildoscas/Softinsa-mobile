@@ -22,6 +22,7 @@ import 'dart:io'; // File: leitura de ficheiros; SocketException: erros de liga�
 import 'dart:async'; // Future e TimeoutException para operações assíncronas.
 import 'package:http/http.dart'
     as http; // Biblioteca usada para GET, POST, PUT e multipart.
+import 'package:shared_preferences/shared_preferences.dart';
 
 // Token JWT da sessão atual.
 // É preenchido após um login bem-sucedido e usado pelo getter _headers.
@@ -53,6 +54,48 @@ class ApiService {
     return int.tryParse(valor.toString()) ??
         double.tryParse(valor.toString())?.round() ??
         0;
+  }
+
+  static Future<void> guardarToken(
+    String novoToken,
+  ) async {
+    token =
+        novoToken;
+
+    final prefs =
+        await SharedPreferences
+            .getInstance();
+
+    await prefs.setString(
+      'auth_token',
+      novoToken,
+    );
+  }
+
+  static Future<void>
+      restaurarToken() async {
+    final prefs =
+        await SharedPreferences
+            .getInstance();
+
+    token =
+        prefs.getString(
+      'auth_token',
+    );
+  }
+
+  static Future<void>
+      eliminarToken() async {
+    token =
+        null;
+
+    final prefs =
+        await SharedPreferences
+            .getInstance();
+
+    await prefs.remove(
+      'auth_token',
+    );
   }
 
   bool _converterBooleano(dynamic valor) {
@@ -355,7 +398,22 @@ class ApiService {
         print('Login HTTP aceite.');
 
         // Guarda globalmente o JWT para os pedidos autenticados seguintes.
-        token = data['token']?.toString();
+        final tokenRecebido =
+            data['token']?.toString() ??
+            '';
+
+        if (tokenRecebido.isEmpty) {
+          return {
+            'success': false,
+            'message':
+                'O servidor não devolveu '
+                'um token válido.',
+          };
+        }
+
+        await ApiService.guardarToken(
+          tokenRecebido,
+        );
 
         print('Token recebido: ${token != null && token!.isNotEmpty}');
         print('User recebido: ${data['user']}');
@@ -1260,8 +1318,29 @@ class ApiService {
       ) {
         badgesAgrupados[badgeId] = {
           'id':
-              linha['id'] ??
-              linha['id_badge_modelo'],
+            badgeId,
+
+          'id_candidatura_historico':
+              linha[
+                'id_candidatura_historico'
+              ] ??
+              linha['id_historico'],
+
+          'codigo_certificado':
+              linha['codigo_certificado'] ??
+              linha['codigo_verificacao'],
+
+          'codigo_verificacao':
+              linha['codigo_verificacao'] ??
+              linha['codigo_certificado'],
+
+          'url_verificacao':
+              linha['url_verificacao'] ??
+              linha['url_certificado'],
+
+          'url_certificado':
+              linha['url_certificado'] ??
+              linha['url_verificacao'],
 
           'id_badge_modelo':
               linha['id_badge_modelo'] ??

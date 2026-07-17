@@ -26,7 +26,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 // Variável global que pode guardar uma notificação/objeto associado
 // à disponibilidade de certificado para o badge atual.
-Map<String, dynamic>? certificadoDisponivel;
+//Map<String, dynamic>? certificadoDisponivel;
 
 // Converte o ID numérico do nível para a respetiva letra.
 String obterNivel(dynamic idNivel) {
@@ -180,6 +180,7 @@ class _BadgeDetalheState extends State<BadgeDetalhe>
   List<Map<String, dynamic>> requisitos = [];
   bool loading = true;
   bool descricaoExpandida = false;
+  Map<String, dynamic>? certificadoDisponivel;
 
   // Estado para controlar qual o nível que o utilizador está a inspecionar ativamente
   String nivelVisualizado = 'A';
@@ -712,11 +713,20 @@ class _BadgeDetalheState extends State<BadgeDetalhe>
     List<Map<String, dynamic>> statusCandidaturas = [];
 
     // Função local que aceita vários nomes possíveis para o ID do badge.
-    int getId(Map b) =>
-        int.tryParse(
-          (b['id'] ?? b['id_badge_modelo'] ?? b['id_badge'] ?? '').toString(),
-        ) ??
-        -1;
+    int getId(
+      Map<dynamic, dynamic> b,
+    ) {
+      return int.tryParse(
+            (
+              b['id_badge_modelo'] ??
+              b['badge_id'] ??
+              b['id_badge'] ??
+              b['id'] ??
+              ''
+            ).toString(),
+          ) ??
+          -1;
+    }
 
     try {
       // 1. Tenta carregar tudo em tempo real através do servidor (HTTP)
@@ -730,16 +740,51 @@ class _BadgeDetalheState extends State<BadgeDetalhe>
       await _guardarCatalogoLocal(todos);
 
       try {
-        final notificacoes = await _apiService.getNotifications(widget.userId);
-        certificadoDisponivel = notificacoes.firstWhere(
-          (c) => c['id_badge_modelo'].toString() == widget.badgeId.toString(),
-          orElse: () => <String, dynamic>{},
+        final certificados =
+            await _apiService
+                .getCertificadosDisponiveis(
+          widget.userId,
         );
-        if (certificadoDisponivel?.isEmpty ?? true) {
-          certificadoDisponivel = null;
-        }
-      } catch (_) {
-        certificadoDisponivel = null;
+
+        final encontrado =
+            certificados.firstWhere(
+          (certificado) {
+            final int idBadge =
+                int.tryParse(
+                  certificado[
+                    'id_badge_modelo'
+                  ]?.toString() ??
+                  '',
+                ) ??
+                0;
+
+            return idBadge ==
+                widget.badgeId;
+          },
+
+          orElse: () =>
+              <String, dynamic>{},
+        );
+
+        certificadoDisponivel =
+            encontrado.isNotEmpty
+                ? Map<String, dynamic>.from(
+                    encontrado,
+                  )
+                : null;
+
+        debugPrint(
+          '[BADGE DETALHE] Certificado: '
+          '$certificadoDisponivel',
+        );
+      } catch (e) {
+        certificadoDisponivel =
+            null;
+
+        debugPrint(
+          '[BADGE DETALHE] Erro ao '
+          'procurar certificado: $e',
+        );
       }
     } catch (e) {
       debugPrint(
@@ -1751,41 +1796,70 @@ class _BadgeDetalheState extends State<BadgeDetalhe>
                                       ),
                                     ),
                                     onPressed: () {
-                                      /*
-                                      * O histórico pertence normalmente
-                                      * aos dados da conquista/progresso,
-                                      * não ao modelo geral do badge.
-                                      */
                                       final int idHistorico =
                                           int.tryParse(
-                                            (progresso?['id_candidatura_historico'] ??
-                                                    progresso?['id_historico'] ??
-                                                    certificadoDisponivel?['id_candidatura_historico'] ??
-                                                    '')
-                                                .toString(),
+                                            (
+                                              certificadoDisponivel?[
+                                                'id_candidatura_historico'
+                                              ] ??
+                                              progresso?[
+                                                'id_candidatura_historico'
+                                              ] ??
+                                              progresso?[
+                                                'id_historico'
+                                              ] ??
+                                              ''
+                                            ).toString(),
                                           ) ??
                                           0;
+
+                                      if (idHistorico <= 0) {
+                                        ScaffoldMessenger
+                                            .of(context)
+                                            .showSnackBar(
+                                          const SnackBar(
+                                            content: Text(
+                                              'O histórico aprovado deste '
+                                              'certificado não foi encontrado.',
+                                            ),
+                                            backgroundColor:
+                                                Colors.orange,
+                                          ),
+                                        );
+
+                                        debugPrint(
+                                          '[CERTIFICADO] Badge: '
+                                          '${widget.badgeId}',
+                                        );
+
+                                        debugPrint(
+                                          '[CERTIFICADO] Dados disponíveis: '
+                                          '$certificadoDisponivel',
+                                        );
+
+                                        return;
+                                      }
 
                                       Navigator.push(
                                         context,
                                         MaterialPageRoute(
-                                          builder: (_) => CertificadoPage(
+                                          builder: (_) =>
+                                              CertificadoPage(
                                             userData: {
-                                              'id_utilizador': widget.userId,
+                                              'id_utilizador':
+                                                  widget.userId,
+
+                                              'id_badge_modelo':
+                                                  widget.badgeId,
+
+                                              'id_candidatura_historico':
+                                                  idHistorico,
 
                                               /*
-                                              * Identifica exatamente o
-                                              * badge selecionado.
+                                              * Mantém também os dados
+                                              * devolvidos pela lista.
                                               */
-                                              'id_badge_modelo': widget.badgeId,
-
-                                              /*
-                                              * Só envia o histórico quando
-                                              * ele realmente existe.
-                                              */
-                                              if (idHistorico > 0)
-                                                'id_candidatura_historico':
-                                                    idHistorico,
+                                              ...?certificadoDisponivel,
                                             },
                                           ),
                                         ),
