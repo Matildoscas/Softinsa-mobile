@@ -589,9 +589,11 @@ class _ProgressoPageState extends State<ProgressoPage> {
     final _MarcoConquista marcoParaCelebrar =
         novos.last;
 
-    final List<String> atualizados = <dynamic>{
+    final List<String> atualizados = <String>{
       ...jaCelebrados,
-      ...novos.map((marco) => marco.id),
+      ...novos.map(
+        (marco) => marco.id,
+      ),
     }.toList();
 
     await prefs.setStringList(
