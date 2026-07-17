@@ -589,10 +589,10 @@ class _ProgressoPageState extends State<ProgressoPage> {
     final _MarcoConquista marcoParaCelebrar =
         novos.last;
 
-    final List<String> atualizados = [
+    final List<String> atualizados = <dynamic>{
       ...jaCelebrados,
       ...novos.map((marco) => marco.id),
-    ].toSet().toList();
+    }.toList();
 
     await prefs.setStringList(
       chave,
@@ -937,7 +937,7 @@ class _ProgressoPageState extends State<ProgressoPage> {
     final int pontosTotalCalc =
     pontosCalculados;
 
-    int _idBadge(
+    int idBadge(
       Map<String, dynamic> badge,
     ) {
       return int.tryParse(
@@ -963,7 +963,7 @@ class _ProgressoPageState extends State<ProgressoPage> {
     int especiaisObtidos = 0;
 
     for (final badge in obtidosRaw) {
-      final int id = _idBadge(badge);
+      final int id = idBadge(badge);
 
       if (_isBadgeEspecial(badge)) {
         especiaisObtidos++;
@@ -1018,7 +1018,7 @@ class _ProgressoPageState extends State<ProgressoPage> {
     int especiaisTotal = 0;
 
     for (final badge in todosBadgesRaw) {
-      final int id = _idBadge(badge);
+      final int id = idBadge(badge);
 
       final bool especial =
           _isBadgeEspecial(badge) ||

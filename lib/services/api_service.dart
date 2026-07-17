@@ -114,7 +114,7 @@ class ApiService {
       return null;
     }
 
-    Map<String, dynamic>? _comoMapa(dynamic valor) {
+    Map<String, dynamic>? comoMapa(dynamic valor) {
       if (valor is Map<String, dynamic>) {
         return Map<String, dynamic>.from(valor);
       }
@@ -126,7 +126,7 @@ class ApiService {
       return null;
     }
 
-    List<Map<String, dynamic>> _comoListaMap(dynamic valor) {
+    List<Map<String, dynamic>> comoListaMap(dynamic valor) {
       if (valor is List) {
         return valor
             .whereType<Map>()
@@ -137,13 +137,13 @@ class ApiService {
       return const <Map<String, dynamic>>[];
     }
 
-    Map<String, dynamic>? _montar(Map<String, dynamic> origem) {
-      final candidaturaDireta = _comoMapa(origem['candidatura']);
-      final statusDireto = _comoMapa(origem['status']);
+    Map<String, dynamic>? montar(Map<String, dynamic> origem) {
+      final candidaturaDireta = comoMapa(origem['candidatura']);
+      final statusDireto = comoMapa(origem['status']);
       final candidatura = candidaturaDireta ?? statusDireto;
 
       if (candidatura != null) {
-        final requisitos = _comoListaMap(origem['requisitos']);
+        final requisitos = comoListaMap(origem['requisitos']);
         return {
           'candidatura': candidatura,
           'requisitos': requisitos,
@@ -156,25 +156,25 @@ class ApiService {
           origem.containsKey('estado_candidatura_pedido')) {
         return {
           'candidatura': Map<String, dynamic>.from(origem),
-          'requisitos': _comoListaMap(origem['requisitos']),
+          'requisitos': comoListaMap(origem['requisitos']),
         };
       }
 
       return null;
     }
 
-    final direto = _montar(decoded);
+    final direto = montar(decoded);
     if (direto != null) {
       return direto;
     }
 
     for (final chave in const ['data', 'resultado', 'result', 'detalhe']) {
-      final interno = _comoMapa(decoded[chave]);
+      final interno = comoMapa(decoded[chave]);
       if (interno == null) {
         continue;
       }
 
-      final extraido = _montar(interno);
+      final extraido = montar(interno);
       if (extraido != null) {
         return extraido;
       }
@@ -265,7 +265,7 @@ class ApiService {
             'token': tokenAtivacao,
             'password_temporaria': passwordTemporaria,
             'nova_password': novaPassword,
-            if (idArea != null) 'id_area': idArea,
+            'id_area': ?idArea,
           }),
         )
         .timeout(const Duration(seconds: 30));

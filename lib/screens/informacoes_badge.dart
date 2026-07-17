@@ -65,22 +65,25 @@ int? _normalizarIdNivel(dynamic valor) {
   if (upper == 'A' ||
       upper == 'INICIANTE' ||
       upper == 'JUNIOR' ||
-      upper == 'JÚNIOR')
+      upper == 'JÚNIOR') {
     return 1;
+  }
   if (upper == 'B' || upper == 'INTERMEDIO' || upper == 'INTERMÉDIO') return 2;
   if (upper == 'C' ||
       upper == 'AVANCADO' ||
       upper == 'AVANÇADO' ||
       upper == 'SENIOR' ||
-      upper == 'SÉNIOR')
+      upper == 'SÉNIOR') {
     return 3;
+  }
   if (upper == 'D' || upper == 'EXPERT' || upper == 'ESPECIALISTA') return 4;
   if (upper == 'E' ||
       upper == 'MASTER' ||
       upper == 'LIDER DE CONHECIMENTO' ||
       upper == 'LÍDER DE CONHECIMENTO' ||
-      upper == 'LEADER OF KNOWLEDGE')
+      upper == 'LEADER OF KNOWLEDGE') {
     return 5;
+  }
 
   if (upper.startsWith('NIVEL ') || upper.startsWith('NÍVEL ')) {
     return _normalizarIdNivel(upper.split(' ').last);
@@ -732,8 +735,9 @@ class _BadgeDetalheState extends State<BadgeDetalhe>
           (c) => c['id_badge_modelo'].toString() == widget.badgeId.toString(),
           orElse: () => <String, dynamic>{},
         );
-        if (certificadoDisponivel?.isEmpty ?? true)
+        if (certificadoDisponivel?.isEmpty ?? true) {
           certificadoDisponivel = null;
+        }
       } catch (_) {
         certificadoDisponivel = null;
       }

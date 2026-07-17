@@ -69,7 +69,7 @@ class _LogPageState extends State<LogPage> {
   final Basededados _dbLocal = Basededados(); // Chave mestra do SQLite
 
   String _gerarHashPassword(String email, String password) {
-    final payload = email.trim().toLowerCase() + '::' + password;
+    final payload = '${email.trim().toLowerCase()}::$password';
     return sha256.convert(utf8.encode(payload)).toString();
   }
 

@@ -404,7 +404,7 @@ class _AtivacaoAdminPageState extends State<AtivacaoAdminPage> {
 
                           DropdownButtonFormField<int>(
                             isExpanded: true,
-                            value: _areaSelecionada,
+                            initialValue: _areaSelecionada,
                             decoration: const InputDecoration(
                               labelText: "Área do consultor",
                               border: OutlineInputBorder(
