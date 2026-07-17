@@ -204,6 +204,186 @@ class _CatalogoBadgesPageState extends State<CatalogoBadgesPage>
     return null;
   }
 
+  String _removerAcentos(String texto) {
+    return texto
+        .replaceAll('Á', 'A')
+        .replaceAll('À', 'A')
+        .replaceAll('Â', 'A')
+        .replaceAll('Ã', 'A')
+        .replaceAll('Ä', 'A')
+        .replaceAll('É', 'E')
+        .replaceAll('È', 'E')
+        .replaceAll('Ê', 'E')
+        .replaceAll('Ë', 'E')
+        .replaceAll('Í', 'I')
+        .replaceAll('Ì', 'I')
+        .replaceAll('Î', 'I')
+        .replaceAll('Ï', 'I')
+        .replaceAll('Ó', 'O')
+        .replaceAll('Ò', 'O')
+        .replaceAll('Ô', 'O')
+        .replaceAll('Õ', 'O')
+        .replaceAll('Ö', 'O')
+        .replaceAll('Ú', 'U')
+        .replaceAll('Ù', 'U')
+        .replaceAll('Û', 'U')
+        .replaceAll('Ü', 'U')
+        .replaceAll('Ç', 'C');
+  }
+
+  String _normalizarEstado(String? valor) {
+    final texto = (valor ?? '').trim();
+    if (texto.isEmpty) {
+      return '';
+    }
+
+    return _removerAcentos(texto.toUpperCase()).replaceAll(' ', '_');
+  }
+
+  String _formatarEstadoHumano(String? valor) {
+    final estado = _normalizarEstado(valor);
+    if (estado.isEmpty) {
+      return 'Sem estado';
+    }
+
+    const mapa = <String, String>{
+      'EM_VALIDACAO_TM': 'Talent Manager a validar',
+      'EM_VALIDACAO_SLL': 'Service Line Leader a validar',
+      'AGUARDA_VALIDACAO_TM': 'A aguardar validação do Talent Manager',
+      'AGUARDA_VALIDACAO_SLL': 'A aguardar validação do Service Line Leader',
+      'AGUARDANDO_TM': 'A aguardar avaliação do Talent Manager',
+      'AGUARDANDO_SLL': 'A aguardar avaliação do Service Line Leader',
+      'EM_VALIDACAO': 'Em validação',
+      'PENDENTE': 'Pendente',
+      'APROVADO': 'Aprovado',
+      'APROVADA': 'Aprovada',
+      'APROVADO_FINAL': 'Aprovado em definitivo',
+      'REJEITADO': 'Rejeitado',
+      'REJEITADA': 'Rejeitada',
+      'REJEITADO_TM': 'Candidatura rejeitada',
+      'REJEITADO_SLL': 'Candidatura rejeitada',
+      'RECUSADO': 'Recusado',
+      'DESISTIDA': 'Desistida',
+      'DESISTIDO': 'Desistida',
+      'CANCELADO': 'Cancelado',
+      'FINALIZADO': 'Concluído',
+      'CONCLUIDO': 'Concluído',
+      'HISTORICO': 'Concluído',
+    };
+
+    if (mapa.containsKey(estado)) {
+      return mapa[estado]!;
+    }
+
+    final textoBase = (valor ?? estado).replaceAll('_', ' ').trim();
+    if (textoBase.isEmpty) {
+      return 'Sem estado';
+    }
+
+    return textoBase[0].toUpperCase() + textoBase.substring(1).toLowerCase();
+  }
+
+  Map<String, Color> _coresEstadoCandidatura(String? estado) {
+    final valor = _normalizarEstado(estado);
+
+    if (valor.contains('APROV')) {
+      return {
+        'fundo': const Color(0xFFDCFCE7),
+        'texto': const Color(0xFF166534),
+      };
+    }
+
+    if (valor.contains('REJEIT') || valor.contains('RECUS') || valor.contains('CANCEL') || valor.contains('DESIST')) {
+      return {
+        'fundo': const Color(0xFFFEE2E2),
+        'texto': const Color(0xFF991B1B),
+      };
+    }
+
+    if (valor.contains('AGUARDA') || valor.contains('PEND') || valor.contains('VALID')) {
+      return {
+        'fundo': const Color(0xFFFEF3C7),
+        'texto': const Color(0xFF92400E),
+      };
+    }
+
+    return {
+      'fundo': const Color(0xFFE5E7EB),
+      'texto': const Color(0xFF475569),
+    };
+  }
+
+  Map<String, Color> _coresNivelBadge(int? idNivel) {
+    switch (idNivel) {
+      case 1:
+        return {
+          'fundo': const Color(0xFFEEF7FF),
+          'borda': const Color(0xFFBFDBFE),
+          'texto': const Color(0xFF1D4ED8),
+        };
+      case 2:
+        return {
+          'fundo': const Color(0xFFF0FDF4),
+          'borda': const Color(0xFFBBF7D0),
+          'texto': const Color(0xFF15803D),
+        };
+      case 3:
+        return {
+          'fundo': const Color(0xFFFFF7ED),
+          'borda': const Color(0xFFFED7AA),
+          'texto': const Color(0xFFC2410C),
+        };
+      case 4:
+        return {
+          'fundo': const Color(0xFFFAF5FF),
+          'borda': const Color(0xFFE9D5FF),
+          'texto': const Color(0xFF7E22CE),
+        };
+      case 5:
+        return {
+          'fundo': const Color(0xFFFFF8E1),
+          'borda': const Color(0xFFF0D36B),
+          'texto': const Color(0xFF9A6B00),
+        };
+      default:
+        return {
+          'fundo': const Color(0xFFEFF6FF),
+          'borda': const Color(0xFFDBEAFE),
+          'texto': const Color(0xFF4470AF),
+        };
+    }
+  }
+
+  Map<int, Map<String, dynamic>> _mapaStatusPorBadge(List<Map<String, dynamic>> lista) {
+    final resultado = <int, Map<String, dynamic>>{};
+
+    final ordenada = List<Map<String, dynamic>>.from(lista)
+      ..sort((a, b) {
+        final dataA = DateTime.tryParse(
+              (a['data_submissao'] ?? a['data_submisao'] ?? '').toString(),
+            ) ??
+            DateTime.fromMillisecondsSinceEpoch(0);
+
+        final dataB = DateTime.tryParse(
+              (b['data_submissao'] ?? b['data_submisao'] ?? '').toString(),
+            ) ??
+            DateTime.fromMillisecondsSinceEpoch(0);
+
+        return dataB.compareTo(dataA);
+      });
+
+    for (final item in ordenada) {
+      final idBadge = int.tryParse((item['id_badge_modelo'] ?? item['id'] ?? '').toString()) ?? -1;
+      if (idBadge <= 0 || resultado.containsKey(idBadge)) {
+        continue;
+      }
+
+      resultado[idBadge] = item;
+    }
+
+    return resultado;
+  }
+
   List<Map<String, dynamic>> todosBadges = [];
   List<Map<String, dynamic>> badgesFiltrados = [];
   bool isLoading = true;
@@ -326,20 +506,24 @@ class _CatalogoBadgesPageState extends State<CatalogoBadgesPage>
     List<Map<String, dynamic>> todos = <Map<String, dynamic>>[];
     List<Map<String, dynamic>> obtidos = <Map<String, dynamic>>[];
     List<Map<String, dynamic>> pendentes = <Map<String, dynamic>>[];
+    List<Map<String, dynamic>> statusCandidaturas = <Map<String, dynamic>>[];
 
     try {
       try {
         todos = await _apiService.getTodosBadges();
         obtidos = await _apiService.getBadgesConquistados(userId);
+        statusCandidaturas = await _apiService.getStatusCandidaturasConsultor(userId);
         pendentes = await _apiService.getCandidaturasPendentes(userId);
 
         await _guardarCatalogoCache(todos);
         await _guardarBadgesUtilizadorCache(userId, obtidos);
+        await _guardarStatusCandidaturasCache(userId, statusCandidaturas);
       } catch (e) {
         debugPrint('Modo offline no catálogo: $e');
         todos = await _carregarCatalogoDoCache();
         obtidos = await _carregarBadgesUtilizadorDoCache(userId);
-        pendentes = <Map<String, dynamic>>[];
+        statusCandidaturas = await _carregarStatusCandidaturasCache(userId);
+        pendentes = List<Map<String, dynamic>>.from(statusCandidaturas);
       }
 
     // 3. Merge: para cada badge do catálogo, procuramos se o utilizador
@@ -356,6 +540,9 @@ class _CatalogoBadgesPageState extends State<CatalogoBadgesPage>
       for (final c in pendentes)
         (int.tryParse((c['id_badge_modelo'] ?? c['id'] ?? '').toString()) ?? -1): c,
     };
+
+    final Map<int, Map<String, dynamic>> mapaStatus =
+        _mapaStatusPorBadge(statusCandidaturas);
 
     // Acrescenta a cada badge campos específicos do utilizador:
     // conquistado, data, validação e progresso.
@@ -377,6 +564,26 @@ class _CatalogoBadgesPageState extends State<CatalogoBadgesPage>
       final Map<String, dynamic>?
           candidaturaPendente =
           mapaPendentes[id];
+
+        final Map<String, dynamic>?
+          candidaturaStatus =
+          mapaStatus[id] ?? candidaturaPendente;
+
+        final String estadoBrutoCandidatura =
+          candidaturaStatus?['estado_geral']?.toString() ??
+          candidaturaStatus?['estado_final']?.toString() ??
+          candidaturaStatus?['estado_validacao']?.toString() ??
+          candidaturaStatus?['estado_candidatura_pedido']?.toString() ??
+          '';
+
+        final String estadoNormalizado =
+          _normalizarEstado(estadoBrutoCandidatura);
+
+        final bool candidaturaEmValidacao =
+          estadoNormalizado.contains('AGUARDA') ||
+          estadoNormalizado.contains('PEND') ||
+          estadoNormalizado.contains('VALID') ||
+          estadoNormalizado.contains('EM_VALIDACAO');
 
       final BadgeBonusInfo bonus =
           dadosUtilizador != null
@@ -406,13 +613,21 @@ class _CatalogoBadgesPageState extends State<CatalogoBadgesPage>
             ],
 
         'em_validacao':
-            candidaturaPendente != null,
+          candidaturaStatus != null && candidaturaEmValidacao,
+
+        'tem_candidatura':
+          candidaturaStatus != null,
+
+        'estado_candidatura':
+          estadoBrutoCandidatura,
+
+        'fase_candidatura':
+          candidaturaStatus?['fase_geral']?.toString(),
 
         'estado_validacao':
-            candidaturaPendente?[
-              'estado_validacao'
-            ] ??
-            'Em validação',
+          _formatarEstadoHumano(
+            estadoBrutoCandidatura,
+          ),
 
         'progress':
             dadosUtilizador?['progress'] ??
@@ -522,6 +737,89 @@ class _CatalogoBadgesPageState extends State<CatalogoBadgesPage>
         PRIMARY KEY (id_utilizador, id_badge_modelo, id_badge_atribuido)
       )
     ''');
+  }
+
+  Future<void> _ensureTabelaStatusCandidaturasCache() async {
+    final db = await _dbLocal.database;
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS cache_status_candidaturas (
+        id_utilizador INTEGER,
+        id_candidatura_pedido INTEGER,
+        id_badge_modelo INTEGER,
+        estado_geral TEXT,
+        fase_geral TEXT,
+        estado_final TEXT,
+        estado_candidatura_pedido TEXT,
+        data_submissao TEXT,
+        PRIMARY KEY (id_utilizador, id_candidatura_pedido, id_badge_modelo)
+      )
+    ''');
+  }
+
+  Future<void> _guardarStatusCandidaturasCache(
+    int userId,
+    List<Map<String, dynamic>> candidaturas,
+  ) async {
+    await _ensureTabelaStatusCandidaturasCache();
+    final db = await _dbLocal.database;
+
+    await db.delete(
+      'cache_status_candidaturas',
+      where: 'id_utilizador = ?',
+      whereArgs: [userId],
+    );
+
+    for (int idx = 0; idx < candidaturas.length; idx++) {
+      final c = candidaturas[idx];
+
+      final idBadge = int.tryParse((c['id_badge_modelo'] ?? c['id'] ?? 0).toString()) ?? 0;
+      if (idBadge <= 0) {
+        continue;
+      }
+
+      final idCandidatura = int.tryParse((c['id_candidatura_pedido'] ?? '').toString()) ?? (idx + 1);
+
+      await db.insert(
+        'cache_status_candidaturas',
+        {
+          'id_utilizador': userId,
+          'id_candidatura_pedido': idCandidatura,
+          'id_badge_modelo': idBadge,
+          'estado_geral': c['estado_geral']?.toString() ?? c['estado_validacao']?.toString(),
+          'fase_geral': c['fase_geral']?.toString(),
+          'estado_final': c['estado_final']?.toString(),
+          'estado_candidatura_pedido': c['estado_candidatura_pedido']?.toString(),
+          'data_submissao': c['data_submissao']?.toString() ?? c['data_submisao']?.toString(),
+        },
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> _carregarStatusCandidaturasCache(int userId) async {
+    await _ensureTabelaStatusCandidaturasCache();
+    final db = await _dbLocal.database;
+
+    final rows = await db.query(
+      'cache_status_candidaturas',
+      where: 'id_utilizador = ?',
+      whereArgs: [userId],
+      orderBy: 'data_submissao DESC',
+    );
+
+    return rows.map((row) {
+      return <String, dynamic>{
+        'id_candidatura_pedido': row['id_candidatura_pedido'],
+        'id_badge_modelo': row['id_badge_modelo'],
+        'id': row['id_badge_modelo'],
+        'estado_geral': row['estado_geral'],
+        'fase_geral': row['fase_geral'],
+        'estado_final': row['estado_final'],
+        'estado_candidatura_pedido': row['estado_candidatura_pedido'],
+        'data_submissao': row['data_submissao'],
+        'offline': true,
+      };
+    }).toList();
   }
 
   Future<void> _guardarCatalogoCache(List<Map<String, dynamic>> todos) async {
@@ -984,6 +1282,24 @@ class _CatalogoBadgesPageState extends State<CatalogoBadgesPage>
       badge,
     );
 
+    final Map<String, Color> coresNivel =
+        _coresNivelBadge(
+      idNivelBadge,
+    );
+
+    final bool temCandidatura =
+        badge['tem_candidatura'] == true;
+
+    final String estadoCandidatura =
+        badge['estado_candidatura']?.toString() ??
+        badge['estado_validacao']?.toString() ??
+        '';
+
+    final Map<String, Color> coresEstado =
+        _coresEstadoCandidatura(
+      estadoCandidatura,
+    );
+
     final BadgeBonusInfo bonus =
         _obterBonusBadge(badge);
 
@@ -1038,14 +1354,15 @@ class _CatalogoBadgesPageState extends State<CatalogoBadgesPage>
           : const Color(
               0xFF2E7D32,
             );
-    } else if (emValidacao) {
+    } else if (temCandidatura) {
       estadoTexto =
-          badge['estado_validacao']
-              ?.toString() ??
-          'Em validação';
+        badge['estado_validacao']?.toString().trim().isNotEmpty == true
+          ? badge['estado_validacao'].toString()
+          : _formatarEstadoHumano(estadoCandidatura);
 
       estadoCor =
-          Colors.amber.shade800;
+        coresEstado['texto'] ??
+        Colors.amber.shade800;
     } else if (
       progress != null &&
       progress > 0
@@ -1164,17 +1481,13 @@ class _CatalogoBadgesPageState extends State<CatalogoBadgesPage>
 
                           color: bonusAtivo
                               ? douradoClaro
-                              : const Color(
-                                  0xFFEFF6FF,
-                                ),
+                              : (coresNivel['fundo'] ?? const Color(0xFFEFF6FF)),
 
                           border:
                               Border.all(
                             color: bonusAtivo
                                 ? dourado
-                                : const Color(
-                                    0xFFDBEAFE,
-                                  ),
+                              : (coresNivel['borda'] ?? const Color(0xFFDBEAFE)),
 
                             width: bonusAtivo
                                 ? 1.5
@@ -1220,7 +1533,7 @@ class _CatalogoBadgesPageState extends State<CatalogoBadgesPage>
                         ),
 
                       if (
-                        emValidacao &&
+                        temCandidatura &&
                         !conquistado
                       )
                         Positioned(
@@ -1234,18 +1547,19 @@ class _CatalogoBadgesPageState extends State<CatalogoBadgesPage>
                               3,
                             ),
                             decoration:
-                                const BoxDecoration(
+                              BoxDecoration(
                               color:
-                                  Colors.amber,
+                                coresEstado['texto'] ?? Colors.amber,
                               shape:
-                                  BoxShape.circle,
+                                BoxShape.circle,
                             ),
                             child:
-                                const Icon(
-                              Icons
-                                  .hourglass_bottom,
+                              Icon(
+                              emValidacao
+                                ? Icons.hourglass_bottom
+                                : Icons.info_outline,
                               color:
-                                  Colors.white,
+                                Colors.white,
                               size: 12,
                             ),
                           ),
@@ -1363,9 +1677,7 @@ class _CatalogoBadgesPageState extends State<CatalogoBadgesPage>
                                 BoxDecoration(
                               color: bonusAtivo
                                   ? douradoClaro
-                                  : const Color(
-                                      0xFFEAF0FA,
-                                    ),
+                                  : (coresNivel['fundo'] ?? const Color(0xFFEAF0FA)),
                               borderRadius:
                                   BorderRadius
                                       .circular(
@@ -1380,9 +1692,7 @@ class _CatalogoBadgesPageState extends State<CatalogoBadgesPage>
                                 fontSize: 10,
                                 color: bonusAtivo
                                     ? douradoEscuro
-                                    : const Color(
-                                        0xFF4470AF,
-                                      ),
+                                    : (coresNivel['texto'] ?? const Color(0xFF4470AF)),
                               ),
                             ),
                           ),

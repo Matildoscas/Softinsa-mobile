@@ -296,6 +296,47 @@ class _MeusBadgesPageState extends State<MeusBadgesPage>
     return null;
   }
 
+  Map<String, Color> _coresNivelBadge(int? idNivel) {
+    switch (idNivel) {
+      case 1:
+        return {
+          'fundo': const Color(0xFFEEF7FF),
+          'borda': const Color(0xFFBFDBFE),
+          'texto': const Color(0xFF1D4ED8),
+        };
+      case 2:
+        return {
+          'fundo': const Color(0xFFF0FDF4),
+          'borda': const Color(0xFFBBF7D0),
+          'texto': const Color(0xFF15803D),
+        };
+      case 3:
+        return {
+          'fundo': const Color(0xFFFFF7ED),
+          'borda': const Color(0xFFFED7AA),
+          'texto': const Color(0xFFC2410C),
+        };
+      case 4:
+        return {
+          'fundo': const Color(0xFFFAF5FF),
+          'borda': const Color(0xFFE9D5FF),
+          'texto': const Color(0xFF7E22CE),
+        };
+      case 5:
+        return {
+          'fundo': const Color(0xFFFFF8E1),
+          'borda': const Color(0xFFF0D36B),
+          'texto': const Color(0xFF9A6B00),
+        };
+      default:
+        return {
+          'fundo': const Color(0xFFEFF6FF),
+          'borda': const Color(0xFFDBEAFE),
+          'texto': const Color(0xFF4470AF),
+        };
+    }
+  }
+
   // Extrai os níveis existentes nos badges conquistados.
   // Remove níveis repetidos e ordena a lista.
   void _extrairNiveis() {
@@ -991,6 +1032,11 @@ Widget build(BuildContext context) {
       badge,
     );
 
+    final Map<String, Color> coresNivel =
+        _coresNivelBadge(
+      idNivelBadge,
+    );
+
     final _BadgeBonusInfo bonus =
         _obterBonusBadge(
       badge,
@@ -1151,17 +1197,13 @@ Widget build(BuildContext context) {
 
                           color: ganhouBonus
                               ? douradoClaro
-                              : const Color(
-                                  0xFFEFF6FF,
-                                ),
+                              : (coresNivel['fundo'] ?? const Color(0xFFEFF6FF)),
 
                           border:
                               Border.all(
                             color: ganhouBonus
                                 ? dourado
-                                : const Color(
-                                    0xFFDBEAFE,
-                                  ),
+                              : (coresNivel['borda'] ?? const Color(0xFFDBEAFE)),
 
                             width: ganhouBonus
                                 ? 1.5
@@ -1328,9 +1370,7 @@ Widget build(BuildContext context) {
                                 BoxDecoration(
                               color: ganhouBonus
                                   ? douradoClaro
-                                  : const Color(
-                                      0xFFEAF0FA,
-                                    ),
+                                  : (coresNivel['fundo'] ?? const Color(0xFFEAF0FA)),
 
                               borderRadius:
                                   BorderRadius
@@ -1348,9 +1388,7 @@ Widget build(BuildContext context) {
 
                                 color: ganhouBonus
                                     ? douradoEscuro
-                                    : const Color(
-                                        0xFF4470AF,
-                                      ),
+                                    : (coresNivel['texto'] ?? const Color(0xFF4470AF)),
                               ),
                             ),
                           ),

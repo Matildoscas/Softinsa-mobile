@@ -756,6 +756,29 @@ class ApiService {
   }
 
   // =========================================================================
+  // STATUS DE CANDIDATURAS (CONSULTOR)
+  // Equivalente ao fluxo usado no consultor web, com estados agregados
+  // (estado_geral, fase_geral, estado_final e afins).
+  // =========================================================================
+  Future<List<Map<String, dynamic>>> getStatusCandidaturasConsultor(int userId) async {
+    try {
+      final uri = Uri.parse('$baseUrl/candidaturas/$userId/status-candidaturas');
+      final response = await http.get(uri, headers: _headers);
+
+      if (response.statusCode == 200) {
+        final dynamic decoded = jsonDecode(response.body);
+        return _extrairListaMap(decoded);
+      }
+
+      throw Exception(
+        'Erro ao carregar status de candidaturas: Status ${response.statusCode}',
+      );
+    } on SocketException {
+      throw const SocketException('offline');
+    }
+  }
+
+  // =========================================================================
   // PROGRESSO DAS LEARNING PATHS
   // Obtém o progresso do utilizador nas learning paths.
   // =========================================================================

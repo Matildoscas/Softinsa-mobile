@@ -15,6 +15,7 @@
 // ============================================================================
 
 import 'package:flutter/material.dart';
+import 'package:sqflite/sqflite.dart';
 import '../services/api_service.dart';
 import '../database/basededados.dart'; // Import crucial para ler os requisitos offline
 import 'submeter_badges.dart';
@@ -104,6 +105,7 @@ class _BadgeDetalheState extends State<BadgeDetalhe>
 
   Map<String, dynamic>? badge;
   Map<String, dynamic>? progresso;
+  Map<String, dynamic>? candidaturaStatus;
   List<Map<String, dynamic>> badgesRelacionados = [];
   List<Map<String, dynamic>> requisitos = [];
   bool loading = true;
@@ -222,6 +224,218 @@ class _BadgeDetalheState extends State<BadgeDetalhe>
     }
 
     return null;
+  }
+
+  String _removerAcentos(String texto) {
+    return texto
+        .replaceAll('Á', 'A')
+        .replaceAll('À', 'A')
+        .replaceAll('Â', 'A')
+        .replaceAll('Ã', 'A')
+        .replaceAll('Ä', 'A')
+        .replaceAll('É', 'E')
+        .replaceAll('È', 'E')
+        .replaceAll('Ê', 'E')
+        .replaceAll('Ë', 'E')
+        .replaceAll('Í', 'I')
+        .replaceAll('Ì', 'I')
+        .replaceAll('Î', 'I')
+        .replaceAll('Ï', 'I')
+        .replaceAll('Ó', 'O')
+        .replaceAll('Ò', 'O')
+        .replaceAll('Ô', 'O')
+        .replaceAll('Õ', 'O')
+        .replaceAll('Ö', 'O')
+        .replaceAll('Ú', 'U')
+        .replaceAll('Ù', 'U')
+        .replaceAll('Û', 'U')
+        .replaceAll('Ü', 'U')
+        .replaceAll('Ç', 'C');
+  }
+
+  String _normalizarEstado(String? valor) {
+    final texto = (valor ?? '').trim();
+    if (texto.isEmpty) {
+      return '';
+    }
+
+    return _removerAcentos(texto.toUpperCase()).replaceAll(' ', '_');
+  }
+
+  String _formatarEstadoHumano(String? valor) {
+    final estado = _normalizarEstado(valor);
+    if (estado.isEmpty) {
+      return 'Sem estado';
+    }
+
+    const mapa = <String, String>{
+      'EM_VALIDACAO_TM': 'Talent Manager a validar',
+      'EM_VALIDACAO_SLL': 'Service Line Leader a validar',
+      'AGUARDA_VALIDACAO_TM': 'A aguardar validação do Talent Manager',
+      'AGUARDA_VALIDACAO_SLL': 'A aguardar validação do Service Line Leader',
+      'AGUARDANDO_TM': 'A aguardar avaliação do Talent Manager',
+      'AGUARDANDO_SLL': 'A aguardar avaliação do Service Line Leader',
+      'EM_VALIDACAO': 'Em validação',
+      'PENDENTE': 'Pendente',
+      'APROVADO': 'Aprovado',
+      'APROVADA': 'Aprovada',
+      'APROVADO_FINAL': 'Aprovado em definitivo',
+      'REJEITADO': 'Rejeitado',
+      'REJEITADA': 'Rejeitada',
+      'REJEITADO_TM': 'Candidatura rejeitada',
+      'REJEITADO_SLL': 'Candidatura rejeitada',
+      'RECUSADO': 'Recusado',
+      'DESISTIDA': 'Desistida',
+      'DESISTIDO': 'Desistida',
+      'CANCELADO': 'Cancelado',
+      'FINALIZADO': 'Concluído',
+      'CONCLUIDO': 'Concluído',
+      'HISTORICO': 'Concluído',
+    };
+
+    if (mapa.containsKey(estado)) {
+      return mapa[estado]!;
+    }
+
+    final textoBase = (valor ?? estado).replaceAll('_', ' ').trim();
+    if (textoBase.isEmpty) {
+      return 'Sem estado';
+    }
+
+    return textoBase[0].toUpperCase() + textoBase.substring(1).toLowerCase();
+  }
+
+  Map<String, Color> _coresEstadoCandidatura(String? estado) {
+    final valor = _normalizarEstado(estado);
+
+    if (valor.contains('APROV')) {
+      return {
+        'texto': const Color(0xFF166534),
+        'borda': const Color(0xFFBBF7D0),
+      };
+    }
+
+    if (valor.contains('REJEIT') || valor.contains('RECUS') || valor.contains('CANCEL') || valor.contains('DESIST')) {
+      return {
+        'texto': const Color(0xFF991B1B),
+        'borda': const Color(0xFFFECACA),
+      };
+    }
+
+    if (valor.contains('AGUARDA') || valor.contains('PEND') || valor.contains('VALID')) {
+      return {
+        'texto': const Color(0xFF92400E),
+        'borda': const Color(0xFFFDE68A),
+      };
+    }
+
+    return {
+      'texto': const Color(0xFF475569),
+      'borda': const Color(0xFFCBD5E1),
+    };
+  }
+
+  Future<void> _ensureTabelaStatusCandidaturasCache() async {
+    final db = await _dbLocal.database;
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS cache_status_candidaturas (
+        id_utilizador INTEGER,
+        id_candidatura_pedido INTEGER,
+        id_badge_modelo INTEGER,
+        estado_geral TEXT,
+        fase_geral TEXT,
+        estado_final TEXT,
+        estado_candidatura_pedido TEXT,
+        data_submissao TEXT,
+        PRIMARY KEY (id_utilizador, id_candidatura_pedido, id_badge_modelo)
+      )
+    ''');
+  }
+
+  Future<void> _guardarStatusCandidaturasCache(
+    int userId,
+    List<Map<String, dynamic>> candidaturas,
+  ) async {
+    await _ensureTabelaStatusCandidaturasCache();
+    final db = await _dbLocal.database;
+
+    await db.delete(
+      'cache_status_candidaturas',
+      where: 'id_utilizador = ?',
+      whereArgs: [userId],
+    );
+
+    for (int idx = 0; idx < candidaturas.length; idx++) {
+      final c = candidaturas[idx];
+      final idBadge = int.tryParse((c['id_badge_modelo'] ?? c['id'] ?? 0).toString()) ?? 0;
+      if (idBadge <= 0) {
+        continue;
+      }
+
+      final idCandidatura = int.tryParse((c['id_candidatura_pedido'] ?? '').toString()) ?? (idx + 1);
+
+      await db.insert(
+        'cache_status_candidaturas',
+        {
+          'id_utilizador': userId,
+          'id_candidatura_pedido': idCandidatura,
+          'id_badge_modelo': idBadge,
+          'estado_geral': c['estado_geral']?.toString() ?? c['estado_validacao']?.toString(),
+          'fase_geral': c['fase_geral']?.toString(),
+          'estado_final': c['estado_final']?.toString(),
+          'estado_candidatura_pedido': c['estado_candidatura_pedido']?.toString(),
+          'data_submissao': c['data_submissao']?.toString() ?? c['data_submisao']?.toString(),
+        },
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> _carregarStatusCandidaturasCache(int userId) async {
+    await _ensureTabelaStatusCandidaturasCache();
+    final db = await _dbLocal.database;
+
+    final rows = await db.query(
+      'cache_status_candidaturas',
+      where: 'id_utilizador = ?',
+      whereArgs: [userId],
+      orderBy: 'data_submissao DESC',
+    );
+
+    if (rows.isNotEmpty) {
+      return rows.map((row) {
+        return <String, dynamic>{
+          'id_candidatura_pedido': row['id_candidatura_pedido'],
+          'id_badge_modelo': row['id_badge_modelo'],
+          'id': row['id_badge_modelo'],
+          'estado_geral': row['estado_geral'],
+          'fase_geral': row['fase_geral'],
+          'estado_final': row['estado_final'],
+          'estado_candidatura_pedido': row['estado_candidatura_pedido'],
+          'data_submissao': row['data_submissao'],
+          'offline': true,
+        };
+      }).toList();
+    }
+
+    final fallbackPedido = await db.query(
+      'candidatura_pedido',
+      where: 'id_utilizador = ?',
+      whereArgs: [userId],
+      orderBy: 'data_submisao DESC',
+    );
+
+    return fallbackPedido.map((row) {
+      return <String, dynamic>{
+        'id_candidatura_pedido': row['id_candidatura_pedido'],
+        'id_badge_modelo': row['id_badge_modelo'],
+        'id': row['id_badge_modelo'],
+        'estado_geral': row['estado_candidatura_pedido'],
+        'estado_candidatura_pedido': row['estado_candidatura_pedido'],
+        'data_submissao': row['data_submisao'],
+        'offline': true,
+      };
+    }).toList();
   }
 
   @override
@@ -428,6 +642,7 @@ class _BadgeDetalheState extends State<BadgeDetalhe>
   Future<void> carregar() async {
     List<Map<String, dynamic>> todos = [];
     List<Map<String, dynamic>> obtidos = [];
+    List<Map<String, dynamic>> statusCandidaturas = [];
 
     // Função local que aceita vários nomes possíveis para o ID do badge.
     int getId(Map b) => int.tryParse((b['id'] ?? b['id_badge_modelo'] ?? b['id_badge'] ?? '').toString()) ?? -1;
@@ -436,6 +651,8 @@ class _BadgeDetalheState extends State<BadgeDetalhe>
       // 1. Tenta carregar tudo em tempo real através do servidor (HTTP)
       todos = await _apiService.getTodosBadges();
       obtidos = await _apiService.getBadgesConquistados(widget.userId);
+      statusCandidaturas = await _apiService.getStatusCandidaturasConsultor(widget.userId);
+      await _guardarStatusCandidaturasCache(widget.userId, statusCandidaturas);
 
       await _guardarCatalogoLocal(todos);
 
@@ -471,6 +688,7 @@ class _BadgeDetalheState extends State<BadgeDetalhe>
       }).toList();
 
       obtidos = await _carregarConquistadosLocal();
+      statusCandidaturas = await _carregarStatusCandidaturasCache(widget.userId);
     }
 
     // ── IDENTIFICAÇÃO DO BADGE PRINCIPAL ─────────────────────────────
@@ -487,6 +705,11 @@ class _BadgeDetalheState extends State<BadgeDetalhe>
     // ── PROGRESSO DO UTILIZADOR ─────────────────────
     final progressoEncontrado = obtidos.firstWhere(
       (b) => getId(b) == widget.badgeId,
+      orElse: () => <String, dynamic>{},
+    );
+
+    final candidaturaStatusEncontrada = statusCandidaturas.firstWhere(
+      (c) => getId(c) == widget.badgeId,
       orElse: () => <String, dynamic>{},
     );
 
@@ -545,6 +768,7 @@ class _BadgeDetalheState extends State<BadgeDetalhe>
       setState(() {
         badge = badgeEncontrado.isNotEmpty ? badgeEncontrado : null;
         progresso = progressoEncontrado.isNotEmpty ? progressoEncontrado : null;
+        candidaturaStatus = candidaturaStatusEncontrada.isNotEmpty ? candidaturaStatusEncontrada : null;
         badgesRelacionados = relacionados;
         loading = false;
       });
@@ -710,7 +934,6 @@ class _BadgeDetalheState extends State<BadgeDetalhe>
     final pontos = int.tryParse(badge!['points']?.toString() ?? badge!['pontos']?.toString() ?? '0') ?? 0;
     final nivelId = badge!['id_nivel']; 
     final letraNivelReal = obterNivel(nivelId); 
-    final corDoNivel = obterCorNivel(letraNivelReal);
     final _BadgeBonusInfo bonus =
         _obterBonusBadge(
       progresso ??
@@ -747,6 +970,29 @@ class _BadgeDetalheState extends State<BadgeDetalhe>
     String estadoTexto;
     Color estadoCor;
 
+    final String estadoCandidatura =
+      candidaturaStatus?['estado_geral']?.toString() ??
+      candidaturaStatus?['estado_final']?.toString() ??
+      candidaturaStatus?['estado_candidatura_pedido']?.toString() ??
+      '';
+
+    final String estadoNormalizado =
+      _normalizarEstado(estadoCandidatura);
+
+    final bool temCandidatura =
+      candidaturaStatus != null;
+
+    final bool candidaturaEmValidacao =
+      estadoNormalizado.contains('AGUARDA') ||
+      estadoNormalizado.contains('PEND') ||
+      estadoNormalizado.contains('VALID') ||
+      estadoNormalizado.contains('EM_VALIDACAO');
+
+    final coresEstadoCandidatura =
+      _coresEstadoCandidatura(
+      estadoCandidatura,
+    );
+
     if (conquistado) {
       final String data =
           _formatarData(
@@ -764,6 +1010,12 @@ class _BadgeDetalheState extends State<BadgeDetalhe>
               : const Color(
                   0xFF2E7D32,
                 );
+    } else if (temCandidatura) {
+      estadoTexto = _formatarEstadoHumano(
+        estadoCandidatura,
+      );
+
+      estadoCor = coresEstadoCandidatura['texto'] ?? _azul;
     } else if (
       progressoValor != null &&
       progressoValor! > 0
@@ -1156,8 +1408,7 @@ class _BadgeDetalheState extends State<BadgeDetalhe>
                                           ),
 
                                           if (
-                                            progressoValor !=
-                                                null &&
+                                            (temCandidatura || progressoValor != null) &&
                                             !conquistado
                                           ) ...[
                                             const SizedBox(
@@ -1173,14 +1424,32 @@ class _BadgeDetalheState extends State<BadgeDetalhe>
                                               child:
                                                   LinearProgressIndicator(
                                                 value:
-                                                    progressoValor,
+                                                    candidaturaEmValidacao
+                                                        ? 0.45
+                                                    : (progressoValor ?? 0.0),
                                                 minHeight:
                                                     6,
                                                 backgroundColor:
                                                     Colors.grey
                                                         .shade200,
                                                 color:
-                                                    _azul,
+                                                    temCandidatura
+                                                        ? (coresEstadoCandidatura['texto'] ?? _azul)
+                                                        : _azul,
+                                              ),
+                                            ),
+                                          ],
+
+                                          if (temCandidatura) ...[
+                                            const SizedBox(height: 6),
+                                            Text(
+                                              candidaturaStatus?['fase_geral']?.toString().trim().isNotEmpty == true
+                                                  ? 'Fase: ${candidaturaStatus?['fase_geral']}'
+                                                  : 'Candidatura registada',
+                                              style: TextStyle(
+                                                color: coresEstadoCandidatura['texto'] ?? _azul,
+                                                fontSize: 11,
+                                                fontWeight: FontWeight.w500,
                                               ),
                                             ),
                                           ],
