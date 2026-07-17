@@ -421,11 +421,9 @@ class _HomePageState extends ConsumerState<HomePage>
             );
 
             final int pontosAtuais =
-                pontosDashboard > 0
-                ? (pontosCalculados > pontosDashboard
-                    ? pontosCalculados
-                    : pontosDashboard)
-                : pontosCalculados;
+              pontosDashboard > 0
+              ? pontosDashboard
+              : pontosCalculados;
 
             final int totalDashboard =
                 int.tryParse(

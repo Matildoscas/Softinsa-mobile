@@ -517,6 +517,7 @@ class _PerfilPageState extends ConsumerState<PerfilPage> {
       'numero_requisitos': int.tryParse((badge['numero_requisitos'] ?? 0).toString()) ?? 0,
       'pontos': int.tryParse((badge['pontos'] ?? 0).toString()) ?? 0,
       'tempo_expiracao': badge['tempo_expiracao']?.toString(),
+      'imagem_url': badge['imagem_url'] ?? badge['imagem']?.toString() ?? badge['url_imagem']?.toString(),
       'imagem': null,
     });
 

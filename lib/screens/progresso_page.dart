@@ -341,6 +341,37 @@ class _ProgressoPageState extends State<ProgressoPage> {
     return false;
   }
 
+  bool _isBadgeComum(
+    Map<String, dynamic> badge,
+  ) {
+    if (_isBadgeEspecial(badge)) {
+      return false;
+    }
+
+    final int idNivel =
+        int.tryParse(
+          badge['id_nivel']?.toString() ?? '',
+        ) ??
+        0;
+
+    if (idNivel >= 1 && idNivel <= 4) {
+      return true;
+    }
+
+    final String tipo =
+        _normalizarTexto(
+      badge['tipo_badge'] ??
+          badge['tipoBadge'] ??
+          badge['tipo'],
+    );
+
+    if (tipo == 'COMUM' || tipo == 'NORMAL') {
+      return true;
+    }
+
+    return false;
+  }
+
   List<Map<String, dynamic>>
       _removerBadgesDuplicados(
     List<Map<String, dynamic>> lista,
@@ -977,7 +1008,7 @@ class _ProgressoPageState extends State<ProgressoPage> {
         if (id > 0) {
           idsEspeciaisObtidos.add(id);
         }
-      } else {
+      } else if (_isBadgeComum(badge)) {
         comunsObtidos++;
       }
     }
@@ -1032,7 +1063,7 @@ class _ProgressoPageState extends State<ProgressoPage> {
 
       if (especial) {
         especiaisTotal++;
-      } else {
+      } else if (_isBadgeComum(badge)) {
         comunsTotal++;
       }
     }

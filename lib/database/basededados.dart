@@ -67,7 +67,7 @@ class Basededados {
 
     return await openDatabase(
       path,
-      version: 2,        // Versão do esquema — usada para migrações futuras
+      version: 3,        // Versão do esquema — usada para migrações futuras
       onCreate: _onCreate, // Callback chamado apenas na primeira instalação
       onUpgrade: _onUpgrade,
       onOpen: _onOpen,
@@ -94,6 +94,15 @@ class Basededados {
         definicao: 'INTEGER',
       );
     }
+
+    if (oldVersion < 3) {
+      await _adicionarColunaSeNecessario(
+        db,
+        tabela: 'badge_modelo',
+        coluna: 'imagem_url',
+        definicao: 'TEXT',
+      );
+    }
   }
 
   Future<void> _onOpen(Database db) async {
@@ -109,6 +118,13 @@ class Basededados {
       tabela: 'notificacoes',
       coluna: 'id_utilizador',
       definicao: 'INTEGER',
+    );
+
+    await _adicionarColunaSeNecessario(
+      db,
+      tabela: 'badge_modelo',
+      coluna: 'imagem_url',
+      definicao: 'TEXT',
     );
   }
 
@@ -275,6 +291,7 @@ class Basededados {
         numero_requisitos INTEGER,
         pontos INTEGER,
         tempo_expiracao TEXT,
+        imagem_url TEXT,
         imagem BLOB,
         FOREIGN KEY (id_nivel) REFERENCES niveis (id_nivel) ON DELETE SET NULL,
         FOREIGN KEY (id_utilizador) REFERENCES administrador (id_utilizador) ON DELETE SET NULL,
