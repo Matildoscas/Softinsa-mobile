@@ -20,9 +20,30 @@ class LembreteItem {
   int? get idCandidatura => _int(data['id_candidatura_pedido']);
   String get titulo => '${data['titulo'] ?? 'Lembrete'}';
   String get descricao => '${data['descricao'] ?? ''}';
-  String get tipo => '${data['tipo_lembrete'] ?? 'PESSOAL'}'.toUpperCase();
-  String get origem => '${data['origem'] ?? 'CONSULTOR'}'.toUpperCase();
-  String get estado => '${data['estado_lembrete'] ?? ''}'.toUpperCase();
+  String get tipo =>
+      _textoNormalizado(
+        data['tipo_lembrete'] ??
+        data['tipo'] ??
+        data['tipo_objetivo'] ??
+        'PESSOAL',
+      );
+
+  String get origem =>
+      _textoNormalizado(
+        data['origem'] ??
+        data['origem_lembrete'] ??
+        data['tipo_criador'] ??
+        data['criado_por_tipo'] ??
+        '',
+      );
+
+  String get estado =>
+      _textoNormalizado(
+        data['estado_lembrete'] ??
+        data['estado'] ??
+        data['status'] ??
+        '',
+      );
   String? get dataLimite => data['data_limite']?.toString();
   int? get diasRestantes => _int(data['dias_restantes']);
   String get nomeCriador => '${data['nome_criador'] ?? 'Talent Manager'}';
@@ -34,9 +55,44 @@ class LembreteItem {
   bool get premioAtribuido => _bool(data['premio_atribuido']);
   String get motivoRecusa => '${data['motivo_recusa'] ?? ''}';
 
-  bool get isProposta => estado == 'AGUARDA_ACEITACAO';
-  bool get isDesafio => tipo == 'DESAFIO_TM';
-  bool get criadoPeloConsultor => origem == 'CONSULTOR';
+  bool get isDesafio =>
+    tipo == 'DESAFIO_TM' ||
+    tipo == 'DESAFIO_TALENT_MANAGER';
+
+  bool get criadoPeloConsultor =>
+      origem == 'CONSULTOR' ||
+      origem == 'CONSULTANT';
+
+  bool get criadoPeloTm {
+    return origem == 'TM' ||
+        origem == 'TALENT_MANAGER' ||
+        origem.contains(
+          'TALENT',
+        ) ||
+        (
+          isDesafio &&
+          !criadoPeloConsultor
+        );
+  }
+
+  bool get aguardaAceitacao {
+    return {
+      'AGUARDA_ACEITACAO',
+      'AGUARDANDO_ACEITACAO',
+      'PENDENTE_ACEITACAO',
+      'AGUARDA_RESPOSTA',
+      'AGUARDANDO_RESPOSTA',
+      'PROPOSTA',
+    }.contains(
+      estado,
+    );
+  }
+
+  bool get isProposta {
+    return isDesafio &&
+        criadoPeloTm &&
+        aguardaAceitacao;
+  }
   bool get podeEditar =>
       criadoPeloConsultor && estado == 'PENDENTE' && idCandidatura == null;
   bool get podeEliminar =>
@@ -45,6 +101,30 @@ class LembreteItem {
   int get totalPossivel => isDesafio
       ? pontosBadge * (multiplicador < 2 ? 2 : multiplicador)
       : pontosBadge;
+}
+
+String _textoNormalizado(
+  dynamic valor,
+) {
+  return '${valor ?? ''}'
+      .trim()
+      .toUpperCase()
+      .replaceAll('Á', 'A')
+      .replaceAll('À', 'A')
+      .replaceAll('Â', 'A')
+      .replaceAll('Ã', 'A')
+      .replaceAll('É', 'E')
+      .replaceAll('Ê', 'E')
+      .replaceAll('Í', 'I')
+      .replaceAll('Ó', 'O')
+      .replaceAll('Ô', 'O')
+      .replaceAll('Õ', 'O')
+      .replaceAll('Ú', 'U')
+      .replaceAll('Ç', 'C')
+      .replaceAll(
+        RegExp(r'[\s-]+'),
+        '_',
+      );
 }
 
 class LembretesPage extends StatefulWidget {
@@ -101,6 +181,146 @@ class _LembretesPageState extends State<LembretesPage> {
     }
   }
 
+  int _prioridadeEstadoLembrete(
+    LembreteItem item,
+  ) {
+    switch (item.estado) {
+      case 'CONCLUIDO':
+      case 'CONCLUIDO_SEM_PREMIO':
+      case 'RECUSADO':
+      case 'REJEITADO_VALIDACAO':
+      case 'CANCELADO':
+        return 5;
+
+      case 'EM_VALIDACAO':
+        return 4;
+
+      case 'PENDENTE':
+      case 'ATRASADO':
+        return 3;
+
+      case 'AGUARDA_ACEITACAO':
+      case 'AGUARDANDO_ACEITACAO':
+      case 'PENDENTE_ACEITACAO':
+      case 'AGUARDA_RESPOSTA':
+        return 2;
+
+      default:
+        return 1;
+    }
+  }
+
+  String _chaveLembrete(
+    LembreteItem item,
+  ) {
+    if (item.id > 0) {
+      return 'lembrete_${item.id}';
+    }
+
+    /*
+    * Fallback para registos antigos
+    * sem id_lembrete válido.
+    */
+    return [
+      item.tipo,
+      item.idBadge ?? 0,
+      item.idCandidatura ?? 0,
+      item.titulo.trim().toLowerCase(),
+      item.dataLimite ?? '',
+    ].join('|');
+  }
+
+  List<LembreteItem>
+      _normalizarLembretes(
+    List<Map<String, dynamic>> dados,
+  ) {
+    final mapa =
+        <String, LembreteItem>{};
+
+    for (final linha in dados) {
+      final item =
+          LembreteItem(
+        Map<String, dynamic>.from(
+          linha,
+        ),
+      );
+
+      final chave =
+          _chaveLembrete(
+        item,
+      );
+
+      final existente =
+          mapa[chave];
+
+      if (existente == null) {
+        mapa[chave] =
+            item;
+
+        continue;
+      }
+
+      /*
+      * Se existirem duas versões do mesmo
+      * lembrete, mantém o estado mais
+      * avançado. Isto impede que um desafio
+      * já aceite continue contado como
+      * proposta.
+      */
+      if (
+        _prioridadeEstadoLembrete(
+          item,
+        ) >
+        _prioridadeEstadoLembrete(
+          existente,
+        )
+      ) {
+        mapa[chave] =
+            item;
+      }
+    }
+
+    final resultado =
+        mapa.values.toList();
+
+    resultado.sort(
+      (a, b) {
+        final dataA =
+            DateTime.tryParse(
+          a.dataLimite ?? '',
+        );
+
+        final dataB =
+            DateTime.tryParse(
+          b.dataLimite ?? '',
+        );
+
+        if (
+          dataA == null &&
+          dataB == null
+        ) {
+          return b.id.compareTo(
+            a.id,
+          );
+        }
+
+        if (dataA == null) {
+          return 1;
+        }
+
+        if (dataB == null) {
+          return -1;
+        }
+
+        return dataA.compareTo(
+          dataB,
+        );
+      },
+    );
+
+    return resultado;
+  }
+
   Future<void> _carregar() async {
     setState(() => _loading = true);
     try {
@@ -110,10 +330,27 @@ class _LembretesPageState extends State<LembretesPage> {
       ]);
 
       if (!mounted) return;
-      setState(() {
-        _lembretes = (resultados[0])
-            .map(LembreteItem.new)
-            .toList();
+        setState(() {
+          final dadosLembretes =
+        List<Map<String, dynamic>>.from(
+          resultados[0],
+        );
+
+        _lembretes =
+            _normalizarLembretes(
+          dadosLembretes,
+        );
+
+        for (final item in _lembretes) {
+          debugPrint(
+            '[LEMBRETES] '
+            'id=${item.id}, '
+            'tipo=${item.tipo}, '
+            'origem=${item.origem}, '
+            'estado=${item.estado}, '
+            'proposta=${item.isProposta}',
+          );
+        }
         _badges = List<Map<String, dynamic>>.from(
           resultados[1],
         );

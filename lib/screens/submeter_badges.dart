@@ -25,6 +25,7 @@ import '../services/offline_sync_service.dart';
 import '../database/basededados.dart'; // Import central para salvar evidências offline
 import 'informacoes_badge.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 // Página identificada pelo utilizador e pelo badge selecionado.
 class SubmeterBadge extends StatefulWidget {
@@ -76,6 +77,47 @@ class _SubmeterBadgeState extends State<SubmeterBadge> {
 
   bool _submetido = false;
 
+  Future<void> _abrirCurso(
+    String url,
+  ) async {
+    final Uri? uri =
+        Uri.tryParse(url);
+
+    if (
+      uri == null ||
+      !uri.hasAuthority ||
+      (
+        uri.scheme != 'http' &&
+        uri.scheme != 'https'
+      )
+    ) {
+      _mostrarErro(
+        'O link do curso não é válido.',
+      );
+
+      return;
+    }
+
+    try {
+      final bool abriu =
+          await launchUrl(
+        uri,
+        mode:
+            LaunchMode.externalApplication,
+      );
+
+      if (!abriu) {
+        _mostrarErro(
+          'Não foi possível abrir o curso.',
+        );
+      }
+    } catch (e) {
+      _mostrarErro(
+        'Erro ao abrir o curso: $e',
+      );
+    }
+  }
+
   Widget _requisitoEvidenciaCard(
     Map<String, dynamic> requisito,
     int index,
@@ -99,10 +141,17 @@ class _SubmeterBadgeState extends State<SubmeterBadge> {
                 ?.toString() ??
             'Requisito ${index + 1}';
 
-    final String descricao =
-        requisito['descricao']
-                ?.toString() ??
-            '';
+    final String descricao = (
+      requisito['descricao'] ??
+      requisito['descricao_requisito'] ??
+      ''
+    ).toString().trim();
+
+    final List<String> links =
+        _apiService
+            .extrairLinksRequisito(
+      requisito,
+    );
 
     final String codigo =
         titulo.length <= 4
@@ -221,7 +270,89 @@ class _SubmeterBadgeState extends State<SubmeterBadge> {
                         ),
                       ),
                     ],
+                    if (links.isNotEmpty) ...[
+                      const SizedBox(
+                        height: 6,
+                      ),
+
+                      ...links
+                          .asMap()
+                          .entries
+                          .map(
+                        (entry) {
+                          final int indice =
+                              entry.key;
+
+                          final String link =
+                              entry.value;
+
+                          return Padding(
+                            padding:
+                                const EdgeInsets.only(
+                              bottom: 3,
+                            ),
+                            child: InkWell(
+                              onTap: () =>
+                                  _abrirCurso(
+                                link,
+                              ),
+                              borderRadius:
+                                  BorderRadius.circular(
+                                4,
+                              ),
+                              child: Padding(
+                                padding:
+                                    const EdgeInsets.symmetric(
+                                  vertical:
+                                      2,
+                                ),
+                                child: Row(
+                                  mainAxisSize:
+                                      MainAxisSize.min,
+                                  children: [
+                                    const Icon(
+                                      Icons
+                                          .open_in_new,
+                                      size:
+                                          12,
+                                      color:
+                                          _azul,
+                                    ),
+
+                                    const SizedBox(
+                                      width: 4,
+                                    ),
+
+                                    Flexible(
+                                      child: Text(
+                                        links.length == 1
+                                            ? 'Abrir curso recomendado'
+                                            : 'Abrir curso recomendado ${indice + 1}',
+                                        style:
+                                            const TextStyle(
+                                          fontSize:
+                                              10,
+                                          color:
+                                              _azul,
+                                          fontWeight:
+                                              FontWeight.w500,
+                                          decoration:
+                                              TextDecoration.underline,
+                                          decorationColor:
+                                              _azul,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ],
                   ],
+                  
                 ),
               ),
 

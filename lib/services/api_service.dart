@@ -112,6 +112,147 @@ class ApiService {
     return ['true', 't', '1', 'sim', 'yes'].contains(texto);
   }
 
+
+  String? _normalizarUrlCurso(dynamic valor) {
+  final String texto =
+      valor?.toString().trim() ?? '';
+
+  if (
+    texto.isEmpty ||
+    texto.toLowerCase() == 'null'
+  ) {
+    return null;
+  }
+
+  String url = texto;
+
+  if (
+    !url.startsWith('http://') &&
+    !url.startsWith('https://')
+  ) {
+    url = 'https://$url';
+  }
+
+  final Uri? uri =
+      Uri.tryParse(url);
+
+  if (
+    uri == null ||
+    !uri.hasAuthority ||
+    (
+      uri.scheme != 'http' &&
+      uri.scheme != 'https'
+    )
+  ) {
+    return null;
+  }
+
+  return uri.toString();
+}
+
+  List<String> extrairLinksRequisito(
+    Map<String, dynamic> requisito,
+  ) {
+    final List<String> resultado = [];
+
+    void adicionar(dynamic valor) {
+      if (valor == null) {
+        return;
+      }
+
+      if (valor is List) {
+        for (final item in valor) {
+          adicionar(item);
+        }
+
+        return;
+      }
+
+      if (valor is Map) {
+        adicionar(
+          valor['url'] ??
+          valor['link'] ??
+          valor['href'] ??
+          valor['link_requisito'] ??
+          valor['url_curso']
+        );
+
+        return;
+      }
+
+      final String texto =
+          valor.toString().trim();
+
+      if (
+        texto.isEmpty ||
+        texto.toLowerCase() == 'null'
+      ) {
+        return;
+      }
+
+      /*
+      * Aceita também links que tenham
+      * chegado como String JSON.
+      */
+      if (
+        texto.startsWith('[') ||
+        texto.startsWith('{')
+      ) {
+        try {
+          adicionar(
+            jsonDecode(texto),
+          );
+
+          return;
+        } catch (_) {
+          return;
+        }
+      }
+
+      final String? url =
+          _normalizarUrlCurso(
+        texto,
+      );
+
+      if (
+        url != null &&
+        !resultado.contains(url)
+      ) {
+        resultado.add(url);
+      }
+    }
+
+    adicionar(
+      requisito['links'],
+    );
+
+    adicionar(
+      requisito['links_requisito'],
+    );
+
+    adicionar(
+      requisito['link_requisito'],
+    );
+
+    adicionar(
+      requisito['link'],
+    );
+
+    adicionar(
+      requisito['url'],
+    );
+
+    adicionar(
+      requisito['url_curso'],
+    );
+
+    adicionar(
+      requisito['link_curso'],
+    );
+
+    return resultado;
+  }
+
   List<Map<String, dynamic>> _extrairListaMap(dynamic decoded) {
     if (decoded is List) {
       return decoded
@@ -1476,15 +1617,19 @@ class ApiService {
         }
       }
 
-      if (linha['nome_requisito'] != null ||
-          linha['titulo'] != null ||
-          linha['descricao_requisito'] != null) {
-        final listaRequisitos =
+      if (
+        linha['nome_requisito'] != null ||
+        linha['titulo'] != null ||
+        linha['descricao_requisito'] != null
+      ) {
+        final List<Map<String, dynamic>>
+            listaRequisitos =
             badgesAgrupados[badgeId]?['requisitos']
                 as List<Map<String, dynamic>>;
 
         final dynamic idRequisito =
-            linha['id_requisito'] ?? linha['id_requisitos'];
+            linha['id_requisito'] ??
+            linha['id_requisitos'];
 
         final String chave =
             idRequisito?.toString() ??
@@ -1492,28 +1637,97 @@ class ApiService {
             linha['nome_requisito']?.toString() ??
             '';
 
-        final bool jaExiste = listaRequisitos.any((requisito) {
-          final chaveExistente =
-              requisito['id_requisito']?.toString() ??
-              requisito['titulo']?.toString() ??
-              requisito['nome']?.toString() ??
-              '';
+        final List<String> linksLinha =
+            extrairLinksRequisito(
+          linha,
+        );
 
-          return chaveExistente == chave;
-        });
+        final int indiceExistente =
+            listaRequisitos.indexWhere(
+          (requisito) {
+            final String chaveExistente =
+                requisito['id_requisito']
+                        ?.toString() ??
+                requisito['id_requisitos']
+                        ?.toString() ??
+                requisito['titulo']
+                        ?.toString() ??
+                requisito['nome']
+                        ?.toString() ??
+                '';
 
-        if (!jaExiste) {
+            return chaveExistente ==
+                chave;
+          },
+        );
+
+        if (indiceExistente == -1) {
           listaRequisitos.add({
-            'id_requisito': idRequisito,
+            'id_requisito':
+                idRequisito,
 
-            'id_requisitos': idRequisito,
+            'id_requisitos':
+                idRequisito,
 
-            'nome': linha['nome_requisito'] ?? linha['titulo'] ?? 'Requisito',
+            'nome':
+                linha['nome_requisito'] ??
+                linha['titulo'] ??
+                'Requisito',
 
-            'titulo': linha['titulo'] ?? linha['nome_requisito'] ?? 'Requisito',
+            'nome_requisito':
+                linha['nome_requisito'] ??
+                linha['titulo'] ??
+                'Requisito',
 
-            'descricao': linha['descricao_requisito'] ?? '',
+            'titulo':
+                linha['titulo'] ??
+                linha['nome_requisito'] ??
+                'Requisito',
+
+            'descricao':
+                linha['descricao_requisito'] ??
+                '',
+
+            'descricao_requisito':
+                linha['descricao_requisito'] ??
+                '',
+
+            /*
+            * Links que antes estavam
+            * a ser perdidos no agrupamento.
+            */
+            'links':
+                linksLinha,
+
+            'link_requisito':
+                linksLinha.isNotEmpty
+                    ? linksLinha.first
+                    : null,
           });
+        } else {
+          final Map<String, dynamic>
+              requisitoExistente =
+              listaRequisitos[
+                indiceExistente
+              ];
+
+          final List<String> linksAtuais =
+              extrairLinksRequisito(
+            requisitoExistente,
+          );
+
+          final List<String> linksCombinados = [
+            ...linksAtuais,
+            ...linksLinha,
+          ].toSet().toList();
+
+          requisitoExistente['links'] =
+              linksCombinados;
+
+          requisitoExistente['link_requisito'] =
+              linksCombinados.isNotEmpty
+                  ? linksCombinados.first
+                  : null;
         }
       }
     }

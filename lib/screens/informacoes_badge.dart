@@ -1023,6 +1023,552 @@ class _BadgeDetalheState extends State<BadgeDetalhe>
     }
   }
 
+  String _tituloRequisito(
+  Map<String, dynamic> requisito,
+) {
+  return (
+    requisito['titulo'] ??
+    requisito['nome_requisito'] ??
+    requisito['nome'] ??
+    'Requisito'
+  ).toString();
+}
+
+String _descricaoRequisito(
+  Map<String, dynamic> requisito,
+) {
+  final String descricao = (
+    requisito['descricao_requisito'] ??
+    requisito['descricao'] ??
+    ''
+  ).toString().trim();
+
+  return descricao.isNotEmpty
+      ? descricao
+      : 'Sem descrição disponível.';
+}
+
+Future<void> _abrirCursoRequisito(
+  String url,
+) async {
+  final Uri? uri =
+      Uri.tryParse(url);
+
+  if (
+    uri == null ||
+    !uri.hasAuthority ||
+    (
+      uri.scheme != 'http' &&
+      uri.scheme != 'https'
+    )
+  ) {
+    if (!mounted) {
+      return;
+    }
+
+    ScaffoldMessenger.of(context)
+        .showSnackBar(
+      const SnackBar(
+        content: Text(
+          'O link do curso não é válido.',
+        ),
+        backgroundColor:
+            Colors.orange,
+      ),
+    );
+
+    return;
+  }
+
+  try {
+    final bool abriu =
+        await launchUrl(
+      uri,
+      mode:
+          LaunchMode.externalApplication,
+    );
+
+    if (
+      !abriu &&
+      mounted
+    ) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Não foi possível abrir o curso.',
+          ),
+          backgroundColor:
+              Colors.red,
+        ),
+      );
+    }
+  } catch (e) {
+    if (!mounted) {
+      return;
+    }
+
+    ScaffoldMessenger.of(context)
+        .showSnackBar(
+      SnackBar(
+        content: Text(
+          'Erro ao abrir o curso: $e',
+        ),
+        backgroundColor:
+            Colors.red,
+      ),
+    );
+  }
+}
+
+  Future<void> _mostrarModalRequisito(
+    Map<String, dynamic> requisito,
+    int index,
+  ) async {
+    final String codigo =
+        '$nivelVisualizado${index + 1}';
+
+    final String titulo =
+        _tituloRequisito(
+      requisito,
+    );
+
+    final String descricao =
+        _descricaoRequisito(
+      requisito,
+    );
+
+    final List<String> links =
+        _apiService
+            .extrairLinksRequisito(
+      requisito,
+    );
+
+    await showDialog<void>(
+      context: context,
+      builder: (
+        BuildContext dialogContext,
+      ) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius:
+                BorderRadius.circular(
+              18,
+            ),
+          ),
+          titlePadding:
+              const EdgeInsets.fromLTRB(
+            20,
+            20,
+            12,
+            0,
+          ),
+          contentPadding:
+              const EdgeInsets.fromLTRB(
+            20,
+            14,
+            20,
+            8,
+          ),
+          actionsPadding:
+              const EdgeInsets.fromLTRB(
+            12,
+            0,
+            12,
+            12,
+          ),
+          title: Row(
+            crossAxisAlignment:
+                CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 42,
+                height: 42,
+                decoration:
+                    const BoxDecoration(
+                  color:
+                      Color(0xFFFFC107),
+                  shape:
+                      BoxShape.circle,
+                ),
+                alignment:
+                    Alignment.center,
+                child: Text(
+                  codigo,
+                  style:
+                      const TextStyle(
+                    color:
+                        Colors.white,
+                    fontSize:
+                        12,
+                    fontWeight:
+                        FontWeight.bold,
+                  ),
+                ),
+              ),
+
+              const SizedBox(
+                width: 12,
+              ),
+
+              Expanded(
+                child: Text(
+                  titulo,
+                  style:
+                      const TextStyle(
+                    fontSize:
+                        17,
+                    fontWeight:
+                        FontWeight.bold,
+                    height:
+                        1.3,
+                  ),
+                ),
+              ),
+
+              IconButton(
+                padding:
+                    EdgeInsets.zero,
+                constraints:
+                    const BoxConstraints(),
+                onPressed: () =>
+                    Navigator.pop(
+                  dialogContext,
+                ),
+                icon:
+                    const Icon(
+                  Icons.close,
+                  size:
+                      21,
+                ),
+              ),
+            ],
+          ),
+          content:
+              SingleChildScrollView(
+            child: Column(
+              mainAxisSize:
+                  MainAxisSize.min,
+              crossAxisAlignment:
+                  CrossAxisAlignment.start,
+              children: [
+                const Divider(),
+
+                const SizedBox(
+                  height: 8,
+                ),
+
+                const Text(
+                  'Descrição',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight:
+                        FontWeight.bold,
+                    color:
+                        Color(0xFF111827),
+                  ),
+                ),
+
+                const SizedBox(
+                  height: 6,
+                ),
+
+                Text(
+                  descricao,
+                  style:
+                      const TextStyle(
+                    fontSize:
+                        13,
+                    color:
+                        Color(0xFF475569),
+                    height:
+                        1.5,
+                  ),
+                ),
+
+                if (
+                  links.isNotEmpty
+                ) ...[
+                  const SizedBox(
+                    height: 18,
+                  ),
+
+                  const Text(
+                    'Formação recomendada',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight:
+                          FontWeight.bold,
+                      color:
+                          Color(0xFF111827),
+                    ),
+                  ),
+
+                  const SizedBox(
+                    height: 10,
+                  ),
+
+                  ...links
+                      .asMap()
+                      .entries
+                      .map(
+                    (entry) {
+                      final int indice =
+                          entry.key;
+
+                      final String link =
+                          entry.value;
+
+                      return Padding(
+                        padding:
+                            const EdgeInsets.only(
+                          bottom: 8,
+                        ),
+                        child: SizedBox(
+                          width:
+                              double.infinity,
+                          child:
+                              ElevatedButton.icon(
+                            onPressed: () =>
+                                _abrirCursoRequisito(
+                              link,
+                            ),
+                            icon:
+                                const Icon(
+                              Icons
+                                  .open_in_new,
+                              size:
+                                  17,
+                            ),
+                            label: Text(
+                              links.length == 1
+                                  ? 'Abrir curso'
+                                  : 'Abrir curso ${indice + 1}',
+                            ),
+                            style:
+                                ElevatedButton.styleFrom(
+                              backgroundColor:
+                                  _azul,
+                              foregroundColor:
+                                  Colors.white,
+                              padding:
+                                  const EdgeInsets.symmetric(
+                                vertical:
+                                    12,
+                              ),
+                              shape:
+                                  RoundedRectangleBorder(
+                                borderRadius:
+                                    BorderRadius.circular(
+                                  10,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ] else ...[
+                  const SizedBox(
+                    height: 16,
+                  ),
+
+                  Container(
+                    width:
+                        double.infinity,
+                    padding:
+                        const EdgeInsets.all(
+                      11,
+                    ),
+                    decoration:
+                        BoxDecoration(
+                      color:
+                          const Color(
+                        0xFFF8FAFC,
+                      ),
+                      borderRadius:
+                          BorderRadius.circular(
+                        10,
+                      ),
+                      border:
+                          Border.all(
+                        color:
+                            const Color(
+                          0xFFE2E8F0,
+                        ),
+                      ),
+                    ),
+                    child:
+                        const Text(
+                      'Não existe formação associada a este requisito.',
+                      style:
+                          TextStyle(
+                        fontSize:
+                            11,
+                        color:
+                            Color(
+                          0xFF64748B,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () =>
+                  Navigator.pop(
+                dialogContext,
+              ),
+              child:
+                  const Text(
+                'Fechar',
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _cardResumoRequisito(
+    Map<String, dynamic> requisito,
+    int index,
+  ) {
+    final String codigo =
+        '$nivelVisualizado${index + 1}';
+
+    final String titulo =
+        _tituloRequisito(
+      requisito,
+    );
+
+    return Padding(
+      padding:
+          const EdgeInsets.only(
+        bottom: 9,
+      ),
+      child: Material(
+        color:
+            Colors.transparent,
+        child: InkWell(
+          onTap: () =>
+              _mostrarModalRequisito(
+            requisito,
+            index,
+          ),
+          borderRadius:
+              BorderRadius.circular(
+            12,
+          ),
+          child: Container(
+            width:
+                double.infinity,
+            padding:
+                const EdgeInsets.symmetric(
+              horizontal:
+                  12,
+              vertical:
+                  11,
+            ),
+            decoration:
+                BoxDecoration(
+              color:
+                  const Color(
+                0xFFF9FAFB,
+              ),
+              borderRadius:
+                  BorderRadius.circular(
+                12,
+              ),
+              border:
+                  Border.all(
+                color:
+                    const Color(
+                  0xFFE5E7EB,
+                ),
+              ),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width:
+                      38,
+                  height:
+                      38,
+                  decoration:
+                      const BoxDecoration(
+                    color:
+                        Color(
+                      0xFFFFC107,
+                    ),
+                    shape:
+                        BoxShape.circle,
+                  ),
+                  alignment:
+                      Alignment.center,
+                  child: Text(
+                    codigo,
+                    style:
+                        const TextStyle(
+                      color:
+                          Colors.white,
+                      fontSize:
+                          10,
+                      fontWeight:
+                          FontWeight.bold,
+                    ),
+                  ),
+                ),
+
+                const SizedBox(
+                  width: 10,
+                ),
+
+                Expanded(
+                  child: Text(
+                    titulo,
+                    maxLines:
+                        3,
+                    overflow:
+                        TextOverflow.ellipsis,
+                    style:
+                        const TextStyle(
+                      fontSize:
+                          12,
+                      fontWeight:
+                          FontWeight.w500,
+                      height:
+                          1.35,
+                    ),
+                  ),
+                ),
+
+                const SizedBox(
+                  width: 4,
+                ),
+
+                const Icon(
+                  Icons
+                      .chevron_right,
+                  size:
+                      19,
+                  color:
+                      Color(
+                    0xFF94A3B8,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   // =========================================================================
   // BUILD
@@ -1644,7 +2190,7 @@ class _BadgeDetalheState extends State<BadgeDetalhe>
                                       ),
                                     ),
                                     const SizedBox(height: 12),
-                                    if (requisitos.isEmpty)
+                                    /*if (requisitos.isEmpty)
                                       const Expanded(
                                         child: Center(
                                           child: Text(
@@ -1726,7 +2272,28 @@ class _BadgeDetalheState extends State<BadgeDetalhe>
                                             ),
                                           ),
                                         );
-                                      }),
+                                      }),*/
+
+                                      if (requisitos.isEmpty)
+                                        Text(
+                                          'Sem requisitos para o nível $nivelVisualizado.',
+                                          style: TextStyle(
+                                            fontSize: 11,
+                                            color:
+                                                Colors.grey.shade600,
+                                          ),
+                                        )
+                                      else
+                                        ...requisitos
+                                            .asMap()
+                                            .entries
+                                            .map(
+                                          (entry) =>
+                                              _cardResumoRequisito(
+                                            entry.value,
+                                            entry.key,
+                                          ),
+                                        ),
                                   ],
                                 ),
                               ),
@@ -1813,54 +2380,50 @@ class _BadgeDetalheState extends State<BadgeDetalhe>
                                           ) ??
                                           0;
 
-                                      if (idHistorico <= 0) {
-                                        ScaffoldMessenger
-                                            .of(context)
-                                            .showSnackBar(
-                                          const SnackBar(
-                                            content: Text(
-                                              'O histórico aprovado deste '
-                                              'certificado não foi encontrado.',
-                                            ),
-                                            backgroundColor:
-                                                Colors.orange,
-                                          ),
-                                        );
+                                      /*
+                                      * Os dados gerais ficam primeiro.
+                                      * Os identificadores obrigatórios ficam
+                                      * no fim para nunca serem substituídos.
+                                      *
+                                      * Mesmo que idHistorico seja 0,
+                                      * certificado.dart vai procurar o
+                                      * certificado aprovado na API.
+                                      */
+                                      final dadosCertificado =
+                                          <String, dynamic>{
+                                        if (badge != null)
+                                          ...badge!,
 
-                                        debugPrint(
-                                          '[CERTIFICADO] Badge: '
-                                          '${widget.badgeId}',
-                                        );
+                                        if (certificadoDisponivel != null)
+                                          ...certificadoDisponivel!,
 
-                                        debugPrint(
-                                          '[CERTIFICADO] Dados disponíveis: '
-                                          '$certificadoDisponivel',
-                                        );
+                                        if (requisitos.isNotEmpty)
+                                          'requisitos': requisitos,
 
-                                        return;
-                                      }
+                                        'id_utilizador':
+                                            widget.userId,
+
+                                        'id_badge_modelo':
+                                            widget.badgeId,
+
+                                        'id_candidatura_historico':
+                                            idHistorico,
+                                      };
+
+                                      debugPrint(
+                                        '[CERTIFICADO] Abrir certificado: '
+                                        'utilizador=${widget.userId}, '
+                                        'badge=${widget.badgeId}, '
+                                        'histórico=$idHistorico',
+                                      );
 
                                       Navigator.push(
                                         context,
                                         MaterialPageRoute(
                                           builder: (_) =>
                                               CertificadoPage(
-                                            userData: {
-                                              'id_utilizador':
-                                                  widget.userId,
-
-                                              'id_badge_modelo':
-                                                  widget.badgeId,
-
-                                              'id_candidatura_historico':
-                                                  idHistorico,
-
-                                              /*
-                                              * Mantém também os dados
-                                              * devolvidos pela lista.
-                                              */
-                                              ...?certificadoDisponivel,
-                                            },
+                                            userData:
+                                                dadosCertificado,
                                           ),
                                         ),
                                       );

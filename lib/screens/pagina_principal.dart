@@ -61,6 +61,7 @@ class _HomePageState extends ConsumerState<HomePage>
 
   StreamSubscription<RemoteMessage>? _onMessageSubscription;
   StreamSubscription<RemoteMessage>? _onMessageOpenedSubscription;
+  Timer? _temporizadorSaudacao;
   bool _dadosIniciaisCarregados = false;
 
   BadgeBonusInfo obterBonusBadge(
@@ -242,9 +243,42 @@ class _HomePageState extends ConsumerState<HomePage>
     return unicos.values.toList();
   }
 
+  String _obterSaudacao() {
+    final int hora =
+        DateTime.now().hour;
+
+    if (
+      hora >= 5 &&
+      hora < 12
+    ) {
+      return 'Bom dia';
+    }
+
+    if (
+      hora >= 12 &&
+      hora < 20
+    ) {
+      return 'Boa tarde';
+    }
+
+    return 'Boa noite';
+  }
+
   @override
     void initState() {
       super.initState();
+
+      _temporizadorSaudacao =
+      Timer.periodic(
+        const Duration(minutes: 1),
+        (_) {
+          if (!mounted) {
+            return;
+          }
+
+          setState(() {});
+        },
+      );
 
       WidgetsBinding.instance.addObserver(this);
 
@@ -338,6 +372,7 @@ class _HomePageState extends ConsumerState<HomePage>
     @override
     void dispose() {
       WidgetsBinding.instance.removeObserver(this);
+      _temporizadorSaudacao?.cancel();
       _onMessageSubscription?.cancel();
       _onMessageOpenedSubscription?.cancel();
       super.dispose();
@@ -357,6 +392,9 @@ class _HomePageState extends ConsumerState<HomePage>
         nomeCompleto.isNotEmpty
         ? nomeCompleto.split(' ').first
         : 'Utilizador';
+
+    final String saudacao =
+     _obterSaudacao();
 
     final int userId = int.tryParse(
           widget.userData['id_utilizador']
@@ -552,17 +590,15 @@ class _HomePageState extends ConsumerState<HomePage>
                                       .start,
                               children: [
                                 Text(
-                                  'Bom dia, '
-                                  '$primeiroNome!'
-                                  '${provider.dashboard['offline'] == true ? '' : ''}',
+                                  '$saudacao, $primeiroNome!',
                                   style:
                                       const TextStyle(
                                     color:
                                         Colors.white,
-                                    fontSize: 18,
+                                    fontSize:
+                                        18,
                                     fontWeight:
-                                        FontWeight
-                                            .bold,
+                                        FontWeight.bold,
                                   ),
                                 ),
                                 const SizedBox(

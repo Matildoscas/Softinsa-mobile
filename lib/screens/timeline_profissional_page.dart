@@ -185,6 +185,141 @@ class _TimelineProfissionalPageState
     );
   }
 
+  String _chaveCandidatura(
+    Map<String, dynamic> candidatura,
+  ) {
+    final int idCandidatura =
+        _inteiro(
+      candidatura[
+        'id_candidatura_pedido'
+      ] ??
+          candidatura[
+            'id_candidatura'
+          ],
+    );
+
+    if (idCandidatura > 0) {
+      return 'candidatura_$idCandidatura';
+    }
+
+    /*
+    * Fallback para registos antigos que
+    * possam não possuir ID da candidatura.
+    *
+    * Incluímos a data para não juntar duas
+    * tentativas diferentes para o mesmo badge.
+    */
+    final int idBadge =
+        _inteiro(
+      candidatura[
+        'id_badge_modelo'
+      ] ??
+          candidatura[
+            'id_badge'
+          ] ??
+          candidatura['id'],
+    );
+
+    final String data =
+        _primeiroTexto([
+      candidatura['data_submissao'],
+      candidatura['data_candidatura'],
+      candidatura['created_at'],
+    ]);
+
+    return 'badge_${idBadge}_$data';
+  }
+
+  DateTime _dataMaisRecenteCandidatura(
+    Map<String, dynamic> candidatura,
+  ) {
+    final possibilidades = [
+      candidatura[
+        'data_entrada_historico'
+      ],
+      candidatura[
+        'data_avaliacao_sll'
+      ],
+      candidatura[
+        'data_avaliacao_tm'
+      ],
+      candidatura['data_validacao'],
+      candidatura['data_atualizacao'],
+      candidatura['updated_at'],
+      candidatura['data_submissao'],
+      candidatura['data_candidatura'],
+      candidatura['created_at'],
+    ];
+
+    for (final valor in possibilidades) {
+      final data =
+          _converterData(valor);
+
+      if (data != null) {
+        return data;
+      }
+    }
+
+    return DateTime.fromMillisecondsSinceEpoch(
+      0,
+    );
+  }
+
+  List<Map<String, dynamic>>
+      _removerCandidaturasDuplicadas(
+    List<Map<String, dynamic>> lista,
+  ) {
+    final mapa =
+        <String, Map<String, dynamic>>{};
+
+    for (final candidatura in lista) {
+      final chave =
+          _chaveCandidatura(
+        candidatura,
+      );
+
+      final existente =
+          mapa[chave];
+
+      if (existente == null) {
+        mapa[chave] =
+            Map<String, dynamic>.from(
+          candidatura,
+        );
+
+        continue;
+      }
+
+      /*
+      * Quando a API devolve várias linhas
+      * da mesma candidatura, conserva a
+      * que possui os dados mais recentes.
+      */
+      final dataNova =
+          _dataMaisRecenteCandidatura(
+        candidatura,
+      );
+
+      final dataExistente =
+          _dataMaisRecenteCandidatura(
+        existente,
+      );
+
+      if (
+        dataNova.isAfter(
+          dataExistente,
+        )
+      ) {
+        mapa[chave] =
+            Map<String, dynamic>.from(
+          candidatura,
+        );
+      }
+    }
+
+    return mapa.values.toList();
+  }
+
   Future<void> _carregarTimeline() async {
     final userId = _obterUserId();
 
@@ -220,7 +355,14 @@ class _TimelineProfissionalPageState
 
       try {
         candidaturas =
-            await _apiService.getCandidaturasPendentes(userId);
+            await _apiService.getStatusCandidaturasConsultor(
+          userId,
+        );
+
+        candidaturas =
+            _removerCandidaturasDuplicadas(
+          candidaturas,
+        );
       } catch (e) {
         debugPrint('[TIMELINE] Erro candidaturas: $e');
       }
@@ -332,25 +474,43 @@ class _TimelineProfissionalPageState
           candidatura['titulo'],
         ]);
 
-        final estadoOriginal = _primeiroTexto([
-          candidatura['estado_candidatura_pedido'],
-          candidatura['estado'],
-          candidatura['estado_final'],
-          candidatura['estado_candidatura_tm'],
-          candidatura['estado_candidatura_sll'],
-        ]);
+        final estadoOriginal =
+          _primeiroTexto([
+        /*
+        * Os estados agregados representam
+        * melhor a situação atual.
+        */
+        candidatura['estado_geral'],
+        candidatura['estado_final'],
+        candidatura['fase_geral'],
+
+        candidatura[
+          'estado_candidatura_sll'
+        ],
+
+        candidatura[
+          'estado_candidatura_tm'
+        ],
+
+        candidatura[
+          'estado_candidatura_pedido'
+        ],
+
+        candidatura['estado'],
+      ]);
 
         final estado = _normalizar(estadoOriginal);
 
-        final data = _converterData(
-          _primeiroTexto([
-            candidatura['data_submissao'],
-            candidatura['data_candidatura'],
-            candidatura['data_validacao'],
-            candidatura['data_atualizacao'],
-            candidatura['created_at'],
-          ]),
+        final DateTime? data =
+            _dataMaisRecenteCandidatura(
+          candidatura,
         );
+
+        final dataFinal =
+            data != null &&
+                data.millisecondsSinceEpoch > 0
+            ? data
+            : null;
 
         String titulo = 'Candidatura submetida';
         IconData icone = Icons.upload_file_outlined;
@@ -384,7 +544,7 @@ class _TimelineProfissionalPageState
               '${nomeBadge.isEmpty ? 'Badge Softinsa' : nomeBadge}'
               '${estadoOriginal.isNotEmpty ? ' • $estadoOriginal' : ''}',
           categoria: 'Candidatura',
-          data: data,
+          data: dataFinal,
           icone: icone,
           cor: cor,
         );

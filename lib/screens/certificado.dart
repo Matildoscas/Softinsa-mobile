@@ -243,6 +243,74 @@ class _CertificadoPageState
         );
   }
 
+
+  String _normalizarComparacao(
+    dynamic valor,
+  ) {
+    return (valor?.toString() ?? '')
+        .trim()
+        .toLowerCase()
+        .replaceAll(
+          RegExp(r'[áàâãä]'),
+          'a',
+        )
+        .replaceAll(
+          RegExp(r'[éèêë]'),
+          'e',
+        )
+        .replaceAll(
+          RegExp(r'[íìîï]'),
+          'i',
+        )
+        .replaceAll(
+          RegExp(r'[óòôõö]'),
+          'o',
+        )
+        .replaceAll(
+          RegExp(r'[úùûü]'),
+          'u',
+        )
+        .replaceAll('ç', 'c')
+        .replaceAll(
+          RegExp(r'\s+'),
+          ' ',
+        );
+  }
+
+  Map<String, dynamic>?
+      _encontrarPrimeiro(
+    List<Map<String, dynamic>> lista,
+    bool Function(
+      Map<String, dynamic> item,
+    ) teste,
+  ) {
+    for (final item in lista) {
+      if (teste(item)) {
+        return Map<String, dynamic>.from(
+          item,
+        );
+      }
+    }
+
+    return null;
+  }
+
+  List<dynamic> _primeiraListaNaoVazia(
+    List<dynamic> possibilidades,
+  ) {
+    for (final valor in possibilidades) {
+      if (
+        valor is List &&
+        valor.isNotEmpty
+      ) {
+        return List<dynamic>.from(
+          valor,
+        );
+      }
+    }
+
+    return <dynamic>[];
+  }
   // =========================================================================
   // CARREGAMENTO PRINCIPAL
   // =========================================================================
@@ -321,49 +389,55 @@ class _CertificadoPageState
 
   Future<Map<String, dynamic>?>
     _carregarOnline() async {
-  final user =
-      _userDataPlano;
+    final user =
+        _userDataPlano;
 
-  int idHistorico =
-      _converterInteiro(
-    _primeiroValor([
-      user[
-        'id_candidatura_historico'
-      ],
-      user['id_historico'],
-    ]),
-  );
+    final int idHistoricoRecebido =
+        _idHistoricoDe(
+      user,
+    );
 
-  final int idBadge =
-      _converterInteiro(
-    _primeiroValor([
-      user['id_badge_modelo'],
-      user['badge_id'],
-      user['id_badge'],
-    ]),
-  );
+    int idBadgePretendido =
+        _idBadgeDe(
+      user,
+    );
 
-  Map<String, dynamic>
-      certificadoSelecionado =
-      <String, dynamic>{};
-
-  /*
-   * Quando a navegação ainda não trouxe
-   * o histórico, procura-o pela lista.
-   */
-  if (idHistorico <= 0) {
+    /*
+    * Esta lista é a fonte oficial dos
+    * certificados aprovados do utilizador.
+    */
     final certificados =
         await _apiService
             .getCertificadosDisponiveis(
       _userId,
     );
 
+    final certificadosOrdenados =
+        certificados
+            .map(
+              (item) =>
+                  Map<String, dynamic>.from(
+                item,
+              ),
+            )
+            .toList()
+          ..sort(
+            (a, b) =>
+                _dataOrdenacao(b)
+                    .compareTo(
+              _dataOrdenacao(a),
+            ),
+          );
+
     debugPrint(
       '[CERTIFICADO] Total disponível: '
-      '${certificados.length}',
+      '${certificadosOrdenados.length}',
     );
 
-    for (final item in certificados) {
+    for (
+      final item
+      in certificadosOrdenados
+    ) {
       debugPrint(
         '[CERTIFICADO] Disponível: '
         'histórico=${_idHistoricoDe(item)}, '
@@ -372,138 +446,361 @@ class _CertificadoPageState
       );
     }
 
-    if (certificados.isEmpty) {
-      throw Exception(
-        'A API não devolveu certificados '
-        'para o utilizador $_userId.',
+    Map<String, dynamic>?
+        certificadoSelecionado;
+
+    /*
+    * Primeira tentativa:
+    * histórico recebido na navegação.
+    */
+    if (
+      idHistoricoRecebido > 0
+    ) {
+      certificadoSelecionado =
+          _encontrarPrimeiro(
+        certificadosOrdenados,
+        (item) =>
+            _idHistoricoDe(item) ==
+            idHistoricoRecebido,
       );
     }
 
-    certificadoSelecionado =
-        certificados.firstWhere(
-      (item) =>
-          _idBadgeDe(item) ==
-          idBadge,
+    /*
+    * Segunda tentativa:
+    * ID do modelo do badge.
+    */
+    if (
+      certificadoSelecionado == null &&
+      idBadgePretendido > 0
+    ) {
+      certificadoSelecionado =
+          _encontrarPrimeiro(
+        certificadosOrdenados,
+        (item) =>
+            _idBadgeDe(item) ==
+            idBadgePretendido,
+      );
+    }
 
-      orElse: () =>
-          <String, dynamic>{},
-    );
+    /*
+    * Último fallback:
+    * nome explícito do badge.
+    */
+    final nomeBadgePretendido =
+        _primeiroTexto([
+      user['nome_badge'],
+      user['badge_nome'],
+      user['badge'],
+    ]);
 
     if (
-      certificadoSelecionado
-          .isEmpty
+      certificadoSelecionado == null &&
+      nomeBadgePretendido.isNotEmpty
     ) {
-      throw Exception(
-        'Não existe certificado para '
-        'o badge $idBadge.',
+      certificadoSelecionado =
+          _encontrarPrimeiro(
+        certificadosOrdenados,
+        (item) =>
+            _normalizarComparacao(
+              item['nome_badge'],
+            ) ==
+            _normalizarComparacao(
+              nomeBadgePretendido,
+            ),
       );
     }
 
-    idHistorico =
+    /*
+    * Caso o ecrã anterior tenha enviado um
+    * histórico válido, ainda é possível
+    * consultar diretamente o detalhe, mesmo
+    * que a lista esteja temporariamente
+    * desatualizada.
+    */
+    certificadoSelecionado ??=
+        idHistoricoRecebido > 0
+            ? <String, dynamic>{
+                ...user,
+
+                'id_candidatura_historico':
+                    idHistoricoRecebido,
+              }
+            : null;
+
+    if (
+      certificadoSelecionado == null
+    ) {
+      throw Exception(
+        idBadgePretendido > 0
+            ? 'Não existe certificado aprovado '
+                'para o badge $idBadgePretendido.'
+            : 'Não foi possível identificar '
+                'o certificado pretendido.',
+      );
+    }
+
+    int idHistorico =
         _idHistoricoDe(
       certificadoSelecionado,
     );
-  } else {
-    certificadoSelecionado = {
-      ...user,
+
+    if (
+      idHistorico <= 0
+    ) {
+      idHistorico =
+          idHistoricoRecebido;
+    }
+
+    if (
+      idHistorico <= 0
+    ) {
+      throw Exception(
+        'O certificado não possui '
+        'um histórico válido.',
+      );
+    }
+
+    /*
+    * Obtém o detalhe completo, que contém
+    * o código e a URL de verificação.
+    */
+    final respostaCertificado =
+        await _apiService
+            .getCertificado(
+      idHistorico:
+          idHistorico,
+
+      idUtilizador:
+          _userId,
+    );
+
+    final detalhes =
+        _achatarResposta(
+      Map<String, dynamic>.from(
+        respostaCertificado,
+      ),
+    );
+
+    /*
+    * O detalhe é a fonte principal para
+    * resolver definitivamente o badge.
+    */
+    final idBadgeDetalhe =
+        _idBadgeDe(
+      detalhes,
+    );
+
+    if (
+      idBadgeDetalhe > 0
+    ) {
+      idBadgePretendido =
+          idBadgeDetalhe;
+    } else {
+      final idBadgeResumo =
+          _idBadgeDe(
+        certificadoSelecionado,
+      );
+
+      if (
+        idBadgeResumo > 0
+      ) {
+        idBadgePretendido =
+            idBadgeResumo;
+      }
+    }
+
+    /*
+    * Dados complementares do catálogo e
+    * dos badges conquistados.
+    */
+    List<Map<String, dynamic>>
+        catalogo = [];
+
+    List<Map<String, dynamic>>
+        conquistados = [];
+
+    try {
+      catalogo =
+          await _apiService
+              .getTodosBadges();
+    } catch (e) {
+      debugPrint(
+        '[CERTIFICADO] Catálogo '
+        'indisponível: $e',
+      );
+    }
+
+    try {
+      conquistados =
+          await _apiService
+              .getBadgesConquistados(
+        _userId,
+      );
+    } catch (e) {
+      debugPrint(
+        '[CERTIFICADO] Badges conquistados '
+        'indisponíveis: $e',
+      );
+    }
+
+    final badgeCatalogo =
+        _encontrarPrimeiro(
+      catalogo,
+      (item) =>
+          _idBadgeDe(item) ==
+              idBadgePretendido ||
+          _converterInteiro(
+                item['id'],
+              ) ==
+              idBadgePretendido,
+    );
+
+    final badgeConquistado =
+        _encontrarPrimeiro(
+      conquistados,
+      (item) =>
+          _idBadgeDe(item) ==
+              idBadgePretendido ||
+          _converterInteiro(
+                item['id'],
+              ) ==
+              idBadgePretendido,
+    );
+
+    Map<String, dynamic>
+        dadosUtilizador = {};
+
+    try {
+      dadosUtilizador =
+          _achatarResposta(
+        await _apiService
+            .getUtilizadorPorId(
+          _userId,
+        ),
+      );
+    } catch (e) {
+      debugPrint(
+        '[CERTIFICADO] Utilizador '
+        'indisponível: $e',
+      );
+    }
+
+    Map<String, dynamic>
+        perfil = {};
+
+    try {
+      perfil =
+          _achatarResposta(
+        await _apiService
+            .getDashboard(
+          _userId,
+        ),
+      );
+    } catch (e) {
+      debugPrint(
+        '[CERTIFICADO] Dashboard '
+        'indisponível: $e',
+      );
+    }
+
+    /*
+    * Um array vazio do detalhe não deve
+    * apagar requisitos existentes no
+    * catálogo ou no badge conquistado.
+    */
+    final requisitosFinais =
+        _primeiraListaNaoVazia([
+      detalhes['requisitos'],
+
+      certificadoSelecionado[
+        'requisitos'
+      ],
+
+      badgeCatalogo?[
+        'requisitos'
+      ],
+
+      badgeConquistado?[
+        'requisitos'
+      ],
+
+      user['requisitos'],
+    ]);
+
+    final nomeBadgeFinal =
+        _primeiroTexto([
+      detalhes['nome_badge'],
+
+      certificadoSelecionado[
+        'nome_badge'
+      ],
+
+      badgeConquistado?[
+        'nome_badge'
+      ],
+
+      badgeConquistado?[
+        'nome'
+      ],
+
+      badgeCatalogo?[
+        'nome_badge'
+      ],
+
+      badgeCatalogo?[
+        'nome'
+      ],
+    ]);
+
+    /*
+    * A ordem é importante:
+    * detalhes do certificado sobrepõem os
+    * dados gerais; IDs corretos são forçados
+    * no fim.
+    */
+    final certificadoCombinado =
+        <String, dynamic>{
+      if (badgeCatalogo != null)
+        ...badgeCatalogo,
+
+      if (badgeConquistado != null)
+        ...badgeConquistado,
+
+      ...dadosUtilizador,
+      ...detalhes,
+
+      'id_utilizador':
+          _userId,
+
+      'id_badge_modelo':
+          idBadgePretendido,
 
       'id_candidatura_historico':
           idHistorico,
 
-      'id_badge_modelo':
-          idBadge,
+      'nome_badge':
+          nomeBadgeFinal,
+
+      'requisitos':
+          requisitosFinais,
     };
-  }
 
-  if (idHistorico <= 0) {
-    throw Exception(
-      'O certificado não possui '
-      'um histórico válido.',
+    return _normalizarDados(
+      certificado:
+          certificadoCombinado,
+
+      disponivel:
+          certificadoSelecionado,
+
+      perfil: {
+        ...dadosUtilizador,
+        ...perfil,
+      },
+
+      local:
+          const <String, dynamic>{},
     );
   }
-
-  debugPrint(
-    '[CERTIFICADO] Obter detalhe: '
-    'histórico=$idHistorico, '
-    'utilizador=$_userId, '
-    'badge=$idBadge',
-  );
-
-  final respostaCertificado =
-      await _apiService
-          .getCertificado(
-    idHistorico:
-        idHistorico,
-
-    idUtilizador:
-        _userId,
-  );
-
-  final detalhes =
-      _achatarResposta(
-    Map<String, dynamic>.from(
-      respostaCertificado,
-    ),
-  );
-
-  Map<String, dynamic>
-      dadosUtilizador = {};
-
-  try {
-    dadosUtilizador =
-        _achatarResposta(
-      await _apiService
-          .getUtilizadorPorId(
-        _userId,
-      ),
-    );
-  } catch (e) {
-    debugPrint(
-      '[CERTIFICADO] Utilizador '
-      'indisponível: $e',
-    );
-  }
-
-  Map<String, dynamic>
-      perfil = {};
-
-  try {
-    perfil =
-        _achatarResposta(
-      await _apiService
-          .getDashboard(
-        _userId,
-      ),
-    );
-  } catch (e) {
-    debugPrint(
-      '[CERTIFICADO] Dashboard '
-      'indisponível: $e',
-    );
-  }
-
-  return _normalizarDados(
-    /*
-     * Os detalhes do certificado devem
-     * sobrepor os dados do utilizador.
-     */
-    certificado: {
-      ...dadosUtilizador,
-      ...detalhes,
-    },
-
-    disponivel:
-        certificadoSelecionado,
-
-    perfil: {
-      ...dadosUtilizador,
-      ...perfil,
-    },
-
-    local:
-        const <String, dynamic>{},
-  );
-}
 
   // =========================================================================
   // SQLITE
@@ -903,7 +1200,7 @@ class _CertificadoPageState
       certificado['NOME_COMPLETO'],
       certificado['nome_utilizador'],
       certificado['nome_consultor'],
-      certificado['nome'],
+      //certificado['nome'],
 
       perfil['nome_completo'],
       perfil['NOME_COMPLETO'],
@@ -1064,51 +1361,140 @@ class _CertificadoPageState
       certificado[
         'codigo_certificado'
       ],
+
       certificado[
         'codigo_verificacao'
       ],
+
       disponivel[
         'codigo_certificado'
       ],
+
       disponivel[
         'codigo_verificacao'
       ],
-      local['codigo_certificado'],
-      local['codigo_verificacao'],
+
+      local[
+        'codigo_certificado'
+      ],
+
+      local[
+        'codigo_verificacao'
+      ],
     ]);
 
-    final codigo =
-        codigoRecebido.isNotEmpty
-            ? codigoRecebido
-            : 'CERT-'
-                '${idHistorico > 0 ? idHistorico : 'H'}-'
-                '$_userId';
+    String codigo =
+        codigoRecebido;
+
+    if (
+      codigo.isNotEmpty &&
+      !codigo
+          .toUpperCase()
+          .startsWith(
+            'CERT-',
+          )
+    ) {
+      codigo =
+          'CERT-$codigo';
+    }
+
+    if (
+      codigo.isEmpty &&
+      idHistorico > 0 &&
+      _userId > 0
+    ) {
+      codigo =
+          'CERT-$idHistorico-$_userId';
+    }
 
     final urlRecebido =
         _primeiroTexto([
       certificado[
         'url_verificacao'
       ],
+
+      certificado[
+        'url_certificado'
+      ],
+
+      certificado[
+        'caminho_verificacao'
+      ],
+
       disponivel[
         'url_verificacao'
       ],
-      local['url_verificacao'],
+
+      disponivel[
+        'url_certificado'
+      ],
+
+      disponivel[
+        'caminho_verificacao'
+      ],
+
+      local[
+        'url_verificacao'
+      ],
+
+      local[
+        'url_certificado'
+      ],
     ]);
 
-    final url =
-    urlRecebido.isNotEmpty
-        ? urlRecebido
-        : idHistorico > 0
-            ? '${AppConfig.webBaseUrl}'
-                '/verificar/'
-                '${Uri.encodeComponent(codigo)}'
-            : '';
+    String url = '';
+
+    if (
+      urlRecebido.isNotEmpty
+    ) {
+      if (
+        urlRecebido.startsWith(
+          'http://',
+        ) ||
+        urlRecebido.startsWith(
+          'https://',
+        )
+      ) {
+        url =
+            urlRecebido;
+      } else {
+        final caminho =
+            urlRecebido.replaceFirst(
+          RegExp(r'^/+'),
+          '',
+        );
+
+        url =
+            '${AppConfig.webBaseUrl}/'
+            '$caminho';
+      }
+    } else if (
+      codigo.isNotEmpty &&
+      idHistorico > 0
+    ) {
+      url =
+          '${AppConfig.webBaseUrl}'
+          '/verificar/'
+          '${Uri.encodeComponent(codigo)}';
+    }
 
     final requisitos =
-        _primeiroValor([
-      certificado['requisitos'],
-      disponivel['requisitos'],
-      local['requisitos'],
+        _primeiraListaNaoVazia([
+      certificado[
+        'requisitos'
+      ],
+
+      disponivel[
+        'requisitos'
+      ],
+
+      user[
+        'requisitos'
+      ],
+
+      local[
+        'requisitos'
+      ],
     ]);
 
     final dataEmissao =
@@ -1317,6 +1703,9 @@ class _CertificadoPageState
           codigo,
 
       'url_verificacao':
+          url,
+
+      'url_certificado':
           url,
     };
 

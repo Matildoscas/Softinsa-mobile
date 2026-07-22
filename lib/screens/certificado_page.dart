@@ -526,14 +526,45 @@ class CertificadoCompetenciasPage extends StatelessWidget {
   }
 
   String get _dataEmissao {
-    final valor = _primeiroTexto([
-      certificadoData['data_emissao'],
-      certificadoData['data_atribuicao'],
-      certificadoData['data_entrada_historico'],
-      certificadoData['data'],
+    final valor =
+        _primeiroTexto([
+      certificadoData[
+        'data_emissao'
+      ],
+
+      certificadoData[
+        'data_entrada_historico'
+      ],
+
+      certificadoData[
+        'data_atribuicao'
+      ],
+
+      certificadoData[
+        'data_avaliacao_sll'
+      ],
+
+      certificadoData[
+        'data'
+      ],
     ]);
 
-    final data = DateTime.tryParse(valor)?.toLocal() ?? DateTime.now();
+    if (
+      valor.isEmpty
+    ) {
+      return 'Data indisponível';
+    }
+
+    final data =
+        DateTime.tryParse(
+      valor,
+    )?.toLocal();
+
+    if (
+      data == null
+    ) {
+      return 'Data indisponível';
+    }
 
     const meses = [
       'janeiro',
@@ -550,7 +581,9 @@ class CertificadoCompetenciasPage extends StatelessWidget {
       'dezembro',
     ];
 
-    return '${data.day} de ${meses[data.month - 1]} de ${data.year}';
+    return '${data.day} de '
+        '${meses[data.month - 1]} '
+        'de ${data.year}';
   }
 
   String get _codigoVerificacao {
@@ -617,7 +650,9 @@ class CertificadoCompetenciasPage extends StatelessWidget {
       return '';
     }
 
-    return '${AppConfig.webBaseUrl}/verificar/$codigo';
+    return '${AppConfig.webBaseUrl}'
+      '/verificar/'
+      '${Uri.encodeComponent(codigo)}';
   }
 
   int get _pontos {
@@ -923,21 +958,42 @@ class CertificadoCompetenciasPage extends StatelessWidget {
                             ],
                           ),
                         ),
-                        pw.SizedBox(width: 22),
-                        pw.Container(
-                          padding: const pw.EdgeInsets.all(5),
-                          decoration: pw.BoxDecoration(
-                            border: pw.Border.all(
-                              color: cinzentoClaroPdf,
+                        if (
+                          _urlVerificacao.isNotEmpty
+                        ) ...[
+                          pw.SizedBox(
+                            width: 22,
+                          ),
+
+                          pw.Container(
+                            padding:
+                                const pw.EdgeInsets.all(
+                              5,
+                            ),
+                            decoration:
+                                pw.BoxDecoration(
+                              border:
+                                  pw.Border.all(
+                                color:
+                                    cinzentoClaroPdf,
+                              ),
+                            ),
+                            child:
+                                pw.BarcodeWidget(
+                              barcode:
+                                  pw.Barcode.qrCode(),
+
+                              data:
+                                  _urlVerificacao,
+
+                              width:
+                                  66,
+
+                              height:
+                                  66,
                             ),
                           ),
-                          child: pw.BarcodeWidget(
-                            barcode: pw.Barcode.qrCode(),
-                            data: _urlVerificacao,
-                            width: 66,
-                            height: 66,
-                          ),
-                        ),
+                        ],
                       ],
                     ),
                     pw.SizedBox(height: 34),
